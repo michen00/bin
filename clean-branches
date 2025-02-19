@@ -20,7 +20,7 @@ if [ -z "$MERGED_BRANCHES" ]; then
 else
   echo "The following branches are fully merged into '$TARGET_BRANCH':"
   echo "$MERGED_BRANCHES"
-  read -p "Do you want to delete these merged branches? [y/N]: " CONFIRM
+  read -r -p "Do you want to delete these merged branches? [y/N]: " CONFIRM
   if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
     # Delete merged branches
     for BRANCH in $MERGED_BRANCHES
@@ -40,7 +40,7 @@ if [ -z "$STALE_BRANCHES" ]; then
 else
   echo "The following branches have no remote and might be stale:"
   echo "$STALE_BRANCHES"
-  read -p "Do you want to delete these stale branches? [y/N]: " CONFIRM_STALE
+  read -r -p "Do you want to delete these stale branches? [y/N]: " CONFIRM_STALE
   if [[ "$CONFIRM_STALE" =~ ^[Yy]$ ]]; then
     for BRANCH in $STALE_BRANCHES
     do
