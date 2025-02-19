@@ -28,6 +28,22 @@ fi
 
 echo "Current branch is $current_branch"
 
+# Add protection for main/master/production branches
+protected_branches="main master production staging"
+for protected in $protected_branches; do
+    if [ "$current_branch" = "$protected" ]; then
+        echo "WARNING: You're attempting to merge directly into $protected branch."
+        echo "This is generally not recommended as it could affect other developers."
+        read -p "Are you absolutely sure you want to continue? (y/N) " response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "Operation cancelled by user"
+            exit 0
+        fi
+        echo "Proceeding with merge into $protected branch..."
+        break
+    fi
+done
+
 echo "Pulling latest changes for $current_branch"
 if ! git pull; then
     echo "Error: Failed to pull the latest changes for branch '$current_branch'."
