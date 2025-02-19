@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+# clean-branches
+# A script to safely clean up stale or merged branches.
+
+# Cleans branches with respect to TARGET_BRANCH
+TARGET_BRANCH=${1:-main}  # Default to 'main' if none is specified.
+
+echo "Fetching latest remote info and pruning..."
+git fetch --prune
+
+# Identify local branches fully merged into the target branch.
+MERGED_BRANCHES=$(git branch --merged "$TARGET_BRANCH" \
+                   | grep -v "$TARGET_BRANCH" \
+                   | grep -v "^\*" \
+                   | sed 's/^  //')
+
+if [ -z "$MERGED_BRANCHES" ]; then
+  echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
+else
+  echo "The following branches are fully merged into '$TARGET_BRANCH':"
+  echo "$MERGED_BRANCHES"
+  read -p "Do you want to delete these merged branches? [y/N]: " CONFIRM
+  if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+    # Delete merged branches
+    for BRANCH in $MERGED_BRANCHES
+    do
+      git branch -d "$BRANCH"
+    done
+  else
+    echo "Skipping deletion of merged branches."
+  fi
+fi
+
+# Identify local branches that no longer have a remote.
+STALE_BRANCHES=$(git branch -vv | grep '\[gone\]' | awk '{print $1}')
+
+if [ -z "$STALE_BRANCHES" ]; then
+  echo "No stale branches (i.e., branches with no remote) found."
+else
+  echo "The following branches have no remote and might be stale:"
+  echo "$STALE_BRANCHES"
+  read -p "Do you want to delete these stale branches? [y/N]: " CONFIRM_STALE
+  if [[ "$CONFIRM_STALE" =~ ^[Yy]$ ]]; then
+    for BRANCH in $STALE_BRANCHES
+    do
+      git branch -D "$BRANCH"
+    done
+  else
+    echo "Skipping deletion of stale branches."
+  fi
+fi
+
+echo "Done."
