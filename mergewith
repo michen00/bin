@@ -1,10 +1,17 @@
 #!/bin/bash
 
-# Function to display usage
+# Function to display usage instructions
 usage() {
     echo "Usage: mergewith <reference_branch>"
     echo "Merges the latest changes from a reference branch into the current branch (updating both)."
     exit 1
+}
+
+# Creating a logging function to track script actions
+log() {
+    if [ "$LOG_ENABLED" = true ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" >> mergewith.log
+    fi
 }
 
 # Check if a reference branch is provided
@@ -16,36 +23,49 @@ reference_branch=$1
 
 # Ensure this is a git repository
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "Error: Not inside a git repository."
+    echo "Error: Not inside a git repository. Please run this script inside a valid git repository."
+    log "Error: Not inside a git repository."
     exit 1
 fi
+log "Confirmed valid git repository."
 
 # Capture the current branch name
 if ! current_branch=$(git branch --show-current); then
     echo "Error: Failed to determine the current git branch."
+    log "Error: Failed to determine the current git branch."
     exit 1
 fi
 
 echo "Current branch is $current_branch"
+log "Current branch identified as $current_branch."
 
-echo "Pulling latest changes for $current_branch"
+# Pull the latest changes for the current branch
+echo "Pulling latest changes for $current_branch..."
 if ! git pull; then
     echo "Error: Failed to pull the latest changes for branch '$current_branch'."
+    log "Error: Failed to pull the latest changes for branch '$current_branch'."
     exit 1
 fi
+log "Successfully pulled latest changes for $current_branch."
 
 # Ensure the reference branch is up to date
-echo "Fetching latest changes for $reference_branch"
+echo "Fetching latest changes for $reference_branch..."
 if ! git fetch origin "$reference_branch"; then
-    echo "Error: Failed to fetch latest changes for '$reference_branch'."
+    echo "Error: Failed to fetch latest changes for '$reference_branch'. Please check if the branch exists."
+    log "Error: Failed to fetch latest changes for '$reference_branch'."
     exit 1
 fi
+log "Successfully fetched latest changes for $reference_branch."
 
 # Merge the reference branch into the current branch
-echo "Merging $reference_branch into $current_branch"
+echo "Merging $reference_branch into $current_branch..."
 if ! git merge origin/"$reference_branch"; then
-    echo "Error: Failed to merge branch '$reference_branch' into '$current_branch'."
+    echo "Error: Merge conflict or failure while merging '$reference_branch' into '$current_branch'."
+    log "Error: Failed to merge '$reference_branch' into '$current_branch'."
     exit 1
 fi
+log "Successfully merged $reference_branch into $current_branch."
 
-echo "Successfully updated $current_branch with changes from $reference_branch."
+echo "Merge completed successfully!"
+log "Merge process completed successfully."
+
