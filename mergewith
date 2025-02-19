@@ -68,4 +68,3 @@ log "Successfully merged $reference_branch into $current_branch."
 
 echo "Merge completed successfully!"
 log "Merge process completed successfully."
-
