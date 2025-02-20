@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Exit immediately if any command fails
+set -e
+
+# Check if csvkit is installed (csvkit is a set of Python tools for working with CSV files)
+if ! command -v csvstat &> /dev/null
+then
+    echo "csvkit is not installed. Please install it using: pip install csvkit"
+    exit 1
+fi
+
+# Display help message
+HELP=$(cat <<EOF
+Usage: $(basename "$0") [CSV_FILE]
+
+Analyzes a CSV file for basic statistics and missing values.
+
+Options:
+  CSV_FILE       The path to the CSV file you want to analyze.
+  -h, --help     Show this help message and exit.
+
+Example:
+  $(basename "$0") data.csv
+EOF
+)
+
+# Show help message if needed
+if [[ "$1" == "-h" || "$1" == "--help" || -z "$1" ]]; then
+    echo "$HELP"
+    exit 0
+fi
+
+CSV_FILE="$1"
+
+# Check if the CSV file exists
+if [ ! -f "$CSV_FILE" ]; then
+    echo "Error: File '$CSV_FILE' not found."
+    exit 1
+fi
+
+# Display basic statistics using csvkit
+echo "Analyzing CSV file: $CSV_FILE"
+echo "==============================="
+
+echo -e "\n Basic Statistics:\n"
+csvstat "$CSV_FILE"
+
+echo -e "\n Checking for Missing Values:\n"
+csvstat --nulls "$CSV_FILE"
+
+echo -e "\n Analysis Complete."
+
