@@ -50,4 +50,3 @@ echo -e "\n Checking for Missing Values:\n"
 csvstat --nulls "$CSV_FILE"
 
 echo -e "\n Analysis Complete."
-

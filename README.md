@@ -42,3 +42,22 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 - [`mergewith`](https://github.com/michen00/bin/blob/main/mergewith): Merge the latest changes from a reference branch into the current branch (updating both).
 - [`touchx`](https://github.com/michen00/bin/blob/main/touchx): Create (or update) a file and add `+x` permission to it.
 - [`update-mine`](https://github.com/michen00/bin/blob/main/update-mine): Update all branches with open pull requests authored by you.
+- [`analyse_csv`](https://github.com/michen00/bin/blob/main/analyse_csv.py): Analyze a CSV file to calculate basic statistics (mean, median, and unique values) for numeric and text columns and detect missing values.
+
+### Usage: CSV Analysis Script
+
+### Prerequisites
+
+Make sure you have Python and the required libraries installed.
+
+Install the necessary library:
+
+```bash
+pip install pandas
+```
+
+Run the script using the following command:
+
+```bash
+python analyse_csv.py path/to/your/file.csv
+```
