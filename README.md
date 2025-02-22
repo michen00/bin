@@ -42,3 +42,4 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 - [`mergewith`](https://github.com/michen00/bin/blob/main/mergewith): Merge the latest changes from a reference branch into the current branch (updating both).
 - [`touchx`](https://github.com/michen00/bin/blob/main/touchx): Create (or update) a file and add `+x` permission to it.
 - [`update-mine`](https://github.com/michen00/bin/blob/main/update-mine): Update all branches with open pull requests authored by you.
+- `clean-branches`: Identify and clean merged & stale branches with respect to a target branch.
