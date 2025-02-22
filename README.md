@@ -56,7 +56,7 @@ Install the necessary library:
 pip install pandas
 ```
 
-Run the script using the following command:
+Run the script using this command:
 
 ```bash
 python analyse_csv.py path/to/your/file.csv
