@@ -1,19 +1,44 @@
 #!/usr/bin/env bash
 
-# clean-branches
-# A script to safely clean up stale or merged branches.
+show_help() {
+  echo "Usage: ./clean-branches [TARGET_BRANCH]"
+  echo "Usage Example: ./clean-branches master"
+  echo ""
+  echo "Arguments:"
+  echo "  TARGET_BRANCH  The branch to compare against for merged branches. Defaults to 'main'."
+  echo ""
+  echo "Description:"
+  echo "  This script performs the following actions:"
+  echo "  1. Fetches the latest remote information and prunes deleted branches."
+  echo "  2. Identifies local branches that are fully merged into the TARGET_BRANCH."
+  echo "  3. Prompts the user to delete these merged branches."
+  echo "  4. Identifies local branches that no longer have a remote."
+  echo "  5. Prompts the user to delete these stale branches."
+}
+
+# Check for help option
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  show_help
+  exit 0
+fi
 
 # Cleans branches with respect to TARGET_BRANCH
-TARGET_BRANCH=${1:-main}  # Default to 'main' if none is specified.
+TARGET_BRANCH=${1:-main} # Default to 'main' if none is specified.
+
+# Verify the branch exists
+if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
+  echo "Error: Branch '$TARGET_BRANCH' does not exist."
+  exit 1
+fi
 
 echo "Fetching latest remote info and pruning..."
 git fetch --prune
 
 # Identify local branches fully merged into the target branch.
-MERGED_BRANCHES=$(git branch --merged "$TARGET_BRANCH" \
-                   | grep -v "$TARGET_BRANCH" \
-                   | grep -v "^\*" \
-                   | sed 's/^  //')
+MERGED_BRANCHES=$(git branch --merged "$TARGET_BRANCH" |
+  grep -v "$TARGET_BRANCH" |
+  grep -v "^\*" |
+  sed 's/^  //')
 
 if [ -z "$MERGED_BRANCHES" ]; then
   echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
@@ -23,8 +48,7 @@ else
   read -r -p "Do you want to delete these merged branches? [y/N]: " CONFIRM
   if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
     # Delete merged branches
-    for BRANCH in $MERGED_BRANCHES
-    do
+    for BRANCH in $MERGED_BRANCHES; do
       git branch -d "$BRANCH"
     done
   else
@@ -42,8 +66,7 @@ else
   echo "$STALE_BRANCHES"
   read -r -p "Do you want to delete these stale branches? [y/N]: " CONFIRM_STALE
   if [[ "$CONFIRM_STALE" =~ ^[Yy]$ ]]; then
-    for BRANCH in $STALE_BRANCHES
-    do
+    for BRANCH in $STALE_BRANCHES; do
       git branch -D "$BRANCH"
     done
   else
