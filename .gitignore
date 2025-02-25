@@ -721,4 +721,3 @@ dist
 *.rej
 
 # End of https://github.com/github/gitignore/blob/main/Global/Patch.gitignore
-sample.csv

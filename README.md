@@ -37,27 +37,25 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 ## Scripts
 
 - [`add-last-commit-hash`](https://github.com/michen00/bin/blob/main/add-last-commit-hash): Add the last commit hash to a given file (`.git-blame-ignore-revs` file by default).
+- [`analyse_csv`](https://github.com/michen00/bin/blob/main/analyse_csv.py): Analyze a CSV file to calculate basic statistics (mean, median, and unique values) for numeric and text columns and detect missing values.
 - [`chdirx`](https://github.com/michen00/bin/blob/main/chdirx): Add `+x` permission to all executable files (that start with `#!`) in the given directory.
 - [`how-big`](https://github.com/michen00/bin/blob/main/how-big): Show the size of the given directory.
 - [`mergewith`](https://github.com/michen00/bin/blob/main/mergewith): Merge the latest changes from a reference branch into the current branch (updating both).
 - [`touchx`](https://github.com/michen00/bin/blob/main/touchx): Create (or update) a file and add `+x` permission to it.
 - [`update-mine`](https://github.com/michen00/bin/blob/main/update-mine): Update all branches with open pull requests authored by you.
-- [`analyse_csv`](https://github.com/michen00/bin/blob/main/analyse_csv.py): Analyze a CSV file to calculate basic statistics (mean, median, and unique values) for numeric and text columns and detect missing values.
 
 ### Usage: CSV Analysis Script
 
 ### Prerequisites
 
-Make sure you have Python and the required libraries installed.
-
 Install the necessary library:
 
 ```bash
-pip install pandas
+pip install csvkit
 ```
 
 Run the script using this command:
 
 ```bash
-python analyse_csv.py path/to/your/file.csv
+/path/to/analyse_csv /path/to/your/file.csv
 ```
