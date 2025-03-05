@@ -38,7 +38,7 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 
 - [`add-last-commit-hash`](add-last-commit-hash): Add the last commit hash to a given file (`.git-blame-ignore-revs` file by default).
 - [`chdirx`](chdirx): Add `+x` permission to all executable files (that start with `#!`) in the given directory.
-- [`clean-branches`](clean-branches): Identify and clean merged & stale branches with respect to a target branch.
+- [`clean-branches`](clean-branches): Identify and remove merged & stale branches with respect to a target branch.
 - [`how-big`](how-big): Show the size of the given directory.
 - [`mergewith`](mergewith): Merge the latest changes from a reference branch into the current branch (updating both).
 - [`touchx`](touchx): Create (or update) a file and add `+x` permission to it.
