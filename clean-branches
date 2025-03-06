@@ -57,7 +57,7 @@ else
 fi
 
 # Identify local branches that no longer have a remote.
-STALE_BRANCHES=$(git branch -vv | grep '\[gone\]' | awk '{print $1}')
+STALE_BRANCHES=$(git branch -v | grep '\[gone\]' | awk '{print $1}')
 
 if [ -z "$STALE_BRANCHES" ]; then
   echo "No stale branches (i.e., branches with no remote) found."
