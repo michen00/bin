@@ -83,7 +83,7 @@ fi
     fi
 
     MSG_LENGTH=${#COMMIT_MSG}
-    if [ "$MSG_LENGTH" -lt 40 ]; then
+    if [ "$MSG_LENGTH" -lt 38 ]; then
         SHORT_HASH=$(echo "$LAST_HASH" | cut -c 1-7)
         COMMIT_MSG="$COMMIT_MSG with $SHORT_HASH"
     fi
