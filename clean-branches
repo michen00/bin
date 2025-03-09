@@ -24,10 +24,8 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     exit 0
 fi
 
-# Cleans branches with respect to TARGET_BRANCH
-TARGET_BRANCH=${1:-main} # Default to 'main' if none is specified.
+TARGET_BRANCH=${1:-main}
 
-# Verify the branch exists
 if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
   echo "Error: Branch '$TARGET_BRANCH' does not exist."
   exit 1
@@ -49,7 +47,6 @@ else
   echo "$MERGED_BRANCHES"
   read -r -p "Do you want to delete these merged branches? [y/N]: " CONFIRM
   if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
-    # Delete merged branches
     for BRANCH in $MERGED_BRANCHES; do
       git branch -d "$BRANCH"
     done
