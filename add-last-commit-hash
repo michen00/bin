@@ -71,7 +71,9 @@ if [ -n "$(git diff --cached)" ]; then
 fi
 
 {
-    echo "$LAST_HASH" >> "$FILE"
+    LAST_HASH=$(git log -1 --pretty=%H)
+    LAST_SUMMARY=$(git log -1 --pretty=%s)
+    echo "$LAST_HASH  # $LAST_SUMMARY" >> "$FILE"
     git add "$FILE"
     COMMIT_MSG="docs(blame): ignore $SHORT_HASH"
 
