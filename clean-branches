@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
 
-show_help() {
-  echo "Usage: ./clean-branches [TARGET_BRANCH]"
-  echo "Usage Example: ./clean-branches master"
-  echo ""
-  echo "Arguments:"
-  echo "  TARGET_BRANCH  The branch to compare against for merged branches. Defaults to 'main'."
-  echo ""
-  echo "Description:"
-  echo "  This script performs the following actions:"
-  echo "  1. Fetches the latest remote information and prunes deleted branches."
-  echo "  2. Identifies local branches that are fully merged into the TARGET_BRANCH."
-  echo "  3. Prompts the user to delete these merged branches."
-  echo "  4. Identifies local branches that no longer have a remote."
-  echo "  5. Prompts the user to delete these stale branches."
-}
+HELP=$(cat <<EOF
+Usage: $(basename "$0") [TARGET_BRANCH]
+Usage Example: $(basename "$0") my-branch
 
-# Check for help option
+Arguments:
+  TARGET_BRANCH  The branch to compare against for merged branches. Defaults to 'main'.
+
+Options:
+  -h, --help   Show this help message and exit.
+
+Description:
+  This script performs the following actions:
+  1. Fetches the latest remote information and prunes deleted branches.
+  2. Identifies local branches that are fully merged into the TARGET_BRANCH.
+  3. Prompts the user to delete these merged branches.
+  4. Identifies local branches that no longer have a remote.
+  5. Prompts the user to delete these stale branches.
+EOF
+)
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-  show_help
-  exit 0
+    echo "$HELP"
+    exit 0
 fi
 
 # Cleans branches with respect to TARGET_BRANCH
