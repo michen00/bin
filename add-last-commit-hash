@@ -73,7 +73,7 @@ fi
 {
     echo "$LAST_HASH" >> "$FILE"
     git add "$FILE"
-    COMMIT_MSG="docs: update $FILE"
+    COMMIT_MSG="docs: $CREATE_OR_UPDATE $FILE"
     FILE_COUNT=$(git diff --cached --name-only | wc -l)
 
     if [ "$FILE_COUNT" -eq 1 ]; then
