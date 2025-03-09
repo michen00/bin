@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# original author: @ragavi-ashok
+
 HELP=$(cat <<EOF
 Usage: $(basename "$0") [TARGET_BRANCH]
 Usage Example: $(basename "$0") my-branch
