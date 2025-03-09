@@ -36,7 +36,7 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 
 ## Scripts
 
-- [`add-last-commit-hash`](add-last-commit-hash): Add the last commit hash to a given file (`.git-blame-ignore-revs` file by default).
+- [`alch`](alch): Add the last commit hash to a given file (`.git-blame-ignore-revs` file by default).
 - [`chdirx`](chdirx): Add `+x` permission to all executable files (that start with `#!`) in the given directory.
 - [`clean-branches`](clean-branches): Identify and remove merged & stale branches with respect to a target branch.
 - [`how-big`](how-big): Show the size of the given directory.
