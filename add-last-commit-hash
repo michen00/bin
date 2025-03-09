@@ -40,7 +40,7 @@ fi
 
 SHORT_HASH=$(echo "$LAST_HASH" | cut -c 1-7)
 
-CREATE_OR_UPDATE="update"
+CREATE_MODE=0
 if [ -f "$FILE" ]; then
     if grep -qE "^\s*$SHORT_HASH" "$FILE"; then
         echo "Hash already exists in $FILE. Skipping."
@@ -48,7 +48,7 @@ if [ -f "$FILE" ]; then
     fi
 else
     echo "Creating $FILE with the last commit hash."
-    CREATE_OR_UPDATE="create"
+    CREATE_MODE=1
 fi
 
 if git status --short "$FILE" | grep -q "^[ MADRCU?]"; then
@@ -73,20 +73,17 @@ fi
 {
     echo "$LAST_HASH" >> "$FILE"
     git add "$FILE"
-    COMMIT_MSG="docs: $CREATE_OR_UPDATE $FILE"
-    FILE_COUNT=$(git diff --cached --name-only | wc -l)
+    COMMIT_MSG="docs(blame): ignore $SHORT_HASH"
 
-    if [ "$FILE_COUNT" -eq 1 ]; then
-        FILE_NAME=$(git diff --cached --name-only)
-        FILE_LENGTH=${#FILE_NAME}
-        if [ "$FILE_LENGTH" -gt 1 ] && [ "$FILE_LENGTH" -le 14 ]; then
-            COMMIT_MSG="docs($FILE_NAME): $CREATE_OR_UPDATE $FILE"
+    if [[ $CREATE_MODE -eq 1 && ${#FILE} -lt 38 ]]; then
+        COMMIT_MSG="docs: create $FILE"
+        if [[ ${#COMMIT_MSG} -lt 44 ]]; then
+            COMMIT_MSG="docs(blame): create $FILE"
+        else
+            if [[ ${#COMMIT_MSG} -lt 38 ]]; then
+                COMMIT_MSG="$COMMIT_MSG with $SHORT_HASH"
+            fi
         fi
-    fi
-
-    MSG_LENGTH=${#COMMIT_MSG}
-    if [ "$MSG_LENGTH" -lt 38 ]; then
-        COMMIT_MSG="$COMMIT_MSG with $SHORT_HASH"
     fi
 
     git commit --no-verify -m "$COMMIT_MSG"
