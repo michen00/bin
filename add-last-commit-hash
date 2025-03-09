@@ -38,9 +38,11 @@ if [ -z "$LAST_HASH" ]; then
     exit 1
 fi
 
+SHORT_HASH=$(echo "$LAST_HASH" | cut -c 1-7)
+
 CREATE_OR_UPDATE="update"
 if [ -f "$FILE" ]; then
-    if grep -q "$LAST_HASH" "$FILE"; then
+    if grep -qE "^\s*$SHORT_HASH" "$FILE"; then
         echo "Hash already exists in $FILE. Skipping."
         exit 0
     fi
@@ -84,7 +86,6 @@ fi
 
     MSG_LENGTH=${#COMMIT_MSG}
     if [ "$MSG_LENGTH" -lt 38 ]; then
-        SHORT_HASH=$(echo "$LAST_HASH" | cut -c 1-7)
         COMMIT_MSG="$COMMIT_MSG with $SHORT_HASH"
     fi
 
