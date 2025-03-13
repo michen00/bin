@@ -3,6 +3,7 @@
 set -e
 
 DEFAULT_FILE=".git-blame-ignore-revs"
+INCLUDE_SUMMARY=true
 
 HELP=$(cat <<EOF
 Usage: $(basename "$0") [FILE]
@@ -11,17 +12,33 @@ Adds the last Git commit hash to a specified file (default: $DEFAULT_FILE)
 
 Options:
   FILE         Specify the file to update. Defaults to "$DEFAULT_FILE".
+  --no-summary  Do not include the commit summary in the file.
   -h, --help   Show this help message and exit.
 
 Example:
   $(basename "$0")                # Use $DEFAULT_FILE
   $(basename "$0") custom-file    # Use "custom-file" instead
+  $(basename "$0") --no-summary   # Omit commit summary
 EOF
 )
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    echo "$HELP"
-    exit 0
-fi
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            echo "$HELP"
+            exit 0
+            ;;
+        --no-summary)
+            INCLUDE_SUMMARY=false
+            shift
+            ;;
+        *)
+            FILE="$1"
+            shift
+            ;;
+    esac
+done
 
 FILE=${1:-$DEFAULT_FILE}
 
@@ -31,14 +48,14 @@ if [ ! -d .git ]; then
 fi
 
 echo "Getting the last commit hash..."
-LAST_HASH=$(git log -1 --pretty=format:"%H" 2>/dev/null || echo)
+HASH_ENTRY=$(git log -1 --pretty=format:"%H" 2>/dev/null || echo)
 
-if [ -z "$LAST_HASH" ]; then
+if [ -z "$HASH_ENTRY" ]; then
     echo "No prior commits found. Please make an initial commit before running this script."
     exit 1
 fi
 
-SHORT_HASH=$(echo "$LAST_HASH" | cut -c 1-7)
+SHORT_HASH=$(echo "$HASH_ENTRY" | cut -c 1-7)
 
 CREATE_MODE=0
 if [ -f "$FILE" ]; then
@@ -71,9 +88,11 @@ if [ -n "$(git diff --cached)" ]; then
 fi
 
 {
-    LAST_HASH=$(git log -1 --pretty=%H)
-    LAST_SUMMARY=$(git log -1 --pretty=%s)
-    echo "$LAST_HASH  # $LAST_SUMMARY" >> "$FILE"
+    if [[ "$INCLUDE_SUMMARY" = true ]]; then
+        HASH_ENTRY+="  # $(git log -1 --pretty=%s)"
+    fi
+    echo "$HASH_ENTRY" >> "$FILE"
+
     git add "$FILE"
     COMMIT_MSG="docs(blame): ignore $SHORT_HASH"
 
