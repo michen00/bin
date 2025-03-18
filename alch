@@ -2,11 +2,12 @@
 
 set -e
 
+SCRIPT_NAME=$(basename "$0")
 DEFAULT_FILE=".git-blame-ignore-revs"
 INCLUDE_SUMMARY=true
 
 HELP=$(cat <<EOF
-Usage: $(basename "$0") [FILE]
+Usage: $SCRIPT_NAME [FILE]
 
 Adds the last Git commit hash to a specified file (default: $DEFAULT_FILE)
 
@@ -16,9 +17,9 @@ Options:
   -h, --help   Show this help message and exit.
 
 Example:
-  $(basename "$0")                # Use $DEFAULT_FILE
-  $(basename "$0") custom-file    # Use "custom-file" instead
-  $(basename "$0") --no-summary   # Omit commit summary
+  $SCRIPT_NAME                # Use $DEFAULT_FILE
+  $SCRIPT_NAME custom-file    # Use "custom-file" instead
+  $SCRIPT_NAME --no-summary   # Omit commit summary
 EOF
 )
 
