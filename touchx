@@ -1,30 +1,80 @@
 #!/bin/bash
 
-# Function to display usage
+SCRIPT_NAME=$(basename "$0")
+
 usage() {
-    echo "Usage: $0 <file> [<file> ...]"
-    echo "Creates or updates the specified file(s) and make them executable."
-    exit 1
+    cat <<EOF
+Usage: $SCRIPT_NAME [OPTIONS] <file> [<file> ...]
+
+Create or update the specified file(s) and make them executable.
+
+Arguments:
+  <file> [<file> ...]  One or more files to create or update.
+
+Options:
+  -h, --help          Show this help message and exit.
+
+If a specified file does not exist, it will be created.
+If it exists, its timestamp will be updated.
+All specified files will be given executable permissions.
+
+Examples:
+  $SCRIPT_NAME script.sh
+  $SCRIPT_NAME file1.sh file2.sh
+EOF
+    exit 0
 }
 
-# Check if at least one file is provided
+# Check if no arguments were provided
 if [ "$#" -lt 1 ]; then
     usage
 fi
 
-# Iterate over all provided arguments
-for file in "$@"; do
-    # Create the file (if it doesn't exist) or update its timestamp
+# Collect file arguments
+files=()
+
+# Parse options and collect valid file arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            ;;
+        -*)
+            echo "Error: Unknown option '$1'" >&2
+            usage
+            ;;
+        *)
+            files+=("$1")
+            ;;
+    esac
+    shift
+done
+
+# Ensure at least one valid file argument remains
+if [ "${#files[@]}" -eq 0 ]; then
+    echo "Error: No files specified." >&2
+    usage
+fi
+
+# Process each file argument
+for file in "${files[@]}"; do
+    # Ensure the file argument is not empty
+    if [[ -z "$file" || "$file" =~ ^[[:space:]]+$ ]]; then
+        echo "Error: Invalid filename '$file'." >&2
+        exit 1
+    fi
+
+    # Create or update the file
     if ! touch "$file"; then
-        echo "Error: Failed to create or update $file."
+        echo "Error: Failed to create or update '$file'." >&2
         exit 1
     fi
 
     # Make the file executable
     if ! chmod +x "$file"; then
-        echo "Error: Failed to set execute permission for $file."
+        echo "Error: Failed to set execute permission for '$file'." >&2
         exit 1
     fi
 
-    echo "Created and made executable: $file"
+    echo "Created and made executable: '$file'"
 done
