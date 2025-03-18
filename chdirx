@@ -1,59 +1,83 @@
 #!/bin/bash
 
-# Function to process files in a directory
+SCRIPT_NAME=$(basename "$0")
+RECURSIVE=false
+TARGET_DIR=""
+
+usage() {
+    cat <<EOF
+Usage: $SCRIPT_NAME [OPTIONS] <directory>
+
+Adds executable permission to scripts in the specified directory. If a file starts with
+a shebang (#!), it will be made executable.
+
+Arguments:
+  <directory>       The directory to process.
+
+Options:
+  -r                Recursively process subdirectories, including hidden ones.
+  -h, --help        Show this help message and exit.
+
+Examples:
+  $SCRIPT_NAME mydir
+  $SCRIPT_NAME -r mydir   # Process subdirectories as well
+  $SCRIPT_NAME mydir -r
+EOF
+    exit "$1"
+}
+
+# Parse arguments manually to allow flexible order
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage 0
+            ;;
+        -r)
+            RECURSIVE=true
+            ;;
+        -*)
+            echo "Error: Unknown option '$1'" >&2
+            usage 1
+            ;;
+        *)
+            if [[ -n "$TARGET_DIR" ]]; then
+                echo "Error: Multiple directories specified: '$TARGET_DIR' and '$1'" >&2
+                usage 1
+            fi
+            TARGET_DIR="$1"
+            ;;
+    esac
+    shift
+done
+
+# Ensure exactly one directory is provided
+if [[ -z "$TARGET_DIR" ]]; then
+    echo "Error: No directory specified." >&2
+    usage 1
+fi
+
+if [[ ! -d "$TARGET_DIR" ]]; then
+    echo "Error: '$TARGET_DIR' is not a directory." >&2
+    exit 1
+fi
+
 process_directory() {
     local dir="$1"
-    for file in "$dir"/*; do
-        # Skip if file doesn't exist (to handle empty directories)
-        [ -e "$file" ] || continue
-
-        if [ -f "$file" ]; then
+    # Iterate over both normal and hidden files/directories
+    for file in "$dir"/.* "$dir"/*; do
+        # Skip if file doesn't exist (handles empty dirs) or if it's `.` or `..`
+        [[ -e "$file" && "$file" != "$dir/." && "$file" != "$dir/.." ]] || continue
+        if [[ -f "$file" ]]; then
             # Check if the first line starts with #!
             if head -n 1 "$file" | grep -q '^#!'; then
                 chmod +x "$file"
                 echo "Added executable permission to: $file"
             fi
-        elif [ -d "$file" ] && [ "$RECURSIVE" = true ]; then
-            # Recursively process subdirectories if -r is enabled
+        elif [[ -d "$file" && "$RECURSIVE" == true ]]; then
+            # Recursively process subdirectories
             process_directory "$file"
         fi
     done
 }
 
-# Initialize variables
-RECURSIVE=false
-
-# Parse options
-while getopts ":r" opt; do
-    case $opt in
-        r)
-            RECURSIVE=true
-            ;;
-        *)
-            echo "Usage: $0 [-r] <directory>"
-            exit 1
-            ;;
-    esac
-done
-
-# Shift past the options
-shift $((OPTIND - 1))
-
-# Ensure exactly one argument remains (the directory)
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 [-r] <directory>"
-    echo "Adds the executable permission to scripts in the specified directory"
-    exit 1
-fi
-
-# Assign the argument to a variable
-TARGET_DIR="$1"
-
-# Ensure the argument is a directory
-if [ ! -d "$TARGET_DIR" ]; then
-    echo "Error: $TARGET_DIR is not a directory."
-    exit 1
-fi
-
-# Process the directory
 process_directory "$TARGET_DIR"
