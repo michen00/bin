@@ -4,10 +4,12 @@
 debug=false
 all_branches=false
 
+SCRIPT_NAME=$(basename "$0")
+
 # Function to display usage information
 usage() {
     cat <<EOF
-Usage: $(basename "$0") [--debug] [--all] <reference_branch>
+Usage: $SCRIPT_NAME [--debug] [--all] <reference_branch>
 
 Updates branches with open pull requests authored by you by:
 1. Checking out the branch.
@@ -23,10 +25,10 @@ Arguments:
   <reference_branch>  The branch to merge into your branches (e.g., 'main').
 
 Examples:
-  $(basename "$0") main
-  $(basename "$0") --debug main
-  $(basename "$0") --all main
-  $(basename "$0") --debug --all main
+  $SCRIPT_NAME main
+  $SCRIPT_NAME --debug main
+  $SCRIPT_NAME --all main
+  $SCRIPT_NAME --debug --all main
 EOF
     exit 0
 }
