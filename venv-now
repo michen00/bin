@@ -1,0 +1,75 @@
+#!/bin/bash
+
+VENV_DIR=".venv"
+REMOVE_EXISTING=true
+SCRIPT_NAME=$(basename "$0")
+
+usage() {
+    cat <<EOF
+Usage: $SCRIPT_NAME [DIRECTORY] [OPTIONS]
+
+Create and activate a new Python virtual environment in the specified directory,
+or in ./.venv if no directory is provided. If the specified directory already exists,
+it will be removed by default unless the --no-remove flag is used.
+
+Positional Arguments:
+  DIRECTORY         The virtual environment directory name (default: .venv)
+
+Options:
+  -n, --no-remove   Do not remove an existing virtual environment
+  -h, --help        Show this help message and exit
+
+Examples:
+    $SCRIPT_NAME
+    $SCRIPT_NAME myenv --no-remove
+    $SCRIPT_NAME .venv -n
+EOF
+    exit 0
+}
+
+# Initialize empty positional argument
+positional_arg_set=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            ;;
+        -n|--no-remove)
+            REMOVE_EXISTING=false
+            shift
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            usage
+            ;;
+        *)
+            if [ "$positional_arg_set" = false ]; then
+                VENV_DIR="$1"
+                positional_arg_set=true
+            else
+                echo "Error: Multiple directory arguments specified: '$VENV_DIR' and '$1'" >&2
+                usage
+            fi
+            shift
+            ;;
+    esac
+done
+
+if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
+    echo "Removing existing virtual environment: $VENV_DIR"
+    rm -rf "$VENV_DIR"
+fi
+
+echo "Creating virtual environment in: $VENV_DIR"
+python -m venv "$VENV_DIR"
+
+if [ -f "$VENV_DIR/bin/activate" ]; then
+    echo "Activating virtual environment..."
+    # shellcheck disable=SC1091
+    . "$VENV_DIR/bin/activate"
+else
+    echo "Error: Virtual environment creation failed!" >&2
+    exit 1
+fi

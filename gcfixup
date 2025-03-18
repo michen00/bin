@@ -1,11 +1,13 @@
 #!/bin/bash
 
+SCRIPT_NAME=$(basename "$0")
+
 gcfixup() {
     read -r -d '' HELP_MSG <<EOF
-gcfixup - Create a fixup commit and automatically rebase with autosquash
+$SCRIPT_NAME - Create a fixup commit and automatically rebase with autosquash
 
 Usage:
-  gcfixup <fixup commit hash> [options]
+  $SCRIPT_NAME <fixup commit hash> [options]
 
 Description:
   This script creates a fixup commit for the specified commit hash and then
@@ -16,7 +18,7 @@ Arguments:
   [options]             Optional arguments to pass to 'git commit'.
 
 Example:
-  gcfixup abc123 -a  # Create a fixup commit for abc123 with all changes staged
+  $SCRIPT_NAME abc123 -a  # Create a fixup commit for abc123 with all changes staged
 
 Notes:
   - This script requires Git to be installed and run inside a Git repository.
