@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Function to display help message
+SCRIPT_NAME=$(basename "$0")
+
 usage() {
     cat <<EOF
-Usage: how-big [-a] [directory]
+Usage: $SCRIPT_NAME [-a] [directory]
 
 Displays the size of files and subdirectories in the specified directory,
 sorted in descending order by size.
@@ -15,10 +16,10 @@ Options:
   -h, --help   Show this help message and exit
 
 Examples:
-  how-big ~/.local/share
-  sudo how-big
-  how-big .
-  how-big -a /home/user
+  $SCRIPT_NAME ~/.local/share
+  sudo $SCRIPT_NAME
+  $SCRIPT_NAME .
+  $SCRIPT_NAME -a /home/user
 EOF
     exit 0
 }
