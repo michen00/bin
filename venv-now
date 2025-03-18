@@ -1,5 +1,10 @@
 #!/bin/bash
 
+SOURCED=$([[ "${BASH_SOURCE[0]}" != "$0" ]] && echo true || echo false)
+return-or-exit() {
+    [[ "$SOURCED" == true ]] && return "$1" || exit "$1";
+}
+
 VENV_DIR=".venv"
 REMOVE_EXISTING=true
 SCRIPT_NAME=$(basename "$0")
@@ -8,9 +13,9 @@ usage() {
     cat <<EOF
 Usage: $SCRIPT_NAME [DIRECTORY] [OPTIONS]
 
-Create and activate a new Python virtual environment in the specified directory,
-or in ./.venv if no directory is provided. If the specified directory already exists,
-it will be removed by default unless the --no-remove flag is used.
+Create a new Python virtual environment in ./.venv by default. If the specified
+directory already exists, it will be removed by default unless the --no-remove flag is
+used. The virtual environment will be activated if the script is sourced.
 
 Positional Arguments:
   DIRECTORY         The virtual environment directory name (default: .venv)
@@ -20,11 +25,11 @@ Options:
   -h, --help        Show this help message and exit
 
 Examples:
-    $SCRIPT_NAME
-    $SCRIPT_NAME myenv --no-remove
+    . $SCRIPT_NAME
+    source $SCRIPT_NAME myenv --no-remove
     $SCRIPT_NAME .venv -n
 EOF
-    exit 0
+return-or-exit 0
 }
 
 # Initialize empty positional argument
@@ -66,10 +71,14 @@ echo "Creating virtual environment in: $VENV_DIR"
 python -m venv "$VENV_DIR"
 
 if [ -f "$VENV_DIR/bin/activate" ]; then
-    echo "Activating virtual environment..."
-    # shellcheck disable=SC1091
-    . "$VENV_DIR/bin/activate"
+    echo "Virtual environment created: $VENV_DIR"
 else
     echo "Error: Virtual environment creation failed!" >&2
-    exit 1
+    return-or-exit 1
+fi
+
+if [[ "$SOURCED" == true ]]; then
+    # shellcheck disable=SC1091
+    { . "$VENV_DIR/bin/activate" && echo "Virtual environment activated: $VENV_DIR"; } ||
+    { echo "Error: Virtual environment activation failed!" >&2; return 1; }
 fi
