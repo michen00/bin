@@ -43,4 +43,4 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 - [`mergewith`](mergewith): Merge the latest changes from a reference branch into the current branch (updating both).
 - [`touchx`](touchx): Create (or update) a file and add `+x` permission to it.
 - [`update-mine`](update-mine): Update all branches with open pull requests authored by you.
-- [`venv-now`](venv-now): Create and activate a new Python virtual environment in ./.venv (or the given directory).
+- [`venv-now`](venv-now): Create a new Python virtual environment in ./.venv (or the given directory), activating it if sourced.
