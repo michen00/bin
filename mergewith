@@ -34,6 +34,11 @@ if ! git pull; then
     exit 1
 fi
 
+if [[ "$current_branch" == "$reference_branch" ]]; then
+    echo "Warning: The current branch and reference branch are the same: '$current_branch'" >&2
+    exit 0
+fi
+
 # Ensure the reference branch is up to date
 echo "Fetching latest changes for $reference_branch"
 if ! git fetch origin "$reference_branch"; then
