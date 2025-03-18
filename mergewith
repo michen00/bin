@@ -1,10 +1,30 @@
 #!/bin/bash
 
-# Function to display usage
+SCRIPT_NAME=$(basename "$0")
+
 usage() {
-    echo "Usage: mergewith <reference_branch>"
-    echo "Merges the latest changes from a reference branch into the current branch (updating both)."
-    exit 1
+    cat <<EOF
+Usage: $SCRIPT_NAME [OPTIONS] <reference_branch>
+
+Merges the latest changes from a reference branch into the current branch.
+
+Arguments:
+  <reference_branch>  The branch to merge into the current branch.
+
+Options:
+  -h, --help          Show this help message and exit.
+
+This script performs the following steps:
+  1. Ensures you are inside a Git repository.
+  2. Pulls the latest changes for the current branch.
+  3. Fetches updates for the reference branch.
+  4. Merges the reference branch into the current branch.
+
+Examples:
+  $SCRIPT_NAME main
+  $SCRIPT_NAME feature-branch
+EOF
+    exit 0
 }
 
 # Check if a reference branch is provided
