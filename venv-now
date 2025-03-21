@@ -1,8 +1,8 @@
 #!/bin/bash
 
-SOURCED=$([[ "${BASH_SOURCE[0]}" != "$0" ]] && echo true || echo false)
+SOURCED=$([[ ${BASH_SOURCE[0]} != "$0" ]] && echo true || echo false)
 return-or-exit() {
-    [[ "$SOURCED" == true ]] && return "$1" || exit "$1";
+  [[ $SOURCED == true ]] && return "$1" || exit "$1"
 }
 
 VENV_DIR=".venv"
@@ -10,7 +10,7 @@ REMOVE_EXISTING=true
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
-    cat <<EOF
+  cat << EOF
 Usage: $SCRIPT_NAME [DIRECTORY] [OPTIONS]
 
 Create a new Python virtual environment in ./.venv by default. If the specified
@@ -29,7 +29,7 @@ Examples:
     source $SCRIPT_NAME myenv --no-remove
     $SCRIPT_NAME .venv -n
 EOF
-return-or-exit 0
+  return-or-exit 0
 }
 
 # Initialize empty positional argument
@@ -37,48 +37,51 @@ positional_arg_set=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -h|--help)
-            usage
-            ;;
-        -n|--no-remove)
-            REMOVE_EXISTING=false
-            shift
-            ;;
-        -*)
-            echo "Unknown option: $1" >&2
-            usage
-            ;;
-        *)
-            if [ "$positional_arg_set" = false ]; then
-                VENV_DIR="$1"
-                positional_arg_set=true
-            else
-                echo "Error: Multiple directory arguments specified: '$VENV_DIR' and '$1'" >&2
-                usage
-            fi
-            shift
-            ;;
-    esac
+  case "$1" in
+    -h | --help)
+      usage
+      ;;
+    -n | --no-remove)
+      REMOVE_EXISTING=false
+      shift
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage
+      ;;
+    *)
+      if [ "$positional_arg_set" = false ]; then
+        VENV_DIR="$1"
+        positional_arg_set=true
+      else
+        echo "Error: Multiple directory arguments specified: '$VENV_DIR' and '$1'" >&2
+        usage
+      fi
+      shift
+      ;;
+  esac
 done
 
 if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
-    echo "Removing existing virtual environment: $VENV_DIR"
-    rm -rf "$VENV_DIR"
+  echo "Removing existing virtual environment: $VENV_DIR"
+  rm -rf "$VENV_DIR"
 fi
 
 echo "Creating virtual environment in: $VENV_DIR"
 python -m venv "$VENV_DIR"
 
 if [ -f "$VENV_DIR/bin/activate" ]; then
-    echo "Virtual environment created: $VENV_DIR"
+  echo "Virtual environment created: $VENV_DIR"
 else
-    echo "Error: Virtual environment creation failed!" >&2
-    return-or-exit 1
+  echo "Error: Virtual environment creation failed!" >&2
+  return-or-exit 1
 fi
 
-if [[ "$SOURCED" == true ]]; then
-    # shellcheck disable=SC1091
-    { . "$VENV_DIR/bin/activate" && echo "Virtual environment activated: $VENV_DIR"; } ||
-    { echo "Error: Virtual environment activation failed!" >&2; return 1; }
+if [[ $SOURCED == true ]]; then
+  # shellcheck disable=SC1091
+  { . "$VENV_DIR/bin/activate" && echo "Virtual environment activated: $VENV_DIR"; } ||
+    {
+      echo "Error: Virtual environment activation failed!" >&2
+      return 1
+    }
 fi

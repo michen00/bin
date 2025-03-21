@@ -6,7 +6,8 @@ SCRIPT_NAME=$(basename "$0")
 DEFAULT_FILE=".git-blame-ignore-revs"
 INCLUDE_SUMMARY=true
 
-HELP=$(cat <<EOF
+HELP=$(
+  cat << EOF
 Usage: $SCRIPT_NAME [FILE]
 
 Adds the last Git commit hash to a specified file (default: $DEFAULT_FILE)
@@ -25,102 +26,108 @@ EOF
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -h|--help)
-            echo "$HELP"
-            exit 0
-            ;;
-        --no-summary)
-            INCLUDE_SUMMARY=false
-            shift
-            ;;
-        *)
-            FILE="$1"
-            shift
-            ;;
-    esac
+  case "$1" in
+    -h | --help)
+      echo "$HELP"
+      exit 0
+      ;;
+    --no-summary)
+      INCLUDE_SUMMARY=false
+      shift
+      ;;
+    *)
+      FILE="$1"
+      shift
+      ;;
+  esac
 done
 
 FILE=${1:-$DEFAULT_FILE}
 
 if [ ! -d .git ]; then
-    echo "This script must be run in the root of a Git repository."
-    exit 1
+  echo "This script must be run in the root of a Git repository."
+  exit 1
 fi
 
 echo "Getting the last commit hash..."
-HASH_ENTRY=$(git log -1 --pretty=format:"%H" 2>/dev/null || echo)
+HASH_ENTRY=$(git log -1 --pretty=format:"%H" 2> /dev/null || echo)
 
 if [ -z "$HASH_ENTRY" ]; then
-    echo "No prior commits found. Please make an initial commit before running this script."
-    exit 1
+  echo "No prior commits found. Please make an initial commit before running this script."
+  exit 1
 fi
 
 SHORT_HASH=$(echo "$HASH_ENTRY" | cut -c 1-7)
 
 CREATE_MODE=0
 if [ -f "$FILE" ]; then
-    if grep -qE "^\s*$SHORT_HASH" "$FILE"; then
-        echo "Hash already exists in $FILE. Skipping."
-        exit 0
-    fi
+  if grep -qE "^\s*$SHORT_HASH" "$FILE"; then
+    echo "Hash already exists in $FILE. Skipping."
+    exit 0
+  fi
 else
-    echo "Creating $FILE with the last commit hash."
-    CREATE_MODE=1
+  echo "Creating $FILE with the last commit hash."
+  CREATE_MODE=1
 fi
 
 if git status --short "$FILE" | grep -q "^[ MADRCU?]"; then
-    echo "The file $FILE has unstaged changes."
-    printf "Are you sure you want to proceed (y/n)? "
-    read -r confirm
-    confirm=${confirm:-n}
-    case "$confirm" in
-        [yY][eE][sS]|[yY]) ;;
-        *) echo "Aborted."; exit 1 ;;
-    esac
+  echo "The file $FILE has unstaged changes."
+  printf "Are you sure you want to proceed (y/n)? "
+  read -r confirm
+  confirm=${confirm:-n}
+  case "$confirm" in
+    [yY][eE][sS] | [yY]) ;;
+    *)
+      echo "Aborted."
+      exit 1
+      ;;
+  esac
 fi
 
 STASHED=false
 if [ -n "$(git diff --cached)" ]; then
-    echo "There are staged changes. Stashing them temporarily..."
-    git stash push -k -m "Temporary stash for add-last-commit-hash"
-    STASHED=true
-    echo "Staged changes stashed."
+  echo "There are staged changes. Stashing them temporarily..."
+  git stash push -k -m "Temporary stash for add-last-commit-hash"
+  STASHED=true
+  echo "Staged changes stashed."
 fi
 
 {
-    if [[ "$INCLUDE_SUMMARY" = true ]]; then
-        HASH_ENTRY+="  # $(git log -1 --pretty=%s)"
+  if [[ $INCLUDE_SUMMARY == true ]]; then
+    HASH_ENTRY+="  # $(git log -1 --pretty=%s)"
+  fi
+  echo "$HASH_ENTRY" >> "$FILE"
+
+  git add "$FILE"
+  COMMIT_MSG="docs(blame): ignore $SHORT_HASH"
+
+  if [[ $CREATE_MODE -eq 1 && ${#FILE} -lt 38 ]]; then
+    COMMIT_MSG="docs: create $FILE"
+    if [[ ${#COMMIT_MSG} -lt 44 ]]; then
+      COMMIT_MSG="docs(blame): create $FILE"
+    else
+      if [[ ${#COMMIT_MSG} -lt 38 ]]; then
+        COMMIT_MSG="$COMMIT_MSG with $SHORT_HASH"
+      fi
     fi
-    echo "$HASH_ENTRY" >> "$FILE"
+  fi
 
-    git add "$FILE"
-    COMMIT_MSG="docs(blame): ignore $SHORT_HASH"
-
-    if [[ $CREATE_MODE -eq 1 && ${#FILE} -lt 38 ]]; then
-        COMMIT_MSG="docs: create $FILE"
-        if [[ ${#COMMIT_MSG} -lt 44 ]]; then
-            COMMIT_MSG="docs(blame): create $FILE"
-        else
-            if [[ ${#COMMIT_MSG} -lt 38 ]]; then
-                COMMIT_MSG="$COMMIT_MSG with $SHORT_HASH"
-            fi
-        fi
-    fi
-
-    git commit --no-verify -m "$COMMIT_MSG"
-    echo "Successfully updated and committed $FILE."
-    UPDATED=true
+  git commit --no-verify -m "$COMMIT_MSG"
+  echo "Successfully updated and committed $FILE."
+  UPDATED=true
 } || {
-    echo "Failed to update $FILE. Resolve manually."
-    UPDATED=false
+  echo "Failed to update $FILE. Resolve manually."
+  UPDATED=false
 }
 
 if [ "$STASHED" = true ]; then
-    echo "Reapplying stashed changes..."
-    git stash pop || { echo "Failed to apply stashed changes. Resolve manually."; exit 1; }
+  echo "Reapplying stashed changes..."
+  git stash pop || {
+    echo "Failed to apply stashed changes. Resolve manually."
+    exit 1
+  }
 fi
 
 if [ "$UPDATED" = false ]; then
-    exit 1
+  exit 1
 fi
