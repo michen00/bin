@@ -2,7 +2,8 @@
 
 # original author: @ragavi-ashok
 
-HELP=$(cat <<EOF
+HELP=$(
+  cat << EOF
 Usage: $(basename "$0") [TARGET_BRANCH]
 Usage Example: $(basename "$0") my-branch
 
@@ -21,9 +22,9 @@ Description:
   5. Prompts the user to delete these stale branches.
 EOF
 )
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    echo "$HELP"
-    exit 0
+if [[ $1 == "-h" || $1 == "--help" ]]; then
+  echo "$HELP"
+  exit 0
 fi
 
 TARGET_BRANCH=${1:-main}
@@ -48,7 +49,7 @@ else
   echo "The following branches are fully merged into '$TARGET_BRANCH':"
   echo "$MERGED_BRANCHES"
   read -r -p "Do you want to delete these merged branches? [y/N]: " CONFIRM
-  if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+  if [[ $CONFIRM =~ ^[Yy]$ ]]; then
     for BRANCH in $MERGED_BRANCHES; do
       git branch -d "$BRANCH"
     done
@@ -66,7 +67,7 @@ else
   echo "The following branches have no remote and might be stale:"
   echo "$STALE_BRANCHES"
   read -r -p "Do you want to delete these stale branches? [y/N]: " CONFIRM_STALE
-  if [[ "$CONFIRM_STALE" =~ ^[Yy]$ ]]; then
+  if [[ $CONFIRM_STALE =~ ^[Yy]$ ]]; then
     for BRANCH in $STALE_BRANCHES; do
       git branch -D "$BRANCH"
     done
