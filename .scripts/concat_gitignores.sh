@@ -14,7 +14,7 @@
 #   scripts/concat_gitignores.sh urls.txt --output custom.output.gitignore
 
 # Debugging flag
-set -e  # Exit on errors
+set -e # Exit on errors
 
 # Hardcoded URLs (used if no input is provided)
 DEFAULT_URLS=(
@@ -49,7 +49,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      if [[ -z "$INPUT_FILE" ]]; then
+      if [[ -z $INPUT_FILE ]]; then
         INPUT_FILE="$1"
         shift
       else
@@ -62,7 +62,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Determine the source of URLs
-if [[ -n "$INPUT_FILE" && -f "$INPUT_FILE" ]]; then
+if [[ -n $INPUT_FILE && -f $INPUT_FILE ]]; then
   # Read URLs from the provided file
   mapfile -t URLS < "$INPUT_FILE"
 elif ! [ -t 0 ]; then
@@ -105,7 +105,7 @@ for url in "${URLS[@]}"; do
   FILENAME=$(basename "$url")
 
   # Calculate dynamic block length
-  PREFACE_LENGTH=$(( ${#FILENAME} + 4 ))  # Length of " # FILENAME # "
+  PREFACE_LENGTH=$((${#FILENAME} + 4)) # Length of " # FILENAME # "
   PREFACE=$(printf '#%.0s' $(seq 1 $PREFACE_LENGTH))
 
   # Preface block for this template
@@ -122,7 +122,7 @@ for url in "${URLS[@]}"; do
 
   # Fetch content
   CONTENT=$(curl -s "$RAW_URL" | awk '{ gsub(/\r$/, ""); gsub(/[ \t]+$/, ""); print }')
-  if [[ -z "$CONTENT" ]]; then
+  if [[ -z $CONTENT ]]; then
     echo "Failed to fetch content from: $RAW_URL"
   else
     echo "Appending content from: $RAW_URL"
@@ -135,10 +135,10 @@ done
 tr -d '\r' < "$OUTPUT_FILE" > .temp_file && mv .temp_file "$OUTPUT_FILE"
 
 # Ensure single trailing newline
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  sed -i ':a;/^$/{$d;N;ba;}' "$OUTPUT_FILE"  # spellchecker:disable-line
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-  sed -i '' -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$OUTPUT_FILE"  # spellchecker:disable-line
+if [[ $OSTYPE == "linux-gnu"* ]]; then
+  sed -i ':a;/^$/{$d;N;ba;}' "$OUTPUT_FILE" # spellchecker:disable-line
+elif [[ $OSTYPE == "darwin"* ]]; then
+  sed -i '' -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$OUTPUT_FILE" # spellchecker:disable-line
 else
   echo "Unknown OS: unable to ensure single trailing newline"
 fi
