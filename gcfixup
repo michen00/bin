@@ -3,7 +3,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 gcfixup() {
-    read -r -d '' HELP_MSG <<EOF
+  read -r -d '' HELP_MSG << EOF
 $SCRIPT_NAME - Create a fixup commit and automatically rebase with autosquash
 
 Usage:
@@ -25,19 +25,19 @@ Notes:
   - The rebase will stop for manual resolution if there are conflicts.
 EOF
 
-    if [[ -z "$1" || "$1" == "--help" || "$1" == "-h" ]]; then
-        echo "$HELP_MSG"
-        return 0
-    fi
+  if [[ -z $1 || $1 == "--help" || $1 == "-h" ]]; then
+    echo "$HELP_MSG"
+    return 0
+  fi
 
-    local commit_hash="$1"
-    shift  # Remove the commit hash from the arguments
+  local commit_hash="$1"
+  shift # Remove the commit hash from the arguments
 
-    if ! git commit --fixup="$commit_hash" "$@"; then
-        return 1
-    fi
+  if ! git commit --fixup="$commit_hash" "$@"; then
+    return 1
+  fi
 
-    git rebase -i --autosquash --autostash "$commit_hash"~1
+  git rebase -i --autosquash --autostash "$commit_hash"~1
 }
 
 gcfixup "$@"
