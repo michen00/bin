@@ -11,7 +11,7 @@ ci:
 repos:
   # security
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.27.0
+    rev: v8.26.0
     hooks:
       - id: gitleaks
         fail_fast: true
@@ -29,6 +29,11 @@ repos:
     rev: v3.11.0-1
     hooks:
       - id: shfmt
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        args: ["--ignore", "docs_scraper/**/maya_docs_markdown/*.md", "--fix"]
   # configuration validation
   - repo: https://github.com/python-jsonschema/check-jsonschema
     rev: "0.33.0"
@@ -40,9 +45,13 @@ repos:
     rev: v5.0.0
     hooks:
       - id: check-added-large-files
+      - id: check-ast
       - id: check-case-conflict
+      - id: check-executables-have-shebangs
       - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
       - id: check-symlinks
+      - id: check-toml
       - id: check-yaml
       - id: debug-statements
       - id: mixed-line-ending
@@ -50,12 +59,11 @@ repos:
     rev: v1.33.1
     hooks:
       - id: typos
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
-  - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.18.1
-    hooks:
-      - id: markdownlint-cli2
-        args: ["--config", ".markdownlint.yml"]
