@@ -4,15 +4,16 @@
 
 HELP=$(
   cat << EOF
-Usage: $(basename "$0") [-y] [TARGET_BRANCH]
-Usage Example: $(basename "$0") -y my-branch
+Usage: $(basename "$0") [-y] [--dry-run] [TARGET_BRANCH]
+Usage Example: $(basename "$0") -y --dry-run my-branch
 
 Arguments:
   TARGET_BRANCH  The branch to compare against for merged branches. Defaults to 'main'.
 
 Options:
-  -h, --help   Show this help message and exit.
-  -y           Automatically confirm deletion of merged and stale branches.
+  -h, --help     Show this help message and exit.
+  -y             Automatically confirm deletion of merged and stale branches.
+  --dry-run      Only show what would be deleted, without making changes.
 
 Description:
   This script performs the following actions:
@@ -25,6 +26,7 @@ EOF
 )
 
 AUTO_CONFIRM=false
+DRY_RUN=false
 TARGET_BRANCH=""
 
 # Parse options
@@ -36,6 +38,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -y)
       AUTO_CONFIRM=true
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=true
       shift
       ;;
     *)
@@ -73,7 +79,11 @@ else
   fi
   if [[ $CONFIRM =~ ^[Yy]$ ]]; then
     for BRANCH in $MERGED_BRANCHES; do
-      git branch -d "$BRANCH"
+      if $DRY_RUN; then
+        echo "[DRY-RUN] Would delete merged branch: $BRANCH"
+      else
+        git branch -d "$BRANCH"
+      fi
     done
   else
     echo "Skipping deletion of merged branches."
@@ -95,7 +105,11 @@ else
   fi
   if [[ $CONFIRM_STALE =~ ^[Yy]$ ]]; then
     for BRANCH in $STALE_BRANCHES; do
-      git branch -D "$BRANCH"
+      if $DRY_RUN; then
+        echo "[DRY-RUN] Would delete stale branch: $BRANCH"
+      else
+        git branch -D "$BRANCH"
+      fi
     done
   else
     echo "Skipping deletion of stale branches."
