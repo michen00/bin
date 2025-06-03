@@ -8,23 +8,27 @@ INCLUDE_SUMMARY=true
 
 HELP=$(
   cat << EOF
-Usage: $SCRIPT_NAME [FILE]
+Usage: $SCRIPT_NAME [HASH] [FILE]
 
-Adds the last Git commit hash to a specified file (default: $DEFAULT_FILE)
+Adds the given Git commit hash to a specified file (default: $DEFAULT_FILE).
+If HASH is not provided, the last commit hash is used.
 
 Options:
-  FILE         Specify the file to update. Defaults to "$DEFAULT_FILE".
+  HASH          Git commit hash to add. If omitted, uses the last commit.
+  FILE          File to update. Defaults to "$DEFAULT_FILE".
   --no-summary  Do not include the commit summary in the file.
-  -h, --help   Show this help message and exit.
+  -h, --help    Show this help message and exit.
 
-Example:
-  $SCRIPT_NAME                # Use $DEFAULT_FILE
-  $SCRIPT_NAME custom-file    # Use "custom-file" instead
-  $SCRIPT_NAME --no-summary   # Omit commit summary
+Examples:
+  $SCRIPT_NAME                     # Use last commit hash, update default file
+  $SCRIPT_NAME abc1234             # Use given hash, update default file
+  $SCRIPT_NAME abc1234 custom.txt  # Use given hash, update custom file
+  $SCRIPT_NAME --no-summary        # Use last commit hash, omit summary
 EOF
 )
 
 # Parse arguments
+POSITIONAL=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h | --help)
@@ -36,26 +40,37 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      FILE="$1"
+      POSITIONAL+=("$1")
       shift
       ;;
   esac
 done
+set -- "${POSITIONAL[@]}"
 
-FILE=${1:-$DEFAULT_FILE}
+HASH_ARG=${1:-}
+FILE=${2:-$DEFAULT_FILE}
 
 if [ ! -d .git ]; then
   echo "This script must be run in the root of a Git repository."
   exit 1
 fi
 
-echo "Getting the last commit hash..."
-HASH_ENTRY=$(git log -1 --pretty=format:"%H" 2> /dev/null || echo)
+if [ -z "$HASH_ARG" ]; then
+  echo "Getting the last commit hash..."
+  HASH_ENTRY=$(git log -1 --pretty=format:"%H" 2> /dev/null || echo)
+  if [ -z "$HASH_ENTRY" ]; then
+    echo "No prior commits found. Please make an initial commit before running this script."
+    exit 1
+  fi
+else
+  HASH_ENTRY="$HASH_ARG"
+fi
 
-if [ -z "$HASH_ENTRY" ]; then
-  echo "No prior commits found. Please make an initial commit before running this script."
+if ! git cat-file -e "$HASH_ENTRY" 2> /dev/null; then
+  echo "Invalid commit hash: $HASH_ENTRY"
   exit 1
 fi
+HASH_ENTRY=$(git rev-parse "$HASH_ENTRY")
 
 SHORT_HASH=$(echo "$HASH_ENTRY" | cut -c 1-7)
 
@@ -66,7 +81,7 @@ if [ -f "$FILE" ]; then
     exit 0
   fi
 else
-  echo "Creating $FILE with the last commit hash."
+  echo "Creating $FILE with commit hash."
   CREATE_MODE=1
 fi
 
@@ -87,17 +102,17 @@ fi
 STASHED=false
 if [ -n "$(git diff --cached)" ]; then
   echo "There are staged changes. Stashing them temporarily..."
-  git stash push -k -m "Temporary stash for add-last-commit-hash"
+  git stash push -k -m "Temporary stash for $SCRIPT_NAME"
   STASHED=true
   echo "Staged changes stashed."
 fi
 
 {
   if [[ $INCLUDE_SUMMARY == true ]]; then
-    HASH_ENTRY+="  # $(git log -1 --pretty=%s)"
+    SUMMARY=$(git log -1 --format=%s "$HASH_ENTRY" 2> /dev/null || echo "summary unavailable")
+    HASH_ENTRY="$HASH_ENTRY  # $SUMMARY"
   fi
   echo "$HASH_ENTRY" >> "$FILE"
-
   git add "$FILE"
   COMMIT_MSG="docs(blame): ignore $SHORT_HASH"
 
@@ -114,10 +129,10 @@ fi
 
   git commit --no-verify -m "$COMMIT_MSG"
   echo "Successfully updated and committed $FILE."
-  UPDATED=true
 } || {
   echo "Failed to update $FILE. Resolve manually."
-  UPDATED=false
+  if [ "$STASHED" = true ]; then git stash pop || echo "Failed to apply stashed changes."; fi
+  exit 1
 }
 
 if [ "$STASHED" = true ]; then
@@ -126,8 +141,4 @@ if [ "$STASHED" = true ]; then
     echo "Failed to apply stashed changes. Resolve manually."
     exit 1
   }
-fi
-
-if [ "$UPDATED" = false ]; then
-  exit 1
 fi
