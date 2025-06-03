@@ -6,31 +6,31 @@ This is a collection of scripts that I use to automate my workflow. I wrote them
 
 Clone the repository:
 
-```bash
+```sh
 git clone git@github.com:michen00/bin.git
 ```
 
 Copy its contents to your `bin` directory:
 
-```bash
+```sh
 cp -r ./bin/* ~/bin
 ```
 
 Alternatively, you can create a symbolic link to the `bin` directory:
 
-```bash
+```sh
 ln -s ./bin ~/bin
 ```
 
 Add the `bin` directory to your `PATH`
 
-```bash
+```sh
 export PATH="$HOME/bin:$PATH"
 ```
 
 Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, `~/bash_profile`, etc.; it might already be there) and `source` it. For example, for zsh:
 
-```bash
+```sh
 . ~/.zshrc
 ```
 
