@@ -36,7 +36,7 @@ repos:
         args: ["--ignore", "docs_scraper/**/maya_docs_markdown/*.md", "--fix"]
   # configuration validation
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: "0.33.1"
+    rev: "0.33.2"
     hooks:
       - id: check-dependabot
       - id: check-github-workflows
@@ -55,7 +55,7 @@ repos:
       - id: check-yaml
       - id: mixed-line-ending
   - repo: https://github.com/crate-ci/typos
-    rev: v1
+    rev: v1.34.0
     hooks:
       - id: typos
   - repo: https://github.com/codespell-project/codespell
