@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
-  cat <<EOF
+	cat <<EOF
 Usage: $SCRIPT_NAME [-a] [directory]
 
 Displays the size of files and subdirectories in the specified directory,
@@ -22,7 +22,7 @@ Examples:
   $SCRIPT_NAME .
   $SCRIPT_NAME -a /home/user
 EOF
-  exit 0
+	exit 0
 }
 
 # Default behavior (show directories only)
@@ -30,12 +30,12 @@ FILES_TOO=""
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-  -a) FILES_TOO="-a" ;; # Enable file size display
-  -h | --help) usage ;; # Show help and exit
-  *) TARGET_DIR="$1" ;; # Assume anything else is the directory argument
-  esac
-  shift
+	case "$1" in
+	-a) FILES_TOO="-a" ;; # Enable file size display
+	-h | --help) usage ;; # Show help and exit
+	*) TARGET_DIR="$1" ;; # Assume anything else is the directory argument
+	esac
+	shift
 done
 
 # Default to the current directory if no path is given
@@ -43,8 +43,8 @@ TARGET_DIR="${TARGET_DIR:-.}"
 
 # Ensure the given path exists and is a directory
 if [[ ! -d $TARGET_DIR ]]; then
-  echo "Error: '$TARGET_DIR' is not a valid directory." >&2
-  exit 1
+	echo "Error: '$TARGET_DIR' is not a valid directory." >&2
+	exit 1
 fi
 
 # Run the disk usage command with optional file inclusion
