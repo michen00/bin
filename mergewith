@@ -3,7 +3,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
-	cat <<EOF
+  cat <<EOF
 Usage: $SCRIPT_NAME [OPTIONS] <reference_branch>
 
 Merges the latest changes from a reference branch into the current branch.
@@ -24,73 +24,73 @@ Examples:
   $SCRIPT_NAME main
   $SCRIPT_NAME feature-branch
 EOF
-	exit 0
+  exit 0
 }
 
 reference_branch=""
 while [[ $# -gt 0 ]]; do
-	case "$1" in
-	-h | --help)
-		usage
-		;;
-	-*)
-		echo "Error: Unknown option '$1'" >&2
-		usage
-		;;
-	*)
-		if [[ -n $reference_branch ]]; then
-			echo "Error: Multiple reference branches provided: '$reference_branch' and '$1'" >&2
-			usage
-		fi
-		reference_branch="$1"
-		;;
-	esac
-	shift
+  case "$1" in
+  -h | --help)
+    usage
+    ;;
+  -*)
+    echo "Error: Unknown option '$1'" >&2
+    usage
+    ;;
+  *)
+    if [[ -n $reference_branch ]]; then
+      echo "Error: Multiple reference branches provided: '$reference_branch' and '$1'" >&2
+      usage
+    fi
+    reference_branch="$1"
+    ;;
+  esac
+  shift
 done
 
 # Ensure exactly one reference branch is provided
 if [[ -z $reference_branch ]]; then
-	echo "Error: No reference branch specified." >&2
-	usage
+  echo "Error: No reference branch specified." >&2
+  usage
 fi
 
 # Ensure this is a git repository
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-	echo "Error: Not inside a git repository."
-	exit 1
+  echo "Error: Not inside a git repository."
+  exit 1
 fi
 
 # Capture the current branch name
 if ! current_branch=$(git branch --show-current); then
-	echo "Error: Failed to determine the current git branch."
-	exit 1
+  echo "Error: Failed to determine the current git branch."
+  exit 1
 fi
 
 echo "Current branch is $current_branch"
 
 echo "Pulling latest changes for $current_branch"
 if ! git pull; then
-	echo "Error: Failed to pull the latest changes for branch '$current_branch'."
-	exit 1
+  echo "Error: Failed to pull the latest changes for branch '$current_branch'."
+  exit 1
 fi
 
 if [[ $current_branch == "$reference_branch" ]]; then
-	echo "Warning: The current branch and reference branch are the same: '$current_branch'" >&2
-	exit 0
+  echo "Warning: The current branch and reference branch are the same: '$current_branch'" >&2
+  exit 0
 fi
 
 # Ensure the reference branch is up to date
 echo "Fetching latest changes for $reference_branch"
 if ! git fetch origin "$reference_branch"; then
-	echo "Error: Failed to fetch latest changes for '$reference_branch'."
-	exit 1
+  echo "Error: Failed to fetch latest changes for '$reference_branch'."
+  exit 1
 fi
 
 # Merge the reference branch into the current branch
 echo "Merging $reference_branch into $current_branch"
 if ! git merge origin/"$reference_branch"; then
-	echo "Error: Failed to merge branch '$reference_branch' into '$current_branch'."
-	exit 1
+  echo "Error: Failed to merge branch '$reference_branch' into '$current_branch'."
+  exit 1
 fi
 
 echo "Successfully updated $current_branch with changes from $reference_branch."

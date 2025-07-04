@@ -5,7 +5,7 @@ RECURSIVE=false
 TARGET_DIR=""
 
 usage() {
-	cat <<EOF
+  cat <<EOF
 Usage: $SCRIPT_NAME [OPTIONS] <directory>
 
 Adds executable permission to scripts in the specified directory. If a file starts with
@@ -23,61 +23,61 @@ Examples:
   $SCRIPT_NAME -r mydir   # Process subdirectories as well
   $SCRIPT_NAME mydir -r
 EOF
-	exit "$1"
+  exit "$1"
 }
 
 # Parse arguments manually to allow flexible order
 while [[ $# -gt 0 ]]; do
-	case "$1" in
-	-h | --help)
-		usage 0
-		;;
-	-r)
-		RECURSIVE=true
-		;;
-	-*)
-		echo "Error: Unknown option '$1'" >&2
-		usage 1
-		;;
-	*)
-		if [[ -n $TARGET_DIR ]]; then
-			echo "Error: Multiple directories specified: '$TARGET_DIR' and '$1'" >&2
-			usage 1
-		fi
-		TARGET_DIR="$1"
-		;;
-	esac
-	shift
+  case "$1" in
+  -h | --help)
+    usage 0
+    ;;
+  -r)
+    RECURSIVE=true
+    ;;
+  -*)
+    echo "Error: Unknown option '$1'" >&2
+    usage 1
+    ;;
+  *)
+    if [[ -n $TARGET_DIR ]]; then
+      echo "Error: Multiple directories specified: '$TARGET_DIR' and '$1'" >&2
+      usage 1
+    fi
+    TARGET_DIR="$1"
+    ;;
+  esac
+  shift
 done
 
 # Ensure exactly one directory is provided
 if [[ -z $TARGET_DIR ]]; then
-	echo "Error: No directory specified." >&2
-	usage 1
+  echo "Error: No directory specified." >&2
+  usage 1
 fi
 
 if [[ ! -d $TARGET_DIR ]]; then
-	echo "Error: '$TARGET_DIR' is not a directory." >&2
-	exit 1
+  echo "Error: '$TARGET_DIR' is not a directory." >&2
+  exit 1
 fi
 
 process_directory() {
-	local dir="$1"
-	# Iterate over both normal and hidden files/directories
-	for file in "$dir"/.* "$dir"/*; do
-		# Skip if file doesn't exist (handles empty dirs) or if it's `.` or `..`
-		[[ -e $file && $file != "$dir/." && $file != "$dir/.." ]] || continue
-		if [[ -f $file ]]; then
-			# Check if the first line starts with #!
-			if head -n 1 "$file" | grep -q '^#!'; then
-				chmod +x "$file"
-				echo "Added executable permission to: $file"
-			fi
-		elif [[ -d $file && $RECURSIVE == true ]]; then
-			# Recursively process subdirectories
-			process_directory "$file"
-		fi
-	done
+  local dir="$1"
+  # Iterate over both normal and hidden files/directories
+  for file in "$dir"/.* "$dir"/*; do
+    # Skip if file doesn't exist (handles empty dirs) or if it's `.` or `..`
+    [[ -e $file && $file != "$dir/." && $file != "$dir/.." ]] || continue
+    if [[ -f $file ]]; then
+      # Check if the first line starts with #!
+      if head -n 1 "$file" | grep -q '^#!'; then
+        chmod +x "$file"
+        echo "Added executable permission to: $file"
+      fi
+    elif [[ -d $file && $RECURSIVE == true ]]; then
+      # Recursively process subdirectories
+      process_directory "$file"
+    fi
+  done
 }
 
 process_directory "$TARGET_DIR"
