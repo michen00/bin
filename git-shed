@@ -3,7 +3,7 @@
 # original author: @ragavi-ashok
 
 HELP=$(
-	cat <<EOF
+  cat <<EOF
 Usage: $(basename "$0") [-y] [--dry-run] [TARGET_BRANCH]
 Usage Example: $(basename "$0") -y --dry-run my-branch
 
@@ -31,31 +31,31 @@ TARGET_BRANCH=""
 
 # Parse options
 while [[ $# -gt 0 ]]; do
-	case "$1" in
-	-h | --help)
-		echo "$HELP"
-		exit 0
-		;;
-	-y)
-		AUTO_CONFIRM=true
-		shift
-		;;
-	--dry-run)
-		DRY_RUN=true
-		shift
-		;;
-	*)
-		TARGET_BRANCH="$1"
-		shift
-		;;
-	esac
+  case "$1" in
+  -h | --help)
+    echo "$HELP"
+    exit 0
+    ;;
+  -y)
+    AUTO_CONFIRM=true
+    shift
+    ;;
+  --dry-run)
+    DRY_RUN=true
+    shift
+    ;;
+  *)
+    TARGET_BRANCH="$1"
+    shift
+    ;;
+  esac
 done
 
 TARGET_BRANCH=${TARGET_BRANCH:-main}
 
 if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
-	echo "Error: Branch '$TARGET_BRANCH' does not exist."
-	exit 1
+  echo "Error: Branch '$TARGET_BRANCH' does not exist."
+  exit 1
 fi
 
 echo "Fetching latest remote info and pruning..."
@@ -63,57 +63,57 @@ git fetch --prune
 
 # Identify local branches fully merged into the target branch.
 MERGED_BRANCHES=$(git branch --merged "$TARGET_BRANCH" |
-	grep -v "$TARGET_BRANCH" |
-	grep -v "^\*" |
-	sed 's/^  //')
+  grep -v "$TARGET_BRANCH" |
+  grep -v "^\*" |
+  sed 's/^  //')
 
 if [ -z "$MERGED_BRANCHES" ]; then
-	echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
+  echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
 else
-	echo "The following branches are fully merged into '$TARGET_BRANCH':"
-	echo "$MERGED_BRANCHES"
-	if $AUTO_CONFIRM; then
-		CONFIRM="y"
-	else
-		read -r -p "Do you want to delete these merged branches? [y/N]: " CONFIRM
-	fi
-	if [[ $CONFIRM =~ ^[Yy]$ ]]; then
-		for BRANCH in $MERGED_BRANCHES; do
-			if $DRY_RUN; then
-				echo "[DRY-RUN] Would delete merged branch: $BRANCH"
-			else
-				git branch -d "$BRANCH"
-			fi
-		done
-	else
-		echo "Skipping deletion of merged branches."
-	fi
+  echo "The following branches are fully merged into '$TARGET_BRANCH':"
+  echo "$MERGED_BRANCHES"
+  if $AUTO_CONFIRM; then
+    CONFIRM="y"
+  else
+    read -r -p "Do you want to delete these merged branches? [y/N]: " CONFIRM
+  fi
+  if [[ $CONFIRM =~ ^[Yy]$ ]]; then
+    for BRANCH in $MERGED_BRANCHES; do
+      if $DRY_RUN; then
+        echo "[DRY-RUN] Would delete merged branch: $BRANCH"
+      else
+        git branch -d "$BRANCH"
+      fi
+    done
+  else
+    echo "Skipping deletion of merged branches."
+  fi
 fi
 
 # Identify local branches that no longer have a remote.
 STALE_BRANCHES=$(git branch -v | grep '\[gone\]' | awk '{print $1}')
 
 if [ -z "$STALE_BRANCHES" ]; then
-	echo "No stale branches (i.e., branches with no remote) found."
+  echo "No stale branches (i.e., branches with no remote) found."
 else
-	echo "The following branches have no remote and might be stale:"
-	echo "$STALE_BRANCHES"
-	if $AUTO_CONFIRM; then
-		CONFIRM_STALE="y"
-	else
-		read -r -p "Do you want to delete these stale branches? [y/N]: " CONFIRM_STALE
-	fi
-	if [[ $CONFIRM_STALE =~ ^[Yy]$ ]]; then
-		for BRANCH in $STALE_BRANCHES; do
-			if $DRY_RUN; then
-				echo "[DRY-RUN] Would delete stale branch: $BRANCH"
-			else
-				git branch -D "$BRANCH"
-			fi
-		done
-	else
-		echo "Skipping deletion of stale branches."
-	fi
+  echo "The following branches have no remote and might be stale:"
+  echo "$STALE_BRANCHES"
+  if $AUTO_CONFIRM; then
+    CONFIRM_STALE="y"
+  else
+    read -r -p "Do you want to delete these stale branches? [y/N]: " CONFIRM_STALE
+  fi
+  if [[ $CONFIRM_STALE =~ ^[Yy]$ ]]; then
+    for BRANCH in $STALE_BRANCHES; do
+      if $DRY_RUN; then
+        echo "[DRY-RUN] Would delete stale branch: $BRANCH"
+      else
+        git branch -D "$BRANCH"
+      fi
+    done
+  else
+    echo "Skipping deletion of stale branches."
+  fi
 fi
 
 echo "Done."
