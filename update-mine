@@ -8,7 +8,7 @@ SCRIPT_NAME=$(basename "$0")
 
 # Function to display usage information
 usage() {
-  cat <<EOF
+	cat <<EOF
 Usage: $SCRIPT_NAME [--debug] [--all] <reference_branch>
 
 Updates branches with open pull requests authored by you by:
@@ -30,56 +30,56 @@ Examples:
   $SCRIPT_NAME --all main
   $SCRIPT_NAME --debug --all main
 EOF
-  exit 0
+	exit 0
 }
 
 # Parse command-line arguments
 reference_branch=""
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-  --debug)
-    debug=true
-    shift
-    ;;
-  --all)
-    all_branches=true
-    shift
-    ;;
-  --help)
-    usage
-    ;;
-  -*)
-    echo "Unknown option: $1" >&2
-    usage
-    ;;
-  *)
-    if [ -z "$reference_branch" ]; then
-      reference_branch="$1"
-    else
-      echo "Error: Multiple reference branches specified: '$reference_branch' and '$1'" >&2
-      usage
-    fi
-    shift
-    ;;
-  esac
+	case "$1" in
+	--debug)
+		debug=true
+		shift
+		;;
+	--all)
+		all_branches=true
+		shift
+		;;
+	--help)
+		usage
+		;;
+	-*)
+		echo "Unknown option: $1" >&2
+		usage
+		;;
+	*)
+		if [ -z "$reference_branch" ]; then
+			reference_branch="$1"
+		else
+			echo "Error: Multiple reference branches specified: '$reference_branch' and '$1'" >&2
+			usage
+		fi
+		shift
+		;;
+	esac
 done
 
 # Validate that a reference branch was provided
 if [ -z "$reference_branch" ]; then
-  echo "Error: Missing <reference_branch> argument." >&2
-  echo "Use --help for usage information." >&2
-  exit 1
+	echo "Error: Missing <reference_branch> argument." >&2
+	echo "Use --help for usage information." >&2
+	exit 1
 fi
 
 # Enable debugging if --debug flag is set
 if [ "$debug" = true ]; then
-  set -x
+	set -x
 fi
 
 # Ensure we are inside a Git repository
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "Error: Not inside a Git repository." >&2
-  exit 1
+	echo "Error: Not inside a Git repository." >&2
+	exit 1
 fi
 
 # Fetch latest remote branches to avoid using stale references
@@ -87,34 +87,34 @@ git remote update >/dev/null 2>&1
 
 # Determine the list of branches to update
 if [ "$all_branches" = true ]; then
-  echo "Fetching all non-protected active branches authored by you..."
-  branches=$(gh api repos/:owner/:repo/branches --paginate --jq '.[] | select(.protected == false) | .name')
+	echo "Fetching all non-protected active branches authored by you..."
+	branches=$(gh api repos/:owner/:repo/branches --paginate --jq '.[] | select(.protected == false) | .name')
 else
-  echo "Fetching branches with open PRs authored by you..."
-  branches=$(gh pr list --author "@me" --state open --json headRefName -q '.[].headRefName')
+	echo "Fetching branches with open PRs authored by you..."
+	branches=$(gh pr list --author "@me" --state open --json headRefName -q '.[].headRefName')
 fi
 
 # Iterate through branches and update them
 echo "$branches" | while read -r branch; do
-  echo "Processing branch: $branch"
+	echo "Processing branch: $branch"
 
-  # Checkout the branch
-  if ! git checkout "$branch"; then
-    echo "Error: Failed to checkout branch $branch. Skipping..."
-    continue
-  fi
+	# Checkout the branch
+	if ! git checkout "$branch"; then
+		echo "Error: Failed to checkout branch $branch. Skipping..."
+		continue
+	fi
 
-  # Merge the reference branch into the current branch
-  if ! mergewith "$reference_branch"; then
-    echo "Error: Failed to merge $reference_branch into $branch. Skipping..."
-    git merge --abort >/dev/null 2>&1
-    continue
-  fi
+	# Merge the reference branch into the current branch
+	if ! mergewith "$reference_branch"; then
+		echo "Error: Failed to merge $reference_branch into $branch. Skipping..."
+		git merge --abort >/dev/null 2>&1
+		continue
+	fi
 
-  # Push the updated branch
-  if git push origin "$branch"; then
-    echo "Successfully updated and pushed branch: $branch"
-  else
-    echo "Error: Failed to push branch $branch. Skipping..."
-  fi
+	# Push the updated branch
+	if git push origin "$branch"; then
+		echo "Successfully updated and pushed branch: $branch"
+	else
+		echo "Error: Failed to push branch $branch. Skipping..."
+	fi
 done
