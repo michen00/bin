@@ -8,6 +8,7 @@ insert_final_newline = true
 [*.{bash,sh}]
 indent_size = 2
 indent_style = space
+simplify = true
 space_redirects = true
 switch_case_indent = true
 
