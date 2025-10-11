@@ -1,20 +1,33 @@
 #!/bin/bash
 
-# This script concatenates multiple .gitignore templates from GitHub into a single file.
-# It fetches the raw content of each template and appends it to the output file.
-# URLs can be provided via stdin, from a file, or default to hardcoded values.
-# The output file name can also be specified, with a default of `.gitignore`.
-
-# Usage:
-#   cat urls.txt | scripts/concat_gitignores.sh
-#   cat urls.txt | scripts/concat_gitignores.sh --output custom.output.gitignore
-#   scripts/concat_gitignores.sh
-#   scripts/concat_gitignores.sh --output custom.output.gitignore
-#   scripts/concat_gitignores.sh urls.txt
-#   scripts/concat_gitignores.sh urls.txt --output custom.output.gitignore
-
-# Debugging flag
 set -e # Exit on errors
+
+SCRIPT_NAME=$(basename "$0")
+
+usage() {
+  cat << EOF
+Usage: $SCRIPT_NAME [--output <output_file>] [<input_file>]
+
+Concatenate multiple .gitignore templates into a single file by fetching
+template URLs from stdin, a file, or built-in defaults.
+
+Inputs:
+  stdin            Read URLs from standard input when piped.
+  <input_file>     Optional file containing one URL per line.
+
+Options:
+  --output <file>  Destination file name. Defaults to .gitignore.
+  -h, --help       Show this help message and exit.
+
+Examples:
+  cat urls.txt | $SCRIPT_NAME
+  cat urls.txt | $SCRIPT_NAME --output custom.output.gitignore
+  $SCRIPT_NAME
+  $SCRIPT_NAME urls.txt
+  $SCRIPT_NAME urls.txt --output custom.output.gitignore
+EOF
+  exit "${1:-0}"
+}
 
 # Hardcoded URLs (used if no input is provided)
 DEFAULT_URLS=(
@@ -45,17 +58,27 @@ URLS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output)
+      if [[ -z ${2:-} ]]; then
+        echo "Error: --output requires a file name." >&2
+        usage 1
+      fi
       OUTPUT_FILE="$2"
       shift 2
+      ;;
+    -h | --help)
+      usage 0
+      ;;
+    --*)
+      echo "Unknown option: $1" >&2
+      usage 1
       ;;
     *)
       if [[ -z $INPUT_FILE ]]; then
         INPUT_FILE="$1"
         shift
       else
-        echo "Unknown argument: $1"
-        echo "Usage: $0 [<input_file>] [--output <output_file>]"
-        exit 1
+        echo "Error: Multiple input files specified: '$INPUT_FILE' and '$1'" >&2
+        usage 1
       fi
       ;;
   esac
