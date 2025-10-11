@@ -143,4 +143,5 @@ else
   echo "Unknown OS: unable to ensure single trailing newline"
 fi
 
+echo -e "\n!.gitkeep" >> "$OUTPUT_FILE"
 echo "Combined .gitignore created as $OUTPUT_FILE"
