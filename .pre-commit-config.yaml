@@ -55,7 +55,7 @@ repos:
       - id: check-yaml
       - id: mixed-line-ending
   - repo: https://github.com/crate-ci/typos
-    rev: v1
+    rev: typos-dict-v0.13.13
     hooks:
       - id: typos
   - repo: https://github.com/codespell-project/codespell
