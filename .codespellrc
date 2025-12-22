@@ -1,0 +1,4 @@
+[codespell]
+skip = .git,node_modules
+check-hidden = true
+builtin = clear,rare,usage
