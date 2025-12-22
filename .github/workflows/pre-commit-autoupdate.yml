@@ -36,7 +36,7 @@ jobs:
           CACHE_NUMBER: 0
         with:
           path: ~/.cache/pre-commit
-          key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}-${{ env.CACHE_NUMBER }}
+          key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}-${{ env.CACHE_NUMBER }} # yamllint disable-line rule:line-length
       - name: Install pre-commit hooks
         if: steps.cache-pre-commit.outputs.cache-hit != 'true'
         run: |
@@ -52,7 +52,7 @@ jobs:
       - name: Test updated pre-commit hooks
         run: |
           if ! pre-commit run --all-files; then
-            echo "Pre-commit hooks failed. Please review the log above for details." >&2
+            echo "Pre-commit hooks failed. Please review the log for details." >&2
             exit 1
           fi
       - name: Push changes and create PR
