@@ -8,20 +8,63 @@ ci:
 
     for more information, see https://pre-commit.ci
 
+default_stages: [pre-commit]
 repos:
-  # security
+  # maintenance
+  - repo: https://github.com/pre-commit/sync-pre-commit-deps
+    rev: v0.0.3
+    hooks:
+      - id: sync-pre-commit-deps
+
+  # security (fail fast)
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
     hooks:
       - id: gitleaks
         fail_fast: true
-  # formatters & fixers
+  - repo: https://github.com/thoughtworks/talisman
+    rev: v1.37.0
+    hooks:
+      - id: talisman-push # pre-push
+        fail_fast: true
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: detect-private-key
+        fail_fast: true
+
+  # git commit policy
+  - repo: https://github.com/michen00/custom-commit-hooks
+    rev: v0.0.0
+    hooks:
+      - id: enhance-scope # commit-msg
+      - id: conventional-merge-commit # prepare-commit-msg
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.19.1
+    hooks:
+      - id: gitlint
+
+  # hygiene (cheap, non-formatting)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: mixed-line-ending
+
+  # formatting before linting
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: "v3.7.4"
+    rev: v3.7.4
     hooks:
       - id: prettier
         types_or: [yaml, markdown, html, css, scss, javascript, json]
@@ -33,29 +76,23 @@ repos:
     rev: v0.47.0
     hooks:
       - id: markdownlint
-        args: ["--ignore", "docs_scraper/**/maya_docs_markdown/*.md", "--fix"]
-  # configuration validation
-  - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: "0.36.0"
-    hooks:
-      - id: check-dependabot
-      - id: check-github-workflows
-  # general checks & linting
+        args: ["--fix"]
+
+  # linting
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      - id: check-added-large-files
-      - id: check-ast
-      - id: check-case-conflict
-      - id: check-executables-have-shebangs
-      - id: check-merge-conflict
-      - id: check-shebang-scripts-are-executable
-      - id: check-symlinks
+      - id: check-json
       - id: check-toml
       - id: check-yaml
-      - id: mixed-line-ending
+
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: [--strict]
   - repo: https://github.com/crate-ci/typos
-    rev: v1
+    rev: typos-dict-v0.13.13
     hooks:
       - id: typos
   - repo: https://github.com/codespell-project/codespell
@@ -66,3 +103,19 @@ repos:
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.9
+    hooks:
+      - id: actionlint
+
+  # configuration validation
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.24.1
+    hooks:
+      - id: validate-pyproject
+        additional_dependencies: ["validate-pyproject-schema-store[all]"]
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.36.0
+    hooks:
+      - id: check-dependabot
+      - id: check-github-workflows
