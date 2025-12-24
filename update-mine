@@ -96,7 +96,15 @@ else
 fi
 
 # Iterate through branches and update them
+if [ -z "$branches" ]; then
+	echo "No branches found."
+	exit 0
+fi
+
 echo "$branches" | while read -r branch; do
+	# Skip empty lines
+	[ -z "$branch" ] && continue
+
 	echo "Processing branch: $branch"
 
 	# Checkout the branch
