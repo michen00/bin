@@ -49,10 +49,8 @@ load 'test_helper'
 	mkdir -p testdir
 	echo "content" >testdir/file.txt
 
-	# On macOS, du -a and -d are mutually exclusive, so this will fail
-	# This test documents the current behavior
 	run "$SCRIPTS_DIR/how-big" -a testdir
-	# On macOS this fails (exit 64), on Linux it might work
-	# Just verify the script runs (may fail on some systems)
-	[[ "$status" -eq 0 || "$status" -eq 64 ]]
+	[ "$status" -eq 0 ]
+	# Verify it shows the file (cross-platform fix uses find + du)
+	assert_output_contains "file.txt"
 }

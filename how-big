@@ -26,14 +26,14 @@ EOF
 }
 
 # Default behavior (show directories only)
-FILES_TOO=""
+SHOW_FILES=false
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-	-a) FILES_TOO="-a" ;; # Enable file size display
-	-h | --help) usage ;; # Show help and exit
-	*) TARGET_DIR="$1" ;; # Assume anything else is the directory argument
+	-a) SHOW_FILES=true ;; # Enable file size display
+	-h | --help) usage ;;  # Show help and exit
+	*) TARGET_DIR="$1" ;;  # Assume anything else is the directory argument
 	esac
 	shift
 done
@@ -48,4 +48,12 @@ if [[ ! -d $TARGET_DIR ]]; then
 fi
 
 # Run the disk usage command with optional file inclusion
-du $FILES_TOO -h -d 1 "$TARGET_DIR" | sort -hr
+if [[ $SHOW_FILES == true ]]; then
+	# Cross-platform: use find + du for files, then du for directories
+	{
+		find "$TARGET_DIR" -maxdepth 1 -type f -exec du -h {} +
+		du -h -d 1 "$TARGET_DIR"
+	} 2>/dev/null | sort -hr | uniq
+else
+	du -h -d 1 "$TARGET_DIR" | sort -hr
+fi
