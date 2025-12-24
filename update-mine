@@ -19,7 +19,8 @@ Updates branches with open pull requests authored by you by:
 
 Options:
   --debug   Enable debugging output.
-  --all     Update all active branches on the remote authored by you.
+  --all     Update ALL non-protected branches on the remote (not just yours).
+            Use with caution - this may update branches owned by others.
   --help    Show this help message and exit.
 
 Arguments:
@@ -88,7 +89,7 @@ git remote update >/dev/null 2>&1
 
 # Determine the list of branches to update
 if [ "$all_branches" = true ]; then
-	echo "Fetching all non-protected active branches authored by you..."
+	echo "Fetching all non-protected branches (use with caution)..."
 	branches=$(gh api repos/:owner/:repo/branches --paginate --jq '.[] | select(.protected == false) | .name')
 else
 	echo "Fetching branches with open PRs authored by you..."
