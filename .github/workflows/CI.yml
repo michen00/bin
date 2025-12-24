@@ -33,14 +33,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           check-latest: true
-          cache: "pip"
       - name: Install pre-commit
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install --upgrade pre-commit
-      - name: Set cache date
-        run: |
-          echo "DATE=$(date +'%Y%m%d')" >> "$GITHUB_ENV"
       - name: Cache pre-commit hooks
         id: cache-pre-commit-hooks
         uses: actions/cache@v5
@@ -48,7 +44,7 @@ jobs:
           CACHE_NUMBER: 1
         with:
           path: ~/.cache/pre-commit
-          key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}-${{ env.DATE }}-${{ env.CACHE_NUMBER }} # yamllint disable-line rule:line-length
+          key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}-${{ env.CACHE_NUMBER }} # yamllint disable-line rule:line-length
       - name: Install pre-commit hooks
         if: steps.cache-pre-commit-hooks.outputs.cache-hit != 'true'
         run: |
