@@ -17,13 +17,14 @@ load 'test_helper'
 	run "$SCRIPTS_DIR/mergewith" -h
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
+	assert_output_contains "reference_branch"
 }
 
 @test "mergewith: fails when no reference branch specified" {
 	setup_git_repo
 
 	run "$SCRIPTS_DIR/mergewith"
-	[ "$status" -eq 0 ] # usage exits with 0
+	[ "$status" -ne 0 ]
 	assert_output_contains "reference_branch"
 }
 
@@ -51,6 +52,6 @@ load 'test_helper'
 
 @test "mergewith: fails with unknown option" {
 	run "$SCRIPTS_DIR/mergewith" --unknown
-	[ "$status" -eq 0 ] # usage exits with 0
+	[ "$status" -ne 0 ]
 	assert_output_contains "Unknown option"
 }

@@ -17,6 +17,7 @@ load 'test_helper'
 	run "$SCRIPTS_DIR/how-big" -h
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
+	assert_output_contains "directory"
 }
 
 @test "how-big: fails when directory does not exist" {
