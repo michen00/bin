@@ -21,13 +21,13 @@ ifneq ($(shell command -v prek >/dev/null 2>&1 && echo y),)
     endif
 endif
 
-# Terminal formatting (tput with fallbacks)
+# Terminal formatting (tput with fallbacks to ANSI codes)
 _COLOR  := $(shell tput sgr0 2>/dev/null || echo "\033[0m")
 BOLD    := $(shell tput bold 2>/dev/null || echo "\033[1m")
-CYAN    := $(shell tput setaf 6 2>/dev/null || echo "\033[36m")
-GREEN   := $(shell tput setaf 2 2>/dev/null || echo "\033[32m")
-RED     := $(shell tput setaf 1 2>/dev/null || echo "\033[31m")
-YELLOW  := $(shell tput setaf 3 2>/dev/null || echo "\033[33m")
+CYAN    := $(shell tput setaf 6 2>/dev/null || echo "\033[0;36m")
+GREEN   := $(shell tput setaf 2 2>/dev/null || echo "\033[0;32m")
+RED     := $(shell tput setaf 1 2>/dev/null || echo "\033[0;31m")
+YELLOW  := $(shell tput setaf 3 2>/dev/null || echo "\033[0;33m")
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -52,7 +52,7 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
         git config --local --add include.path "$(CURDIR)/.gitconfigs/alias"; \
     fi
 	@git config blame.ignoreRevsFile .git-blame-ignore-revs
-	@git lfs install --local; \
+	@command -v git-lfs >/dev/null 2>&1 && git lfs install --local || true; \
        current_branch=$$(git branch --show-current) && \
        if ! git diff --quiet || ! git diff --cached --quiet; then \
            git stash push -m "Auto stash before switching to main"; \
@@ -61,7 +61,7 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
            stash_was_needed=0; \
        fi; \
        git switch main && git pull && \
-       git lfs pull && git switch $$current_branch; \
+       (command -v git-lfs >/dev/null 2>&1 && git lfs pull || true) && git switch "$$current_branch"; \
        if [ $$stash_was_needed -eq 1 ]; then \
            git stash pop; \
        fi
