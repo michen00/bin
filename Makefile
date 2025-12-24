@@ -88,7 +88,7 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
        fi; \
        if [ $$stash_was_needed -eq 1 ]; then \
            if ! git stash pop; then \
-               echo "$(YELLOW)Warning: Failed to reapply stashed changes.$(_COLOR)" >&2; \
+               echo "$(RED)Error: Failed to reapply stashed changes.$(_COLOR)" >&2; \
                exit 1; \
            fi; \
        fi
