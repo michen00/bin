@@ -80,11 +80,18 @@ import sys
 # final path component to exist.
 print(os.path.realpath(sys.argv[1]))
 EOF
-)"
+)" || {
+	echo "Error: Failed to resolve path '$VENV_DIR'" >&2
+	return-or-exit 1
+}
+
+# Get current directory for comparison
+CURRENT_DIR="$(pwd -P)"
 
 if [[ "$VENV_DIR" == "" || "$VENV_DIR" == "." || "$VENV_DIR" == ".." || \
       "$VENV_DIR" == "/" || "$VENV_DIR" == "~" || \
-      "$RESOLVED_VENV_DIR" == "$HOME" || "$RESOLVED_VENV_DIR" == "/" ]]; then
+      "$RESOLVED_VENV_DIR" == "$HOME" || "$RESOLVED_VENV_DIR" == "/" || \
+      "$RESOLVED_VENV_DIR" == "$CURRENT_DIR" ]]; then
 	echo "Error: Refusing to use dangerous path: '$VENV_DIR' (resolves to '$RESOLVED_VENV_DIR')" >&2
 	return-or-exit 1
 fi

@@ -95,7 +95,7 @@ fi
 
 # Identify local branches that no longer have a remote.
 # Use sed to strip leading whitespace and *, then awk to get branch name
-STALE_BRANCHES=$(git branch -v | grep '\[gone\]' | sed 's/^[* ][* ]*//' | awk '{print $1}')
+STALE_BRANCHES=$(git branch -v | grep '\[gone\]' | sed 's/^[* ]\+//' | awk '{print $1}')
 
 if [ -z "$STALE_BRANCHES" ]; then
 	echo "No stale branches (i.e., branches with no remote) found."
