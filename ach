@@ -104,7 +104,7 @@ if [ -n "$(git diff --cached)" ]; then
 	echo "There are staged changes. Stashing them temporarily..."
 	git stash push -k -m "Temporary stash for $SCRIPT_NAME"
 	STASHED=true
-	echo "Staged changes stashed."
+	echo "Staged changes stashed (kept in index)."
 fi
 
 {
