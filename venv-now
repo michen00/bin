@@ -74,12 +74,12 @@ fi
 # even if the directory does not exist yet.
 RESOLVED_VENV_DIR="$(
 	"$PYTHON_CMD" - "$VENV_DIR" <<'EOF'
-import os
+from pathlib import Path
 import sys
 
-# os.path.realpath resolves '..' and symlinks without requiring the
-# final path component to exist.
-print(os.path.realpath(sys.argv[1]))
+# Path.resolve() resolves '..' and symlinks without requiring the
+# final path component to exist (strict=False is the default in 3.6+).
+print(Path(sys.argv[1]).resolve())
 EOF
 )" || {
 	echo "Error: Failed to resolve path '$VENV_DIR'" >&2
