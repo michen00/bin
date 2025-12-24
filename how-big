@@ -1,5 +1,6 @@
 #!/bin/bash
-set -euo pipefail
+set -eu
+# Note: pipefail intentionally omitted to show partial results on permission errors
 
 SCRIPT_NAME=$(basename "$0")
 
