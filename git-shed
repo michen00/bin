@@ -63,9 +63,9 @@ git fetch --prune
 
 # Identify local branches fully merged into the target branch.
 MERGED_BRANCHES=$(git branch --merged "$TARGET_BRANCH" |
-	grep -v "$TARGET_BRANCH" |
 	grep -v "^\*" |
-	sed 's/^  //')
+	sed 's/^  //' |
+	grep -v "^${TARGET_BRANCH}\$")
 
 if [ -z "$MERGED_BRANCHES" ]; then
 	echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
