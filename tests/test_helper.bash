@@ -7,7 +7,9 @@ export SCRIPTS_DIR
 
 # Ensure a "python" executable is available on PATH for tests that expect it.
 # If python3 exists but python does not, create a persistent shim directory
-# containing a python -> python3 symlink and prepend it to PATH.
+# containing a python -> python3 symlink and prepend it to PATH if needed.
+# Tests that modify PATH should either preserve $PYTHON_SHIM_DIR on PATH or
+# call this helper again after changing PATH.
 ensure_python_symlink() {
 	# If "python" is already available, nothing to do.
 	if command -v python &>/dev/null; then
@@ -25,6 +27,7 @@ ensure_python_symlink() {
 		export PYTHON_SHIM_DIR
 	fi
 
+	mkdir -p "$PYTHON_SHIM_DIR"
 	ln -sf "$(command -v python3)" "$PYTHON_SHIM_DIR/python"
 
 	# Prepend the shim directory to PATH if it's not already present.
@@ -65,13 +68,13 @@ setup_git_repo() {
 # Helper to check if output contains a substring
 # Parameters:
 #   $1 - expected substring
-#   $2 - actual output (optional, defaults to $output from BATS)
+# Note: $output is set by BATS 'run' command
 assert_output_contains() {
 	local expected="$1"
-	local actual="${2:-$output}"
-	if [[ "$actual" != *"$expected"* ]]; then
+	# shellcheck disable=SC2154  # $output is set by BATS
+	if [[ "$output" != *"$expected"* ]]; then
 		echo "Expected output to contain: $expected"
-		echo "Actual output: $actual"
+		echo "Actual output: $output"
 		return 1
 	fi
 }
