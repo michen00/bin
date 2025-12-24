@@ -68,8 +68,14 @@ if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
 	rm -rf "$VENV_DIR"
 fi
 
+# Find python executable (prefer python3 for systems without python symlink)
+PYTHON_CMD="python"
+if ! command -v python &>/dev/null && command -v python3 &>/dev/null; then
+	PYTHON_CMD="python3"
+fi
+
 echo "Creating virtual environment in: $VENV_DIR"
-python -m venv "$VENV_DIR"
+"$PYTHON_CMD" -m venv "$VENV_DIR"
 
 if [ -f "$VENV_DIR/bin/activate" ]; then
 	echo "Virtual environment created: $VENV_DIR"
