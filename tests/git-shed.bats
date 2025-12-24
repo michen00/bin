@@ -30,11 +30,11 @@ load 'test_helper'
 
 @test "git-shed: --dry-run shows what would be deleted without deleting" {
 	setup_git_repo
-	git checkout -b feature-branch
+	git switch -c feature-branch
 	echo "feature" >feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
-	git checkout main
+	git switch main
 	git merge feature-branch
 
 	run "$SCRIPTS_DIR/git-shed" --dry-run -y main
