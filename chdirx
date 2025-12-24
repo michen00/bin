@@ -67,6 +67,8 @@ process_directory() {
 	for file in "$dir"/.* "$dir"/*; do
 		# Skip if file doesn't exist (handles empty dirs) or if it's `.` or `..`
 		[[ -e $file && $file != "$dir/." && $file != "$dir/.." ]] || continue
+		# Skip symlinks to prevent loops and operating outside target tree
+		[[ -L $file ]] && continue
 		if [[ -f $file ]]; then
 			# Check if the first line starts with #!
 			if head -n 1 "$file" | grep -q '^#!'; then
