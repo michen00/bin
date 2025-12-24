@@ -94,7 +94,7 @@ load 'test_helper'
 	ach_commit_files=$(git diff-tree --no-commit-id --name-only -r HEAD)
 	[ "$ach_commit_files" = ".git-blame-ignore-revs" ]
 
-	# unrelated.txt should NOT be staged (ach no longer preserves the index)
+	# unrelated.txt should STILL be staged (git commit <file> preserves unrelated index changes)
 	run bash -c 'git diff --cached --name-only | grep -q "unrelated.txt"'
-	[ "$status" -ne 0 ]
+	[ "$status" -eq 0 ]
 }

@@ -99,14 +99,6 @@ if git status --short "$FILE" | grep -q "^[ MADRCU?]"; then
 	esac
 fi
 
-STASHED=false
-if [ -n "$(git diff --cached)" ]; then
-	echo "There are staged changes. Stashing them temporarily..."
-	git stash push -m "Temporary stash for $SCRIPT_NAME"
-	STASHED=true
-	echo "Staged changes stashed."
-fi
-
 {
 	if [[ $INCLUDE_SUMMARY == true ]]; then
 		SUMMARY=$(git log -1 --format=%s "$HASH_ENTRY" 2>/dev/null || echo "summary unavailable")
@@ -127,18 +119,9 @@ fi
 		fi
 	fi
 
-	git commit --no-verify -m "$COMMIT_MSG"
+	git commit --no-verify -m "$COMMIT_MSG" -- "$FILE"
 	echo "Successfully updated and committed $FILE."
 } || {
 	echo "Failed to update $FILE. Resolve manually."
-	if [ "$STASHED" = true ]; then git stash pop || echo "Failed to apply stashed changes."; fi
 	exit 1
 }
-
-if [ "$STASHED" = true ]; then
-	echo "Reapplying stashed changes..."
-	git stash pop || {
-		echo "Failed to apply stashed changes. Resolve manually."
-		exit 1
-	}
-fi
