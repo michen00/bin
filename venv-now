@@ -64,6 +64,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
+	# Safety check: reject dangerous paths
+	case "$VENV_DIR" in
+	"" | "." | ".." | "/" | "~" | "$HOME")
+		echo "Error: Refusing to remove dangerous path: '$VENV_DIR'" >&2
+		return-or-exit 1
+		;;
+	esac
 	echo "Removing existing virtual environment: $VENV_DIR"
 	rm -rf "$VENV_DIR"
 fi
