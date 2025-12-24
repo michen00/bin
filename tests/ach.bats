@@ -75,7 +75,8 @@ load 'test_helper'
 	git add unrelated.txt
 
 	# Verify it's staged
-	git diff --cached --name-only | grep -q "unrelated.txt"
+	run bash -c 'git diff --cached --name-only | grep -q "unrelated.txt"'
+	[ "$status" -eq 0 ]
 
 	# Capture hash before ach runs
 	local target_hash
@@ -93,6 +94,7 @@ load 'test_helper'
 	ach_commit_files=$(git diff-tree --no-commit-id --name-only -r HEAD)
 	[ "$ach_commit_files" = ".git-blame-ignore-revs" ]
 
-	# unrelated.txt should still be staged (restored from stash)
-	git diff --cached --name-only | grep -q "unrelated.txt"
+	# unrelated.txt should NOT be staged (ach no longer preserves the index)
+	run bash -c 'git diff --cached --name-only | grep -q "unrelated.txt"'
+	[ "$status" -ne 0 ]
 }

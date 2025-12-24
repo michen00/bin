@@ -33,14 +33,14 @@ EOF
 	local commit_hash="$1"
 	shift # Remove the commit hash from the arguments
 
-	if ! git commit --fixup="$commit_hash" "$@"; then
+	# Check if this is the root commit (has no parent)
+	if ! git rev-parse --verify "$commit_hash"~1 &>/dev/null; then
+		echo "Error: Cannot create fixup for root commit." >&2
 		return 1
 	fi
 
-	# Check if this is the root commit (has no parent)
-	if ! git rev-parse --verify "$commit_hash"~1 &>/dev/null; then
-		echo "Warning: Cannot autosquash root commit. Fixup commit created but not squashed."
-		return 0
+	if ! git commit --fixup="$commit_hash" "$@"; then
+		return 1
 	fi
 
 	git rebase -i --autosquash --autostash "$commit_hash"~1
