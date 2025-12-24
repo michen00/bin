@@ -15,6 +15,16 @@ defaults:
     shell: bash -el {0}
 
 jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup BATS
+        uses: bats-core/bats-action@3.0.0
+      - name: Run BATS tests
+        run: bats --jobs 4 --timing tests/*.bats
+
   run-ci:
     name: Run CI
     runs-on: ubuntu-latest
