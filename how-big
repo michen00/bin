@@ -51,9 +51,9 @@ fi
 if [[ $SHOW_FILES == true ]]; then
 	# Cross-platform: use find + du for files, then du for directories
 	{
-		find "$TARGET_DIR" -maxdepth 1 -type f -exec du -h {} +
-		du -h -d 1 "$TARGET_DIR"
+		find -- "$TARGET_DIR" -maxdepth 1 -type f -exec du -h {} +
+		du -h -d 1 -- "$TARGET_DIR"
 	} 2>/dev/null | sort -hr | uniq
 else
-	du -h -d 1 "$TARGET_DIR" | sort -hr
+	du -h -d 1 -- "$TARGET_DIR" | sort -hr
 fi
