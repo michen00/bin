@@ -6,7 +6,7 @@ VERBOSE  ?= false
 
 ifeq ($(DEBUG),true)
     MAKEFLAGS += --debug=v
-else ifeq ($(VERBOSE),false)
+else ifneq ($(VERBOSE),true)
     MAKEFLAGS += --silent
 endif
 
