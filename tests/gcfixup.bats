@@ -10,7 +10,7 @@ load 'test_helper'
 	run "$SCRIPTS_DIR/gcfixup" --help
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
-	assert_output_contains "fixup commit hash"
+	assert_output_contains "target commit hash"
 }
 
 @test "gcfixup: -h displays usage information" {
