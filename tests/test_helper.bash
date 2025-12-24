@@ -25,7 +25,6 @@ ensure_python_symlink() {
 		export PYTHON_SHIM_DIR
 	fi
 
-	mkdir -p "$PYTHON_SHIM_DIR"
 	ln -sf "$(command -v python3)" "$PYTHON_SHIM_DIR/python"
 
 	# Prepend the shim directory to PATH if it's not already present.
