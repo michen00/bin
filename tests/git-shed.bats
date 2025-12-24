@@ -17,6 +17,7 @@ load 'test_helper'
 	run "$SCRIPTS_DIR/git-shed" -h
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
+	assert_output_contains "TARGET_BRANCH"
 }
 
 @test "git-shed: fails when target branch does not exist" {

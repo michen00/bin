@@ -3,6 +3,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
+	local exit_code=${1:-0}
 	cat <<EOF
 Usage: $SCRIPT_NAME [OPTIONS] <reference_branch>
 
@@ -24,7 +25,7 @@ Examples:
   $SCRIPT_NAME main
   $SCRIPT_NAME feature-branch
 EOF
-	exit 0
+	exit "$exit_code"
 }
 
 reference_branch=""
@@ -35,12 +36,12 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-*)
 		echo "Error: Unknown option '$1'" >&2
-		usage
+		usage 1
 		;;
 	*)
 		if [[ -n $reference_branch ]]; then
 			echo "Error: Multiple reference branches provided: '$reference_branch' and '$1'" >&2
-			usage
+			usage 1
 		fi
 		reference_branch="$1"
 		;;
@@ -51,7 +52,7 @@ done
 # Ensure exactly one reference branch is provided
 if [[ -z $reference_branch ]]; then
 	echo "Error: No reference branch specified." >&2
-	usage
+	usage 1
 fi
 
 # Ensure this is a git repository

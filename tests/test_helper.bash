@@ -9,7 +9,7 @@ export SCRIPTS_DIR
 setup() {
 	# Create a temporary directory for test files
 	TEST_TEMP_DIR="$(mktemp -d)"
-	cd "$TEST_TEMP_DIR" || exit 1
+	cd "$TEST_TEMP_DIR" || return 1
 
 	# For venv-now tests: if python3 exists but python doesn't, create a symlink
 	if command -v python3 &>/dev/null && ! command -v python &>/dev/null; then
@@ -38,6 +38,9 @@ setup_git_repo() {
 }
 
 # Helper to check if a string contains a substring
+# Parameters:
+#   $1 - expected substring
+#   $2 - (optional) string to search; defaults to $output from the most recent Bats run
 assert_output_contains() {
 	local expected="$1"
 	local actual="${2:-$output}" # Use parameter if provided, otherwise fall back to $output

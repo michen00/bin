@@ -10,6 +10,7 @@ REMOVE_EXISTING=true
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
+	local exit_code=${1:-0}
 	cat <<EOF
 Usage: $SCRIPT_NAME [DIRECTORY] [OPTIONS]
 
@@ -29,7 +30,7 @@ Examples:
     source $SCRIPT_NAME myenv --no-remove
     $SCRIPT_NAME .venv -n
 EOF
-	return-or-exit 0
+	return-or-exit "$exit_code"
 }
 
 # Initialize empty positional argument
@@ -47,7 +48,7 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-*)
 		echo "Unknown option: $1" >&2
-		usage
+		usage 1
 		;;
 	*)
 		if [ "$positional_arg_set" = false ]; then
@@ -55,7 +56,7 @@ while [[ $# -gt 0 ]]; do
 			positional_arg_set=true
 		else
 			echo "Error: Multiple directory arguments specified: '$VENV_DIR' and '$1'" >&2
-			usage
+			usage 1
 		fi
 		shift
 		;;

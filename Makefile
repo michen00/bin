@@ -53,17 +53,44 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
     fi
 	@git config blame.ignoreRevsFile .git-blame-ignore-revs
 	@git lfs install --local; \
-       current_branch=$$(git branch --show-current) && \
+       current_branch=$$(git branch --show-current); \
+       if [ -z "$$current_branch" ]; then \
+           echo "$(RED)Error: Unable to determine current git branch.$(_COLOR)" >&2; \
+           exit 1; \
+       fi; \
        if ! git diff --quiet || ! git diff --cached --quiet; then \
            git stash push -m "Auto stash before switching to main"; \
            stash_was_needed=1; \
        else \
            stash_was_needed=0; \
        fi; \
-       git switch main && git pull && \
-       git lfs pull && git switch $$current_branch; \
+       if ! git switch main; then \
+           echo "$(RED)Error: Failed to switch to 'main' branch.$(_COLOR)" >&2; \
+           if [ $$stash_was_needed -eq 1 ]; then git stash pop >/dev/null 2>&1 || true; fi; \
+           exit 1; \
+       fi; \
+       if ! git pull; then \
+           echo "$(RED)Error: 'git pull' on 'main' failed.$(_COLOR)" >&2; \
+           git switch "$$current_branch" >/dev/null 2>&1 || true; \
+           if [ $$stash_was_needed -eq 1 ]; then git stash pop >/dev/null 2>&1 || true; fi; \
+           exit 1; \
+       fi; \
+       if ! git lfs pull; then \
+           echo "$(RED)Error: 'git lfs pull' on 'main' failed.$(_COLOR)" >&2; \
+           git switch "$$current_branch" >/dev/null 2>&1 || true; \
+           if [ $$stash_was_needed -eq 1 ]; then git stash pop >/dev/null 2>&1 || true; fi; \
+           exit 1; \
+       fi; \
+       if ! git switch "$$current_branch"; then \
+           echo "$(RED)Error: Failed to switch back to '$$current_branch'.$(_COLOR)" >&2; \
+           if [ $$stash_was_needed -eq 1 ]; then git stash pop >/dev/null 2>&1 || true; fi; \
+           exit 1; \
+       fi; \
        if [ $$stash_was_needed -eq 1 ]; then \
-           git stash pop; \
+           if ! git stash pop; then \
+               echo "$(YELLOW)Warning: Failed to reapply stashed changes.$(_COLOR)" >&2; \
+               exit 1; \
+           fi; \
        fi
 	@if [ "$(WITH_HOOKS)" = "true" ]; then \
         $(MAKE) enable-pre-commit; \

@@ -3,6 +3,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
+	local exit_code=${1:-0}
 	cat <<EOF
 Usage: $SCRIPT_NAME [OPTIONS] <file> [<file> ...]
 
@@ -22,12 +23,12 @@ Examples:
   $SCRIPT_NAME script.sh
   $SCRIPT_NAME file1.sh file2.sh
 EOF
-	exit 0
+	exit "$exit_code"
 }
 
 # Check if no arguments were provided
 if [ "$#" -lt 1 ]; then
-	usage
+	usage 1
 fi
 
 # Collect file arguments
@@ -41,7 +42,7 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-*)
 		echo "Error: Unknown option '$1'" >&2
-		usage
+		usage 1
 		;;
 	*)
 		files+=("$1")
@@ -53,7 +54,7 @@ done
 # Ensure at least one valid file argument remains
 if [ "${#files[@]}" -eq 0 ]; then
 	echo "Error: No files specified." >&2
-	usage
+	usage 1
 fi
 
 # Process each file argument
