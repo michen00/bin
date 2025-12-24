@@ -19,6 +19,7 @@ load 'test_helper'
 	run "$SCRIPTS_DIR/ach" -h
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
+	assert_output_contains "HASH"
 }
 
 @test "ach: adds last commit hash to default file" {
@@ -55,7 +56,8 @@ load 'test_helper'
 	assert_file_exists ".git-blame-ignore-revs"
 
 	# File should only contain the hash line, not "# Initial commit"
-	run ! grep -q "# Initial commit" ".git-blame-ignore-revs"
+	run grep -q "# Initial commit" ".git-blame-ignore-revs"
+	[ "$status" -ne 0 ]
 }
 
 @test "ach: fails with invalid hash" {

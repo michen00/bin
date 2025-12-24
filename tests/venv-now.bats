@@ -17,6 +17,7 @@ load 'test_helper'
 	run "$SCRIPTS_DIR/venv-now" -h
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
+	assert_output_contains "DIRECTORY"
 }
 
 @test "venv-now: creates .venv directory by default" {
@@ -91,6 +92,6 @@ load 'test_helper'
 
 @test "venv-now: fails with unknown option" {
 	run "$SCRIPTS_DIR/venv-now" --unknown
-	[ "$status" -eq 0 ] # usage exits with 0
+	[ "$status" -ne 0 ] # unknown option should exit with non-zero status
 	assert_output_contains "Unknown option"
 }

@@ -8,6 +8,7 @@ SCRIPT_NAME=$(basename "$0")
 
 # Function to display usage information
 usage() {
+	local exit_code=${1:-0}
 	cat <<EOF
 Usage: $SCRIPT_NAME [--debug] [--all] <reference_branch>
 
@@ -30,7 +31,7 @@ Examples:
   $SCRIPT_NAME --all main
   $SCRIPT_NAME --debug --all main
 EOF
-	exit 0
+	exit "$exit_code"
 }
 
 # Parse command-line arguments
@@ -50,14 +51,14 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-*)
 		echo "Unknown option: $1" >&2
-		usage
+		usage 1
 		;;
 	*)
 		if [ -z "$reference_branch" ]; then
 			reference_branch="$1"
 		else
 			echo "Error: Multiple reference branches specified: '$reference_branch' and '$1'" >&2
-			usage
+			usage 1
 		fi
 		shift
 		;;

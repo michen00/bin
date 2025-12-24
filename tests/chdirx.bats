@@ -17,6 +17,7 @@ load 'test_helper'
 	run "$SCRIPTS_DIR/chdirx" -h
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
+	assert_output_contains "directory"
 }
 
 @test "chdirx: fails when no directory specified" {

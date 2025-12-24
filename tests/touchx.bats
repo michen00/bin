@@ -17,11 +17,12 @@ load 'test_helper'
 	run "$SCRIPTS_DIR/touchx" -h
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
+	assert_output_contains "file"
 }
 
 @test "touchx: displays usage when no arguments provided" {
 	run "$SCRIPTS_DIR/touchx"
-	[ "$status" -eq 0 ]
+	[ "$status" -ne 0 ]
 	assert_output_contains "Usage:"
 }
 
@@ -56,6 +57,6 @@ load 'test_helper'
 
 @test "touchx: fails with unknown option" {
 	run "$SCRIPTS_DIR/touchx" --unknown
-	[ "$status" -eq 0 ] # usage exits with 0
+	[ "$status" -ne 0 ]
 	assert_output_contains "Unknown option"
 }
