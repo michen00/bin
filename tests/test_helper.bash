@@ -5,18 +5,43 @@
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export SCRIPTS_DIR
 
+# Ensure a "python" executable is available on PATH for tests that expect it.
+# If python3 exists but python does not, create a persistent shim directory
+# containing a python -> python3 symlink and prepend it to PATH.
+ensure_python_symlink() {
+	# If "python" is already available, nothing to do.
+	if command -v python &>/dev/null; then
+		return 0
+	fi
+
+	# If python3 is not available either, we cannot provide a shim.
+	if ! command -v python3 &>/dev/null; then
+		return 0
+	fi
+
+	# Lazily create a persistent shim directory once per test run.
+	if [[ -z "${PYTHON_SHIM_DIR:-}" ]]; then
+		PYTHON_SHIM_DIR="$(mktemp -d)"
+		export PYTHON_SHIM_DIR
+	fi
+
+	ln -sf "$(command -v python3)" "$PYTHON_SHIM_DIR/python"
+
+	# Prepend the shim directory to PATH if it's not already present.
+	case ":$PATH:" in
+	*":$PYTHON_SHIM_DIR:"*) ;;
+	*) export PATH="$PYTHON_SHIM_DIR:$PATH" ;;
+	esac
+}
+
 # Setup function - runs before each test
 setup() {
 	# Create a temporary directory for test files
 	TEST_TEMP_DIR="$(mktemp -d)"
 	cd "$TEST_TEMP_DIR" || return 1
 
-	# For venv-now tests: if python3 exists but python doesn't, create a symlink
-	if command -v python3 &>/dev/null && ! command -v python &>/dev/null; then
-		mkdir -p "$TEST_TEMP_DIR/bin"
-		ln -s "$(command -v python3)" "$TEST_TEMP_DIR/bin/python"
-		export PATH="$TEST_TEMP_DIR/bin:$PATH"
-	fi
+	# Ensure a "python" command is available on PATH for tests that expect it.
+	ensure_python_symlink
 }
 
 # Teardown function - runs after each test
@@ -37,13 +62,13 @@ setup_git_repo() {
 	git commit -m "Initial commit"
 }
 
-# Helper to check if a string contains a substring
+# Helper to check if output contains a substring
 # Parameters:
 #   $1 - expected substring
-#   $2 - (optional) string to search; defaults to $output from the most recent Bats run
+#   $2 - actual output (optional, defaults to $output from BATS)
 assert_output_contains() {
 	local expected="$1"
-	local actual="${2:-$output}" # Use parameter if provided, otherwise fall back to $output
+	local actual="${2:-$output}"
 	if [[ "$actual" != *"$expected"* ]]; then
 		echo "Expected output to contain: $expected"
 		echo "Actual output: $actual"

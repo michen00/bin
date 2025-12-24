@@ -63,28 +63,43 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
-	# Safety check: reject dangerous paths
-	case "$VENV_DIR" in
-	"" | "." | ".." | "/" | "~")
-		echo "Error: Refusing to remove dangerous path: '$VENV_DIR'" >&2
-		return-or-exit 1
-		;;
-	esac
-	# Resolve and normalize path to catch $HOME/, $HOME/., etc.
-	resolved_path=$(cd "$VENV_DIR" 2>/dev/null && pwd -P)
-	if [[ "$resolved_path" == "$HOME" || "$resolved_path" == "/" ]]; then
-		echo "Error: Refusing to remove dangerous path: '$VENV_DIR' (resolves to '$resolved_path')" >&2
-		return-or-exit 1
-	fi
-	echo "Removing existing virtual environment: $VENV_DIR"
-	rm -rf "$VENV_DIR"
-fi
-
 # Find python executable (prefer python3 for systems without python symlink)
 PYTHON_CMD="python"
 if ! command -v python &>/dev/null && command -v python3 &>/dev/null; then
 	PYTHON_CMD="python3"
+fi
+
+# Global safety check: refuse obviously dangerous targets
+# Resolve and normalize the target virtual environment path safely,
+# even if the directory does not exist yet.
+RESOLVED_VENV_DIR="$(
+	"$PYTHON_CMD" - "$VENV_DIR" <<'EOF'
+import os
+import sys
+
+# os.path.realpath resolves '..' and symlinks without requiring the
+# final path component to exist.
+print(os.path.realpath(sys.argv[1]))
+EOF
+)" || {
+	echo "Error: Failed to resolve path '$VENV_DIR'" >&2
+	return-or-exit 1
+}
+
+# Get current directory for comparison
+CURRENT_DIR="$(pwd -P)"
+
+if [[ "$VENV_DIR" == "" || "$VENV_DIR" == "." || "$VENV_DIR" == ".." ||
+	"$VENV_DIR" == "/" || "$VENV_DIR" == "~" ||
+	"$RESOLVED_VENV_DIR" == "$HOME" || "$RESOLVED_VENV_DIR" == "/" ||
+	"$RESOLVED_VENV_DIR" == "$CURRENT_DIR" ]]; then
+	echo "Error: Refusing to use dangerous path: '$VENV_DIR' (resolves to '$RESOLVED_VENV_DIR')" >&2
+	return-or-exit 1
+fi
+
+if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
+	echo "Removing existing virtual environment: $VENV_DIR"
+	rm -rf "$VENV_DIR"
 fi
 
 echo "Creating virtual environment in: $VENV_DIR"

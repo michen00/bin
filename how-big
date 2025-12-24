@@ -1,6 +1,10 @@
 #!/bin/bash
 set -eu
-# Note: pipefail intentionally omitted to show partial results on permission errors
+# Note: pipefail intentionally omitted. Permission errors on individual files
+# are expected in some use cases (e.g., running without sudo on system dirs),
+# and we want to show partial results for accessible files rather than failing
+# completely. The sort and uniq commands should succeed as long as they receive
+# at least some input.
 
 SCRIPT_NAME=$(basename "$0")
 
@@ -49,7 +53,7 @@ if [[ ! -d $TARGET_DIR ]]; then
 fi
 
 # Run the disk usage command with optional file inclusion
-if [[ $SHOW_FILES == true ]]; then
+if [[ "$SHOW_FILES" == true ]]; then
 	# Cross-platform: use find + du for files, then du for directories
 	{
 		find -- "$TARGET_DIR" -maxdepth 1 -type f -exec du -h {} +
