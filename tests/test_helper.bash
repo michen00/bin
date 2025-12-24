@@ -66,11 +66,13 @@ setup_git_repo() {
 # Helper to check if output contains a substring
 # Parameters:
 #   $1 - expected substring
+#   $2 - actual output (optional, defaults to $output from BATS)
 assert_output_contains() {
 	local expected="$1"
-	if [[ "$output" != *"$expected"* ]]; then
+	local actual="${2:-$output}"
+	if [[ "$actual" != *"$expected"* ]]; then
 		echo "Expected output to contain: $expected"
-		echo "Actual output: $output"
+		echo "Actual output: $actual"
 		return 1
 	fi
 }
