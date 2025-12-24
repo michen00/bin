@@ -90,10 +90,18 @@ git remote update >/dev/null 2>&1
 # Determine the list of branches to update
 if [ "$all_branches" = true ]; then
 	echo "Fetching all non-protected branches (use with caution)..."
-	branches=$(gh api repos/:owner/:repo/branches --paginate --jq '.[] | select(.protected == false) | .name')
+	if ! branches=$(gh api repos/:owner/:repo/branches --paginate --jq '.[] | select(.protected == false) | .name' 2>&1); then
+		echo "Error: Failed to fetch branches from GitHub API." >&2
+		echo "$branches" >&2
+		exit 1
+	fi
 else
 	echo "Fetching branches with open PRs authored by you..."
-	branches=$(gh pr list --author "@me" --state open --json headRefName -q '.[].headRefName')
+	if ! branches=$(gh pr list --author "@me" --state open --json headRefName -q '.[].headRefName' 2>&1); then
+		echo "Error: Failed to list PRs. Is 'gh' installed and authenticated?" >&2
+		echo "$branches" >&2
+		exit 1
+	fi
 fi
 
 # Iterate through branches and update them
@@ -108,10 +116,12 @@ echo "$branches" | while read -r branch; do
 
 	echo "Processing branch: $branch"
 
-	# Checkout the branch
-	if ! git checkout "$branch"; then
-		echo "Error: Failed to checkout branch $branch. Skipping..."
-		continue
+	# Checkout the branch (create tracking branch if it only exists on remote)
+	if ! git checkout "$branch" 2>/dev/null; then
+		if ! git switch --track "origin/$branch" 2>/dev/null; then
+			echo "Error: Failed to checkout branch $branch. Skipping..."
+			continue
+		fi
 	fi
 
 	# Merge the reference branch into the current branch
