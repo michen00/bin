@@ -53,7 +53,7 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
     fi
 	@git config blame.ignoreRevsFile .git-blame-ignore-revs
 	@git lfs install --local; \
-       current_branch=$$(git branch --show-current); \
+       current_branch=$$(git branch --show-current) \
        if [ -z "$$current_branch" ]; then \
            echo "$(RED)Error: Unable to determine current git branch.$(_COLOR)" >&2; \
            exit 1; \
