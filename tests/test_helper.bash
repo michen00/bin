@@ -30,8 +30,8 @@ ensure_python_symlink() {
 
 	# Prepend the shim directory to PATH if it's not already present.
 	case ":$PATH:" in
-		*":$PYTHON_SHIM_DIR:"*) ;;
-		*) export PATH="$PYTHON_SHIM_DIR:$PATH" ;;
+	*":$PYTHON_SHIM_DIR:"*) ;;
+	*) export PATH="$PYTHON_SHIM_DIR:$PATH" ;;
 	esac
 }
 
