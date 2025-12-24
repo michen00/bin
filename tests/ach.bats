@@ -66,3 +66,33 @@ load 'test_helper'
 	run "$SCRIPTS_DIR/ach" "invalidhash123"
 	[ "$status" -ne 0 ]
 }
+
+@test "ach: commit is atomic - does not include pre-staged changes" {
+	setup_git_repo
+
+	# Create and stage a separate file (simulating user's work in progress)
+	echo "unrelated work" >unrelated.txt
+	git add unrelated.txt
+
+	# Verify it's staged
+	git diff --cached --name-only | grep -q "unrelated.txt"
+
+	# Capture hash before ach runs
+	local target_hash
+	target_hash=$(git rev-parse HEAD)
+
+	# Run ach - this should ONLY commit the blame file
+	run "$SCRIPTS_DIR/ach"
+	[ "$status" -eq 0 ]
+
+	# Verify the target hash was added to the ignore file
+	grep -q "$target_hash" ".git-blame-ignore-revs"
+
+	# The ach commit should contain ONLY the blame file, not unrelated.txt
+	local ach_commit_files
+	ach_commit_files=$(git diff-tree --no-commit-id --name-only -r HEAD)
+	[ "$ach_commit_files" = ".git-blame-ignore-revs" ]
+
+	# unrelated.txt should still be staged (restored from stash)
+	git diff --cached --name-only | grep -q "unrelated.txt"
+}
