@@ -33,14 +33,13 @@ EOF
 	local commit_hash="$1"
 	shift # Remove the commit hash from the arguments
 
-	if ! git commit --fixup="$commit_hash" "$@"; then
-		return 1
-	fi
-
 	# Check if this is the root commit (has no parent)
 	if ! git rev-parse --verify "$commit_hash"~1 &>/dev/null; then
 		echo "Error: Cannot create fixup for root commit." >&2
-		git reset --soft HEAD~1
+		return 1
+	fi
+
+	if ! git commit --fixup="$commit_hash" "$@"; then
 		return 1
 	fi
 
