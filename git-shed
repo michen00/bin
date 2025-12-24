@@ -61,11 +61,13 @@ fi
 echo "Fetching latest remote info and pruning..."
 git fetch --prune
 
-# Identify local branches fully merged into the target branch.
-MERGED_BRANCHES=$(git branch --merged "$TARGET_BRANCH" |
+# Identify local branches fully merged into the remote target branch.
+# Using origin/$TARGET_BRANCH ensures we compare against the up-to-date remote.
+MERGED_BRANCHES=$(git branch --merged "origin/$TARGET_BRANCH" 2>/dev/null ||
+	git branch --merged "$TARGET_BRANCH" |
 	grep -v "^\*" |
-	sed 's/^  //' |
-	grep -v -F -x "$TARGET_BRANCH")
+		sed 's/^  //' |
+		grep -v -F -x "$TARGET_BRANCH")
 
 if [ -z "$MERGED_BRANCHES" ]; then
 	echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
