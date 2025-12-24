@@ -47,5 +47,5 @@ load 'test_helper'
 @test "update-mine: fails with unknown option" {
 	run "$SCRIPTS_DIR/update-mine" --unknown main
 	[ "$status" -ne 0 ]
-	assert_output_contains "Usage"
+	assert_output_contains "Unknown option"
 }
