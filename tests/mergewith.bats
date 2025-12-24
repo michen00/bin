@@ -39,9 +39,9 @@ load 'test_helper'
 	setup_git_repo
 
 	# Set up proper tracking so git pull works
-	rm -rf ../remote.git
-	git clone --bare . ../remote.git
-	git remote add origin ../remote.git
+	rm -rf "$TEST_TEMP_DIR/remote.git"
+	git clone --bare . "$TEST_TEMP_DIR/remote.git"
+	git remote add origin "$TEST_TEMP_DIR/remote.git"
 	git fetch origin
 	git branch --set-upstream-to=origin/main main
 
