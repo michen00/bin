@@ -6,7 +6,7 @@ VERBOSE  ?= false
 
 ifeq ($(DEBUG),true)
     MAKEFLAGS += --debug=v
-else ifeq ($(VERBOSE),false)
+else ifneq ($(VERBOSE),true)
     MAKEFLAGS += --silent
 endif
 
@@ -21,13 +21,13 @@ ifneq ($(shell command -v prek >/dev/null 2>&1 && echo y),)
     endif
 endif
 
-# Terminal formatting (tput with fallbacks)
+# Terminal formatting (tput with fallbacks to ANSI codes)
 _COLOR  := $(shell tput sgr0 2>/dev/null || echo "\033[0m")
 BOLD    := $(shell tput bold 2>/dev/null || echo "\033[1m")
-CYAN    := $(shell tput setaf 6 2>/dev/null || echo "\033[36m")
-GREEN   := $(shell tput setaf 2 2>/dev/null || echo "\033[32m")
-RED     := $(shell tput setaf 1 2>/dev/null || echo "\033[31m")
-YELLOW  := $(shell tput setaf 3 2>/dev/null || echo "\033[33m")
+CYAN    := $(shell tput setaf 6 2>/dev/null || echo "\033[0;36m")
+GREEN   := $(shell tput setaf 2 2>/dev/null || echo "\033[0;32m")
+RED     := $(shell tput setaf 1 2>/dev/null || echo "\033[0;31m")
+YELLOW  := $(shell tput setaf 3 2>/dev/null || echo "\033[0;33m")
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -52,46 +52,45 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
         git config --local --add include.path "$(CURDIR)/.gitconfigs/alias"; \
     fi
 	@git config blame.ignoreRevsFile .git-blame-ignore-revs
-	@git lfs install --local; \
-       current_branch=$$(git branch --show-current) \
-       if [ -z "$$current_branch" ]; then \
-           echo "$(RED)Error: Unable to determine current git branch.$(_COLOR)" >&2; \
-           exit 1; \
-       fi; \
-       if ! git diff --quiet || ! git diff --cached --quiet; then \
-           git stash push -m "Auto stash before switching to main"; \
-           stash_was_needed=1; \
-       else \
-           stash_was_needed=0; \
-       fi; \
-       if ! git switch main; then \
-           echo "$(RED)Error: Failed to switch to 'main' branch.$(_COLOR)" >&2; \
-           if [ $$stash_was_needed -eq 1 ]; then git stash pop >/dev/null 2>&1 || true; fi; \
-           exit 1; \
-       fi; \
-       if ! git pull; then \
-           echo "$(RED)Error: 'git pull' on 'main' failed.$(_COLOR)" >&2; \
-           git switch "$$current_branch" >/dev/null 2>&1 || true; \
-           if [ $$stash_was_needed -eq 1 ]; then git stash pop >/dev/null 2>&1 || true; fi; \
-           exit 1; \
-       fi; \
-       if ! git lfs pull; then \
-           echo "$(RED)Error: 'git lfs pull' on 'main' failed.$(_COLOR)" >&2; \
-           git switch "$$current_branch" >/dev/null 2>&1 || true; \
-           if [ $$stash_was_needed -eq 1 ]; then git stash pop >/dev/null 2>&1 || true; fi; \
-           exit 1; \
-       fi; \
-       if ! git switch "$$current_branch"; then \
-           echo "$(RED)Error: Failed to switch back to '$$current_branch'.$(_COLOR)" >&2; \
-           if [ $$stash_was_needed -eq 1 ]; then git stash pop >/dev/null 2>&1 || true; fi; \
-           exit 1; \
-       fi; \
-       if [ $$stash_was_needed -eq 1 ]; then \
-           if ! git stash pop; then \
-               echo "$(RED)Error: Failed to reapply stashed changes.$(_COLOR)" >&2; \
-               exit 1; \
-           fi; \
-       fi
+	@set -e; \
+    if command -v git-lfs >/dev/null 2>&1; then \
+        git lfs install --local --skip-repo || true; \
+    fi; \
+    current_branch=$$(git branch --show-current); \
+    stash_was_needed=0; \
+    cleanup() { \
+        exit_code=$$?; \
+        if [ "$$current_branch" != "$$(git branch --show-current)" ]; then \
+            echo "$(YELLOW)Warning: Still on $$(git branch --show-current). Attempting to return to $$current_branch...$(_COLOR)"; \
+            if git switch "$$current_branch" 2>/dev/null; then \
+                echo "Successfully returned to $$current_branch"; \
+            else \
+                echo "$(YELLOW)Could not return to $$current_branch. You are on $$(git branch --show-current).$(_COLOR)"; \
+            fi; \
+        fi; \
+        if [ $$stash_was_needed -eq 1 ] && git stash list | head -1 | grep -q "Auto stash before switching to main"; then \
+            echo "$(YELLOW)Note: Your stashed changes are still available. Run 'git stash pop' to restore them.$(_COLOR)"; \
+        fi; \
+        exit $$exit_code; \
+    }; \
+    trap cleanup EXIT; \
+    if ! git diff --quiet || ! git diff --cached --quiet; then \
+        git stash push -m "Auto stash before switching to main"; \
+        stash_was_needed=1; \
+    fi; \
+    git switch main && git pull; \
+    if command -v git-lfs >/dev/null 2>&1; then \
+        git lfs pull || true; \
+    fi; \
+    git switch "$$current_branch"; \
+    if [ $$stash_was_needed -eq 1 ]; then \
+        if git stash apply; then \
+            git stash drop; \
+        else \
+            echo "$(RED)Error: Stash apply had conflicts. Resolve them, then run: git stash drop$(_COLOR)"; \
+        fi; \
+    fi; \
+    trap - EXIT
 	@if [ "$(WITH_HOOKS)" = "true" ]; then \
         $(MAKE) enable-pre-commit; \
     fi
@@ -110,10 +109,15 @@ test: ## Run all tests (PARALLEL={true|false}, default=true)
 .PHONY: check
 check: run-pre-commit test ## Run all code quality checks and tests
 
+.PHONY: enable-pre-commit
+enable-pre-commit: ## Enable pre-commit hooks (along with commit-msg and pre-push hooks)
+	@if command -v pre-commit >/dev/null 2>&1; then \
+        pre-commit install --hook-type commit-msg --hook-type pre-commit --hook-type pre-push --hook-type prepare-commit-msg ; \
+    else \
+        echo "$(YELLOW)Warning: pre-commit is not installed. Skipping hook installation.$(_COLOR)"; \
+        echo "Install it with: pip install pre-commit (or brew install pre-commit on macOS)"; \
+    fi
+
 .PHONY: run-pre-commit
 run-pre-commit: ## Run the pre-commit checks
 	$(PRECOMMIT) run --all-files
-
-.PHONY: enable-pre-commit
-enable-pre-commit: ## Enable pre-commit hooks (along with commit-msg and pre-push hooks)
-	@pre-commit install --hook-type commit-msg --hook-type pre-commit --hook-type pre-push
