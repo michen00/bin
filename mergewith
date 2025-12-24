@@ -67,6 +67,12 @@ if ! current_branch=$(git branch --show-current); then
 	exit 1
 fi
 
+# Abort if in detached HEAD state
+if [[ -z "$current_branch" ]]; then
+	echo "Error: You are in detached HEAD state. Please checkout a branch first."
+	exit 1
+fi
+
 echo "Current branch is $current_branch"
 
 # Only pull if an upstream is configured
