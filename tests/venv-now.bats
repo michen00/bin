@@ -95,3 +95,24 @@ load 'test_helper'
 	[ "$status" -ne 0 ] # unknown option should exit with non-zero status
 	assert_output_contains "Unknown option"
 }
+
+@test "venv-now: rejects dangerous path ." {
+	mkdir -p testdir
+	cd testdir
+	run "$SCRIPTS_DIR/venv-now" .
+	[ "$status" -ne 0 ]
+	assert_output_contains "dangerous path"
+}
+
+@test "venv-now: rejects dangerous path /" {
+	run "$SCRIPTS_DIR/venv-now" /
+	[ "$status" -ne 0 ]
+	assert_output_contains "dangerous path"
+}
+
+@test "venv-now: rejects path resolving to HOME" {
+	# $HOME/. resolves to $HOME
+	run "$SCRIPTS_DIR/venv-now" "$HOME/."
+	[ "$status" -ne 0 ]
+	assert_output_contains "dangerous path"
+}

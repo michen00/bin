@@ -66,11 +66,17 @@ done
 if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
 	# Safety check: reject dangerous paths
 	case "$VENV_DIR" in
-	"" | "." | ".." | "/" | "~" | "$HOME")
+	"" | "." | ".." | "/" | "~")
 		echo "Error: Refusing to remove dangerous path: '$VENV_DIR'" >&2
 		return-or-exit 1
 		;;
 	esac
+	# Resolve and normalize path to catch $HOME/, $HOME/., etc.
+	resolved_path=$(cd "$VENV_DIR" 2>/dev/null && pwd -P)
+	if [[ "$resolved_path" == "$HOME" || "$resolved_path" == "/" ]]; then
+		echo "Error: Refusing to remove dangerous path: '$VENV_DIR' (resolves to '$resolved_path')" >&2
+		return-or-exit 1
+	fi
 	echo "Removing existing virtual environment: $VENV_DIR"
 	rm -rf "$VENV_DIR"
 fi
