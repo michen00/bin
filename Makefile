@@ -60,7 +60,7 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
     cleanup() { \
         exit_code=$$?; \
         if [ "$$current_branch" != "$$(git branch --show-current)" ]; then \
-            echo "$(YELLOW)Warning: Still on $$(git branch --show-current). Attempting to return to $$current_branch...$(_COLOR)"; \
+            echo "$(YELLOW)Attempting to return to $$current_branch...$(_COLOR)"; \
             if git switch "$$current_branch" 2>/dev/null; then \
                 echo "Successfully returned to $$current_branch"; \
             else \
