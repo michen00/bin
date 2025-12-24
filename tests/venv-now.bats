@@ -96,10 +96,10 @@ load 'test_helper'
 	assert_output_contains "Unknown option"
 }
 
-@test "venv-now: rejects dangerous path ." {
+@test "venv-now: rejects dangerous path resolving to ." {
 	mkdir -p testdir
-	cd testdir
-	run "$SCRIPTS_DIR/venv-now" .
+	# Use a path that resolves to the current directory, but is not literally "."
+	run "$SCRIPTS_DIR/venv-now" "testdir/.."
 	[ "$status" -ne 0 ]
 	assert_output_contains "dangerous path"
 }

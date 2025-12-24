@@ -64,7 +64,8 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
             if git switch "$$current_branch" 2>/dev/null; then \
                 echo "Successfully returned to $$current_branch"; \
             else \
-                echo "$(YELLOW)Could not return to $$current_branch. You are on $$(git branch --show-current).$(_COLOR)"; \
+                echo "$(RED)Error: Could not return to $$current_branch. You are on $$(git branch --show-current).$(_COLOR)" >&2; \
+                exit_code=1; \
             fi; \
         fi; \
         if [ $$stash_was_needed -eq 1 ] && git stash list | head -1 | grep -q "Auto stash before switching to main"; then \

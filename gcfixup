@@ -39,8 +39,9 @@ EOF
 
 	# Check if this is the root commit (has no parent)
 	if ! git rev-parse --verify "$commit_hash"~1 &>/dev/null; then
-		echo "Warning: Cannot autosquash root commit. Fixup commit created but not squashed."
-		return 0
+		echo "Error: Cannot create fixup for root commit." >&2
+		git reset --soft HEAD~1
+		return 1
 	fi
 
 	git rebase -i --autosquash --autostash "$commit_hash"~1
