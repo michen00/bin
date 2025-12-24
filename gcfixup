@@ -33,9 +33,15 @@ EOF
 	local commit_hash="$1"
 	shift # Remove the commit hash from the arguments
 
+	# Validate that the commit exists
+	if ! git rev-parse --verify "${commit_hash}^{commit}" &>/dev/null; then
+		echo "Error: Invalid commit hash '$commit_hash'." >&2
+		return 1
+	fi
+
 	# Check if this is the root commit (has no parent)
 	if ! git rev-parse --verify "$commit_hash"~1 &>/dev/null; then
-		echo "Error: Cannot create fixup for root commit." >&2
+		echo "Error: Cannot create fixup for root commit. (Root commits cannot be autosquashed without --root)" >&2
 		return 1
 	fi
 
