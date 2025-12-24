@@ -65,7 +65,7 @@ git fetch --prune
 MERGED_BRANCHES=$(git branch --merged "$TARGET_BRANCH" |
 	grep -v "^\*" |
 	sed 's/^  //' |
-	grep -v "^${TARGET_BRANCH}\$")
+	grep -v -F -x "$TARGET_BRANCH")
 
 if [ -z "$MERGED_BRANCHES" ]; then
 	echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
