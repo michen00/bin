@@ -12,7 +12,7 @@ usage() {
 	cat <<EOF
 Usage: $SCRIPT_NAME [--debug] [--all] <reference_branch>
 
-Updates branches with open pull requests authored by you by:
+By default, updates branches with open pull requests authored by you by:
 1. Checking out the branch.
 2. Merging the specified reference branch into it.
 3. Pushing the updated branch to the remote.
