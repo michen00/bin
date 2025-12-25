@@ -68,6 +68,7 @@ if ! current_branch=$(git branch --show-current); then
 fi
 
 # Abort if in detached HEAD state
+# Note: git branch --show-current returns empty string only for detached HEAD
 if [[ -z "$current_branch" ]]; then
 	echo "Error: You are in detached HEAD state. Please checkout a branch first."
 	exit 1
