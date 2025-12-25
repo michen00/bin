@@ -35,8 +35,8 @@ SHOW_FILES="false"
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-a) SHOW_FILES="true" ;; # Enable file size display
-	-h | --help) usage ;; # Show help and exit
-	*) TARGET_DIR="$1" ;; # Assume anything else is the directory argument
+	-h | --help) usage ;;    # Show help and exit
+	*) TARGET_DIR="$1" ;;    # Assume anything else is the directory argument
 	esac
 	shift
 done
