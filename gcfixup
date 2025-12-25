@@ -7,14 +7,14 @@ gcfixup() {
 $SCRIPT_NAME - Create a fixup commit and automatically rebase with autosquash
 
 Usage:
-  $SCRIPT_NAME <fixup commit hash> [options]
+  $SCRIPT_NAME <target commit hash> [options]
 
 Description:
   This script creates a fixup commit for the specified commit hash and then
   performs an interactive rebase with autosquash and autostash enabled.
 
 Arguments:
-  <fixup commit hash>   The commit hash to fix up.
+  <target commit hash>   The commit hash to fix up.
   [options]             Optional arguments to pass to 'git commit'.
 
 Example:
@@ -32,6 +32,19 @@ EOF
 
 	local commit_hash="$1"
 	shift # Remove the commit hash from the arguments
+
+	# Validate that the commit exists
+	if ! git rev-parse --verify "${commit_hash}^{commit}" &>/dev/null; then
+		echo "Error: Invalid commit hash '$commit_hash'." >&2
+		return 1
+	fi
+
+	# Check if this is the root commit (has no parent)
+	if ! git rev-parse --verify "$commit_hash"~1 &>/dev/null; then
+		echo "Error: Cannot fixup root commit (it has no parent to rebase onto)." >&2
+		echo "Workaround: git commit --fixup=$commit_hash && git rebase -i --autosquash --root" >&2
+		return 1
+	fi
 
 	if ! git commit --fixup="$commit_hash" "$@"; then
 		return 1

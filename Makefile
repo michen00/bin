@@ -1,0 +1,123 @@
+.ONESHELL:
+
+DEBUG    ?= false
+VERBOSE  ?= false
+
+ifeq ($(DEBUG),true)
+    MAKEFLAGS += --debug=v
+else ifneq ($(VERBOSE),true)
+    MAKEFLAGS += --silent
+endif
+
+PRECOMMIT ?= pre-commit
+ifneq ($(shell command -v prek >/dev/null 2>&1 && echo y),)
+    PRECOMMIT := prek
+    ifneq ($(filter true,$(DEBUG) $(VERBOSE)),)
+        $(info Using prek for pre-commit checks)
+        ifeq ($(DEBUG),true)
+            PRECOMMIT := $(PRECOMMIT) -v
+        endif
+    endif
+endif
+
+# Terminal formatting (tput with fallbacks to ANSI codes)
+_COLOR  := $(shell tput sgr0 2>/dev/null || printf '\033[0m')
+BOLD    := $(shell tput bold 2>/dev/null || printf '\033[1m')
+CYAN    := $(shell tput setaf 6 2>/dev/null || printf '\033[0;36m')
+GREEN   := $(shell tput setaf 2 2>/dev/null || printf '\033[0;32m')
+RED     := $(shell tput setaf 1 2>/dev/null || printf '\033[0;31m')
+YELLOW  := $(shell tput setaf 3 2>/dev/null || printf '\033[0;33m')
+
+.DEFAULT_GOAL := help
+.PHONY: help
+help: ## Show this help message
+	@echo "$(BOLD)Available targets:$(_COLOR)"
+	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+        awk 'BEGIN {FS = ":.*?## "; max = 0} \
+            {if (length($$1) > max) max = length($$1)} \
+            {targets[NR] = $$0} \
+            END {for (i = 1; i <= NR; i++) { \
+                split(targets[i], arr, FS); \
+                printf "$(CYAN)%-*s$(_COLOR) %s\n", max + 2, arr[1], arr[2]}}'
+	@echo
+	@echo "$(BOLD)Environment variables:$(_COLOR)"
+	@echo "  $(YELLOW)DEBUG$(_COLOR) = true|false    Set to true to enable debug output (default: false)"
+	@echo "  $(YELLOW)VERBOSE$(_COLOR) = true|false  Set to true to enable verbose output (default: false)"
+
+.PHONY: develop
+WITH_HOOKS ?= true
+develop: ## Set up the project for development (WITH_HOOKS={true|false}, default=true)
+	@if ! git config --local --get-all include.path | grep -q ".gitconfigs/alias"; then \
+        git config --local --add include.path "$(CURDIR)/.gitconfigs/alias"; \
+    fi
+	@git config blame.ignoreRevsFile .git-blame-ignore-revs
+	@set -e; \
+    if command -v git-lfs >/dev/null 2>&1; then \
+        git lfs install --local --skip-repo || true; \
+    fi; \
+    current_branch=$$(git branch --show-current); \
+    stash_was_needed=0; \
+    cleanup() { \
+        exit_code=$$?; \
+        if [ "$$current_branch" != "$$(git branch --show-current)" ]; then \
+            echo "$(YELLOW)Attempting to return to $$current_branch...$(_COLOR)"; \
+            if git switch "$$current_branch" 2>/dev/null; then \
+                echo "Successfully returned to $$current_branch"; \
+            else \
+                echo "$(RED)Error: Could not return to $$current_branch. You are on $$(git branch --show-current).$(_COLOR)" >&2; \
+                if [ "$$exit_code" -eq 0 ]; then exit_code=1; fi; \
+            fi; \
+        fi; \
+        if [ $$stash_was_needed -eq 1 ] && git stash list | head -1 | grep -q "Auto stash before switching to main"; then \
+            echo "$(YELLOW)Note: Your stashed changes are still available. Run 'git stash pop' to restore them.$(_COLOR)"; \
+        fi; \
+        exit $$exit_code; \
+    }; \
+    trap cleanup EXIT; \
+    if ! git diff --quiet || ! git diff --cached --quiet; then \
+        git stash push -m "Auto stash before switching to main"; \
+        stash_was_needed=1; \
+    fi; \
+    git switch main && git pull; \
+    if command -v git-lfs >/dev/null 2>&1; then \
+        git lfs pull || true; \
+    fi; \
+    git switch "$$current_branch"; \
+    if [ $$stash_was_needed -eq 1 ]; then \
+        if git stash apply; then \
+            git stash drop; \
+        else \
+            echo "$(RED)Error: Stash apply had conflicts. Resolve them, then run: git stash drop$(_COLOR)"; \
+        fi; \
+    fi; \
+    trap - EXIT
+	@if [ "$(WITH_HOOKS)" = "true" ]; then \
+        $(MAKE) enable-pre-commit; \
+    fi
+
+.PHONY: test
+PARALLEL ?= true
+test: ## Run all tests (PARALLEL={true|false}, default=true)
+	@if [ "$(PARALLEL)" = "true" ]; then \
+        echo "$(CYAN)Running tests in parallel...$(_COLOR)"; \
+        bats --jobs 4 --timing tests/*.bats; \
+    else \
+        echo "$(CYAN)Running tests sequentially...$(_COLOR)"; \
+        bats tests/*.bats; \
+    fi
+
+.PHONY: check
+check: run-pre-commit test ## Run all code quality checks and tests
+
+.PHONY: enable-pre-commit
+enable-pre-commit: ## Enable pre-commit hooks (along with commit-msg and pre-push hooks)
+	@if command -v pre-commit >/dev/null 2>&1; then \
+        pre-commit install --hook-type commit-msg --hook-type pre-commit --hook-type pre-push --hook-type prepare-commit-msg ; \
+    else \
+        echo "$(YELLOW)Warning: pre-commit is not installed. Skipping hook installation.$(_COLOR)"; \
+        echo "Install it with: pip install pre-commit (or brew install pre-commit on macOS)"; \
+    fi
+
+.PHONY: run-pre-commit
+run-pre-commit: ## Run the pre-commit checks
+	$(PRECOMMIT) run --all-files

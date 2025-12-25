@@ -44,7 +44,3 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 - [`touchx`](touchx): Create (or update) a file and add `+x` permission to it.
 - [`update-mine`](update-mine): Update all branches with open pull requests authored by you.
 - [`venv-now`](venv-now): Create a new Python virtual environment in ./.venv (or the given directory), activating it if sourced.
-
-## TODO
-
-- fix indents

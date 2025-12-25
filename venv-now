@@ -5,11 +5,35 @@ return-or-exit() {
 	[[ $SOURCED == true ]] && return "$1" || exit "$1"
 }
 
+# Pure validation function - returns 0 if path is dangerous, 1 if safe
+# Can be tested safely without triggering any file operations
+# Parameters:
+#   $1 - venv_dir: the raw directory argument
+#   $2 - resolved_dir: the resolved/normalized path
+#   $3 - current_dir: the current working directory
+is_dangerous_venv_path() {
+	local venv_dir="$1"
+	local resolved_dir="$2"
+	local current_dir="$3"
+
+	[[ -z "$venv_dir" || "$venv_dir" == "." || "$venv_dir" == ".." ||
+		"$venv_dir" == "/" || "$venv_dir" == "~" ||
+		"$resolved_dir" == "$HOME" || "$resolved_dir" == "/" ||
+		"$resolved_dir" == "$current_dir" ]]
+}
+
+# When sourced with VENV_NOW_SOURCE_ONLY=1, only export functions (for testing)
+# This allows tests to call is_dangerous_venv_path() without triggering file ops
+if [[ "${VENV_NOW_SOURCE_ONLY:-}" == "1" ]]; then
+	return 0
+fi
+
 VENV_DIR=".venv"
 REMOVE_EXISTING=true
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
+	local exit_code=${1:-0}
 	cat <<EOF
 Usage: $SCRIPT_NAME [DIRECTORY] [OPTIONS]
 
@@ -29,7 +53,7 @@ Examples:
     source $SCRIPT_NAME myenv --no-remove
     $SCRIPT_NAME .venv -n
 EOF
-	return-or-exit 0
+	return-or-exit "$exit_code"
 }
 
 # Initialize empty positional argument
@@ -47,7 +71,7 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-*)
 		echo "Unknown option: $1" >&2
-		usage
+		usage 1
 		;;
 	*)
 		if [ "$positional_arg_set" = false ]; then
@@ -55,20 +79,51 @@ while [[ $# -gt 0 ]]; do
 			positional_arg_set=true
 		else
 			echo "Error: Multiple directory arguments specified: '$VENV_DIR' and '$1'" >&2
-			usage
+			usage 1
 		fi
 		shift
 		;;
 	esac
 done
 
+# Find python executable (prefer python3 for systems without python symlink)
+PYTHON_CMD="python"
+if ! command -v python &>/dev/null && command -v python3 &>/dev/null; then
+	PYTHON_CMD="python3"
+fi
+
+# Global safety check: refuse obviously dangerous targets
+# Resolve and normalize the target virtual environment path safely,
+# even if the directory does not exist yet.
+RESOLVED_VENV_DIR="$(
+	"$PYTHON_CMD" - "$VENV_DIR" <<'EOF'
+from pathlib import Path
+import sys
+
+# Path.resolve() resolves '..' and symlinks without requiring the
+# final path component to exist (strict=False is the default in 3.6+).
+print(Path(sys.argv[1]).resolve(strict=False))
+EOF
+)" || {
+	echo "Error: Failed to resolve path '$VENV_DIR'" >&2
+	return-or-exit 1
+}
+
+# Get current directory for comparison
+CURRENT_DIR="$(pwd -P)"
+
+if is_dangerous_venv_path "$VENV_DIR" "$RESOLVED_VENV_DIR" "$CURRENT_DIR"; then
+	echo "Error: Refusing to use dangerous path: '$VENV_DIR' (resolves to '$RESOLVED_VENV_DIR')" >&2
+	return-or-exit 1
+fi
+
 if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
 	echo "Removing existing virtual environment: $VENV_DIR"
-	rm -rf "$VENV_DIR"
+	rm -rf -- "$VENV_DIR"
 fi
 
 echo "Creating virtual environment in: $VENV_DIR"
-python -m venv "$VENV_DIR"
+"$PYTHON_CMD" -m venv "$VENV_DIR"
 
 if [ -f "$VENV_DIR/bin/activate" ]; then
 	echo "Virtual environment created: $VENV_DIR"

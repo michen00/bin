@@ -61,11 +61,14 @@ fi
 echo "Fetching latest remote info and pruning..."
 git fetch --prune
 
-# Identify local branches fully merged into the target branch.
-MERGED_BRANCHES=$(git branch --merged "$TARGET_BRANCH" |
-	grep -v "$TARGET_BRANCH" |
+# Identify local branches fully merged into the remote target branch.
+# Using origin/$TARGET_BRANCH ensures we compare against the up-to-date remote.
+# Wrap in subshell so filtering applies to both the primary and fallback command.
+MERGED_BRANCHES=$( (git branch --merged "origin/$TARGET_BRANCH" 2>/dev/null ||
+	git branch --merged "$TARGET_BRANCH") |
 	grep -v "^\*" |
-	sed 's/^  //')
+	sed 's/^  //' |
+	grep -v -F -x "$TARGET_BRANCH")
 
 if [ -z "$MERGED_BRANCHES" ]; then
 	echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
@@ -91,7 +94,8 @@ else
 fi
 
 # Identify local branches that no longer have a remote.
-STALE_BRANCHES=$(git branch -v | grep '\[gone\]' | awk '{print $1}')
+# Use -vv to show tracking info; ": gone]" indicates deleted upstream
+STALE_BRANCHES=$(git branch -vv | awk '/: gone]/ {print ($1 == "*" ? $2 : $1)}')
 
 if [ -z "$STALE_BRANCHES" ]; then
 	echo "No stale branches (i.e., branches with no remote) found."

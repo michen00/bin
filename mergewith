@@ -3,6 +3,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
+	local exit_code=${1:-0}
 	cat <<EOF
 Usage: $SCRIPT_NAME [OPTIONS] <reference_branch>
 
@@ -24,7 +25,7 @@ Examples:
   $SCRIPT_NAME main
   $SCRIPT_NAME feature-branch
 EOF
-	exit 0
+	exit "$exit_code"
 }
 
 reference_branch=""
@@ -35,12 +36,12 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-*)
 		echo "Error: Unknown option '$1'" >&2
-		usage
+		usage 1
 		;;
 	*)
 		if [[ -n $reference_branch ]]; then
 			echo "Error: Multiple reference branches provided: '$reference_branch' and '$1'" >&2
-			usage
+			usage 1
 		fi
 		reference_branch="$1"
 		;;
@@ -51,7 +52,7 @@ done
 # Ensure exactly one reference branch is provided
 if [[ -z $reference_branch ]]; then
 	echo "Error: No reference branch specified." >&2
-	usage
+	usage 1
 fi
 
 # Ensure this is a git repository
@@ -66,12 +67,24 @@ if ! current_branch=$(git branch --show-current); then
 	exit 1
 fi
 
+# Abort if in detached HEAD state
+# Note: git branch --show-current returns empty string only for detached HEAD
+if [[ -z "$current_branch" ]]; then
+	echo "Error: You are in detached HEAD state. Please checkout a branch first."
+	exit 1
+fi
+
 echo "Current branch is $current_branch"
 
-echo "Pulling latest changes for $current_branch"
-if ! git pull; then
-	echo "Error: Failed to pull the latest changes for branch '$current_branch'."
-	exit 1
+# Only pull if an upstream is configured
+if git rev-parse --abbrev-ref "@{upstream}" &>/dev/null; then
+	echo "Pulling latest changes for $current_branch"
+	if ! git pull; then
+		echo "Error: Failed to pull the latest changes for branch '$current_branch'."
+		exit 1
+	fi
+else
+	echo "No upstream configured for $current_branch, skipping pull."
 fi
 
 if [[ $current_branch == "$reference_branch" ]]; then
