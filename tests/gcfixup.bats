@@ -32,6 +32,20 @@ load 'test_helper'
 	[ "$status" -ne 0 ]
 }
 
+@test "gcfixup: fails on root commit with helpful workaround" {
+	setup_git_repo
+
+	# The initial commit from setup_git_repo is the root commit
+	local root_hash
+	root_hash=$(git rev-parse HEAD)
+
+	run "$SCRIPTS_DIR/gcfixup" "$root_hash"
+	[ "$status" -ne 0 ]
+	assert_output_contains "root commit"
+	assert_output_contains "Workaround"
+	assert_output_contains "--root"
+}
+
 @test "gcfixup: creates fixup commit for valid hash" {
 	setup_git_repo
 
