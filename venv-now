@@ -5,6 +5,29 @@ return-or-exit() {
 	[[ $SOURCED == true ]] && return "$1" || exit "$1"
 }
 
+# Pure validation function - returns 0 if path is dangerous, 1 if safe
+# Can be tested safely without triggering any file operations
+# Parameters:
+#   $1 - venv_dir: the raw directory argument
+#   $2 - resolved_dir: the resolved/normalized path
+#   $3 - current_dir: the current working directory
+is_dangerous_venv_path() {
+	local venv_dir="$1"
+	local resolved_dir="$2"
+	local current_dir="$3"
+
+	[[ -z "$venv_dir" || "$venv_dir" == "." || "$venv_dir" == ".." ||
+		"$venv_dir" == "/" || "$venv_dir" == "~" ||
+		"$resolved_dir" == "$HOME" || "$resolved_dir" == "/" ||
+		"$resolved_dir" == "$current_dir" ]]
+}
+
+# When sourced with VENV_NOW_SOURCE_ONLY=1, only export functions (for testing)
+# This allows tests to call is_dangerous_venv_path() without triggering file ops
+if [[ "${VENV_NOW_SOURCE_ONLY:-}" == "1" ]]; then
+	return 0
+fi
+
 VENV_DIR=".venv"
 REMOVE_EXISTING=true
 SCRIPT_NAME=$(basename "$0")
@@ -89,10 +112,7 @@ EOF
 # Get current directory for comparison
 CURRENT_DIR="$(pwd -P)"
 
-if [[ "$VENV_DIR" == "" || "$VENV_DIR" == "." || "$VENV_DIR" == ".." ||
-	"$VENV_DIR" == "/" || "$VENV_DIR" == "~" ||
-	"$RESOLVED_VENV_DIR" == "$HOME" || "$RESOLVED_VENV_DIR" == "/" ||
-	"$RESOLVED_VENV_DIR" == "$CURRENT_DIR" ]]; then
+if is_dangerous_venv_path "$VENV_DIR" "$RESOLVED_VENV_DIR" "$CURRENT_DIR"; then
 	echo "Error: Refusing to use dangerous path: '$VENV_DIR' (resolves to '$RESOLVED_VENV_DIR')" >&2
 	return-or-exit 1
 fi
