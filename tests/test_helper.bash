@@ -55,6 +55,14 @@ teardown() {
 	fi
 }
 
+# Teardown function - runs once after all tests in a file
+teardown_file() {
+	# Clean up python shim directory if it was created
+	if [[ -n "${PYTHON_SHIM_DIR:-}" && -d "$PYTHON_SHIM_DIR" ]]; then
+		rm -rf "$PYTHON_SHIM_DIR"
+	fi
+}
+
 # Helper to create a minimal git repo for git-related tests
 setup_git_repo() {
 	git init --initial-branch=main
@@ -74,6 +82,20 @@ assert_output_contains() {
 	# shellcheck disable=SC2154  # $output is set by BATS
 	if [[ "$output" != *"$expected"* ]]; then
 		echo "Expected output to contain: $expected"
+		echo "Actual output: $output"
+		return 1
+	fi
+}
+
+# Helper to check if output does NOT contain a substring
+# Parameters:
+#   $1 - unexpected substring
+# Note: $output is set by BATS 'run' command
+assert_output_not_contains() {
+	local unexpected="$1"
+	# shellcheck disable=SC2154  # $output is set by BATS
+	if [[ "$output" == *"$unexpected"* ]]; then
+		echo "Expected output NOT to contain: $unexpected"
 		echo "Actual output: $output"
 		return 1
 	fi

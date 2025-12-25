@@ -32,7 +32,7 @@ load 'test_helper'
 	# This will fail because gh is not configured, but it should accept the flag
 	run "$SCRIPTS_DIR/update-mine" --debug main
 	# Should not fail due to unknown option
-	[[ "$output" != *"Unknown option"* ]]
+	assert_output_not_contains "Unknown option"
 }
 
 @test "update-mine: accepts --all flag" {
@@ -41,7 +41,7 @@ load 'test_helper'
 	# This will fail because gh is not configured, but it should accept the flag
 	run "$SCRIPTS_DIR/update-mine" --all main
 	# Should not fail due to unknown option
-	[[ "$output" != *"Unknown option"* ]]
+	assert_output_not_contains "Unknown option"
 }
 
 @test "update-mine: fails with unknown option" {
