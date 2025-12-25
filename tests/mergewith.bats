@@ -50,6 +50,17 @@ load 'test_helper'
 	assert_output_contains "same"
 }
 
+@test "mergewith: fails in detached HEAD state" {
+	setup_git_repo
+
+	# Enter detached HEAD state
+	git checkout --detach HEAD
+
+	run "$SCRIPTS_DIR/mergewith" main
+	[ "$status" -ne 0 ]
+	assert_output_contains "detached HEAD"
+}
+
 @test "mergewith: fails with unknown option" {
 	run "$SCRIPTS_DIR/mergewith" --unknown
 	[ "$status" -ne 0 ]
