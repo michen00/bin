@@ -119,7 +119,7 @@ fi
 
 if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
 	echo "Removing existing virtual environment: $VENV_DIR"
-	rm -rf "$VENV_DIR"
+	rm -rf -- "$VENV_DIR"
 fi
 
 echo "Creating virtual environment in: $VENV_DIR"
