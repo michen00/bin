@@ -54,3 +54,37 @@ load 'test_helper'
 	# Verify it shows the file (cross-platform fix uses find + du)
 	assert_output_contains "file.txt"
 }
+
+@test "how-big: -a shows both files and subdirectories" {
+	mkdir -p testdir/subdir
+	echo "file content" >testdir/myfile.txt
+	echo "subdir content" >testdir/subdir/nested.txt
+
+	run "$SCRIPTS_DIR/how-big" -a testdir
+	[ "$status" -eq 0 ]
+	# Should show both the file and the subdirectory
+	assert_output_contains "myfile.txt"
+	assert_output_contains "subdir"
+}
+
+@test "how-big: without -a does not show individual files" {
+	mkdir -p testdir/subdir
+	echo "file content" >testdir/standalone.txt
+	echo "subdir content" >testdir/subdir/nested.txt
+
+	run "$SCRIPTS_DIR/how-big" testdir
+	[ "$status" -eq 0 ]
+	# Should show subdirectory but NOT the standalone file
+	assert_output_contains "subdir"
+	assert_output_not_contains "standalone.txt"
+}
+
+@test "how-big: -a works with current directory" {
+	echo "root file" >rootfile.txt
+	mkdir -p subdir
+	echo "nested" >subdir/nested.txt
+
+	run "$SCRIPTS_DIR/how-big" -a
+	[ "$status" -eq 0 ]
+	assert_output_contains "rootfile.txt"
+}

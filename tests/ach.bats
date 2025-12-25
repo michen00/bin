@@ -98,3 +98,35 @@ load 'test_helper'
 	run bash -c 'git diff --cached --name-only | grep -q "unrelated.txt"'
 	[ "$status" -eq 0 ]
 }
+
+@test "ach: succeeds with unstaged changes to other files" {
+	setup_git_repo
+
+	# Create a tracked file with unstaged modifications
+	echo "tracked content" >tracked.txt
+	git add tracked.txt
+	git commit -m "Add tracked file"
+	echo "modified content" >tracked.txt
+
+	# Also create an untracked file
+	echo "untracked content" >untracked.txt
+
+	# Verify we have unstaged changes
+	run git status --porcelain
+	[[ "$output" == *" M tracked.txt"* ]] || [[ "$output" == *"M  tracked.txt"* ]] || [[ "$output" == *"?? untracked.txt"* ]]
+
+	# Capture hash before ach runs
+	local target_hash
+	target_hash=$(git rev-parse HEAD)
+
+	# Run ach - should succeed despite unstaged changes to other files
+	run "$SCRIPTS_DIR/ach"
+	[ "$status" -eq 0 ]
+
+	# Verify the commit was created correctly
+	grep -q "$target_hash" ".git-blame-ignore-revs"
+
+	# Unstaged changes should still be present
+	run git status --porcelain tracked.txt
+	[[ "$output" == *"M"* ]]
+}
