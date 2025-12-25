@@ -41,7 +41,8 @@ EOF
 
 	# Check if this is the root commit (has no parent)
 	if ! git rev-parse --verify "$commit_hash"~1 &>/dev/null; then
-		echo "Error: Cannot create fixup for root commit. (Root commits cannot be autosquashed without --root)" >&2
+		echo "Error: Cannot fixup root commit (it has no parent to rebase onto)." >&2
+		echo "Workaround: git commit --fixup=$commit_hash && git rebase -i --autosquash --root" >&2
 		return 1
 	fi
 
