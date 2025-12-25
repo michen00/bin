@@ -84,6 +84,13 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 	exit 1
 fi
 
+# Ensure gh CLI is installed
+if ! command -v gh >/dev/null 2>&1; then
+	echo "Error: 'gh' (GitHub CLI) is required but not installed." >&2
+	echo "Install it from: https://cli.github.com/" >&2
+	exit 1
+fi
+
 # Fetch latest remote branches to avoid using stale references
 git remote update >/dev/null 2>&1
 
@@ -110,7 +117,7 @@ if [ -z "$branches" ]; then
 	exit 0
 fi
 
-echo "$branches" | while read -r branch; do
+while read -r branch; do
 	# Skip empty lines
 	[ -z "$branch" ] && continue
 
@@ -137,4 +144,4 @@ echo "$branches" | while read -r branch; do
 	else
 		echo "Error: Failed to push branch $branch. Skipping..."
 	fi
-done
+done <<<"$branches"
