@@ -96,23 +96,74 @@ load 'test_helper'
 	assert_output_contains "Unknown option"
 }
 
-@test "venv-now: rejects dangerous path resolving to ." {
+# Unit tests for is_dangerous_venv_path() - completely safe, no file operations
+# These test the validation logic directly without invoking any dangerous ops
+
+@test "is_dangerous_venv_path: rejects empty path" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path "" "/some/path" "/current"
+	[ "$status" -eq 0 ] # 0 = dangerous
+}
+
+@test "is_dangerous_venv_path: rejects dot" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path "." "/current" "/current"
+	[ "$status" -eq 0 ] # 0 = dangerous
+}
+
+@test "is_dangerous_venv_path: rejects double-dot" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path ".." "/parent" "/current"
+	[ "$status" -eq 0 ] # 0 = dangerous
+}
+
+@test "is_dangerous_venv_path: rejects root path" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path "/" "/" "/current"
+	[ "$status" -eq 0 ] # 0 = dangerous
+}
+
+@test "is_dangerous_venv_path: rejects tilde" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path "~" "$HOME" "/current"
+	[ "$status" -eq 0 ] # 0 = dangerous
+}
+
+@test "is_dangerous_venv_path: rejects path resolving to HOME" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path "some/path" "$HOME" "/current"
+	[ "$status" -eq 0 ] # 0 = dangerous
+}
+
+@test "is_dangerous_venv_path: rejects path resolving to root" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path "some/path" "/" "/current"
+	[ "$status" -eq 0 ] # 0 = dangerous
+}
+
+@test "is_dangerous_venv_path: rejects path resolving to current dir" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path "foo/.." "/current" "/current"
+	[ "$status" -eq 0 ] # 0 = dangerous
+}
+
+@test "is_dangerous_venv_path: accepts safe path" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path ".venv" "/project/.venv" "/project"
+	[ "$status" -eq 1 ] # 1 = safe
+}
+
+@test "is_dangerous_venv_path: accepts custom venv name" {
+	VENV_NOW_SOURCE_ONLY=1 source "$SCRIPTS_DIR/venv-now"
+	run is_dangerous_venv_path "myenv" "/project/myenv" "/project"
+	[ "$status" -eq 1 ] # 1 = safe
+}
+
+# Integration test for dangerous path rejection (uses safe test directory)
+@test "venv-now: integration test rejects path resolving to current dir" {
 	mkdir -p testdir
-	# Use a path that resolves to the current directory, but is not literally "."
+	# testdir/.. resolves to TEST_TEMP_DIR (current dir) - safe to test
 	run "$SCRIPTS_DIR/venv-now" "testdir/.."
-	[ "$status" -ne 0 ]
-	assert_output_contains "dangerous path"
-}
-
-@test "venv-now: rejects dangerous path /" {
-	run "$SCRIPTS_DIR/venv-now" /
-	[ "$status" -ne 0 ]
-	assert_output_contains "dangerous path"
-}
-
-@test "venv-now: rejects path resolving to HOME" {
-	# $HOME/. resolves to $HOME
-	run "$SCRIPTS_DIR/venv-now" "$HOME/."
 	[ "$status" -ne 0 ]
 	assert_output_contains "dangerous path"
 }
