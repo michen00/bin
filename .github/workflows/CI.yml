@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Setup BATS
-        uses: bats-core/bats-action@3.0.0
+        uses: bats-core/bats-action@3.0.1
       - name: Run BATS tests
         run: bats --jobs 4 --timing tests/*.bats
 
