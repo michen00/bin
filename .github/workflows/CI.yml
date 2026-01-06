@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Setup BATS
-        uses: bats-core/bats-action@3.0.0
+        uses: bats-core/bats-action@3.0.1
       - name: Run BATS tests
         run: bats --jobs 4 --timing tests/*.bats
 
@@ -30,13 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          check-latest: true
       - name: Install pre-commit
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install --upgrade pre-commit
+          pip install --upgrade pip
+          pip install --upgrade pre-commit
       - name: Cache pre-commit hooks
         id: cache-pre-commit-hooks
         uses: actions/cache@v5
