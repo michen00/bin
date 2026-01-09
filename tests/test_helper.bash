@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Common test helper functions for BATS tests
 
 # Get the directory containing the scripts (parent of tests directory)

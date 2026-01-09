@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 # Note: we still allow partial results when permission errors occur on some
 # entries. We capture non-zero exits from find/du as "partial" rather than

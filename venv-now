@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SOURCED=$([[ ${BASH_SOURCE[0]} != "$0" ]] && echo true || echo false)
 return-or-exit() {
