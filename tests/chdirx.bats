@@ -34,7 +34,7 @@ load 'test_helper'
 
 @test "chdirx: makes shebang files executable" {
 	mkdir testdir
-	echo '#!/bin/bash' >testdir/script.sh
+	echo '#!/usr/bin/env bash' >testdir/script.sh
 	echo 'echo hello' >>testdir/script.sh
 	chmod -x testdir/script.sh
 
@@ -55,8 +55,8 @@ load 'test_helper'
 
 @test "chdirx: -r processes subdirectories recursively" {
 	mkdir -p testdir/subdir
-	echo '#!/bin/bash' >testdir/script1.sh
-	echo '#!/bin/bash' >testdir/subdir/script2.sh
+	echo '#!/usr/bin/env bash' >testdir/script1.sh
+	echo '#!/usr/bin/env bash' >testdir/subdir/script2.sh
 	chmod -x testdir/script1.sh testdir/subdir/script2.sh
 
 	run "$SCRIPTS_DIR/chdirx" -r testdir
@@ -67,7 +67,7 @@ load 'test_helper'
 
 @test "chdirx: without -r does not process subdirectories" {
 	mkdir -p testdir/subdir
-	echo '#!/bin/bash' >testdir/subdir/script.sh
+	echo '#!/usr/bin/env bash' >testdir/subdir/script.sh
 	chmod -x testdir/subdir/script.sh
 
 	run "$SCRIPTS_DIR/chdirx" testdir

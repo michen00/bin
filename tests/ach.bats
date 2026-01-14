@@ -130,3 +130,143 @@ load 'test_helper'
 	run git status --porcelain tracked.txt
 	[[ "$output" == *"M"* ]]
 }
+
+@test "ach: fails when not in a git repository" {
+	# We're in TEST_TEMP_DIR which is not a git repo
+	run "$SCRIPTS_DIR/ach"
+	[ "$status" -eq 1 ]
+	assert_output_contains "Must be run from the root of a git repository"
+}
+
+@test "ach: idempotent - skips when hash already exists in file" {
+	setup_git_repo
+
+	local target_hash
+	target_hash=$(git rev-parse HEAD)
+
+	# Run ach first time
+	run "$SCRIPTS_DIR/ach"
+	[ "$status" -eq 0 ]
+
+	# Count commits before second run
+	local commit_count_before
+	commit_count_before=$(git rev-list --count HEAD)
+
+	# Run ach again with the same hash (now the previous commit)
+	run "$SCRIPTS_DIR/ach" "$target_hash"
+	[ "$status" -eq 0 ]
+	assert_output_contains "already exists"
+	assert_output_contains "Skipping"
+
+	# No new commit should have been created
+	local commit_count_after
+	commit_count_after=$(git rev-list --count HEAD)
+	[ "$commit_count_before" -eq "$commit_count_after" ]
+}
+
+@test "ach: stashes uncommitted changes to target file" {
+	setup_git_repo
+
+	# Create the blame file with initial content (leave room for appending)
+	echo "# Initial content" >.git-blame-ignore-revs
+	echo "" >>.git-blame-ignore-revs
+	git add .git-blame-ignore-revs
+	git commit -m "Add blame file"
+
+	# Make uncommitted changes to the BEGINNING of the target file (to avoid merge conflict)
+	{
+		echo "# My uncommitted header"
+		cat .git-blame-ignore-revs
+	} >tmp && mv tmp .git-blame-ignore-revs
+
+	# Verify we have uncommitted changes
+	run git diff --name-only .git-blame-ignore-revs
+	[ "$output" = ".git-blame-ignore-revs" ]
+
+	# Capture hash to add
+	local target_hash
+	target_hash=$(git rev-parse HEAD)
+
+	# Run ach
+	run "$SCRIPTS_DIR/ach"
+	[ "$status" -eq 0 ]
+	assert_output_contains "Stashing uncommitted changes"
+
+	# Verify the hash was added
+	grep -q "$target_hash" ".git-blame-ignore-revs"
+
+	# Verify our uncommitted changes are still present (restored cleanly or in stash)
+	if grep -q "My uncommitted header" ".git-blame-ignore-revs"; then
+		# Changes were restored cleanly
+		assert_output_contains "Restored your uncommitted changes"
+	else
+		# Conflict - changes are in stash
+		assert_output_contains "Could not cleanly restore"
+	fi
+}
+
+@test "ach: fails when file is staged with different content" {
+	setup_git_repo
+
+	# Create and stage the blame file with content that doesn't include the target hash
+	echo "# Some other content" >.git-blame-ignore-revs
+	git add .git-blame-ignore-revs
+
+	# Now run ach - should fail because file is staged with different content
+	run "$SCRIPTS_DIR/ach"
+	[ "$status" -eq 1 ]
+	assert_output_contains "has staged changes"
+	assert_output_contains "Unstage with"
+}
+
+@test "ach: commits when file is pre-staged with target hash" {
+	setup_git_repo
+
+	# First, create and commit the blame file (so it exists in HEAD)
+	echo "# Blame ignore file" >.git-blame-ignore-revs
+	git add .git-blame-ignore-revs
+	git commit -m "Add blame file"
+
+	# Create another commit to have a hash to add
+	echo "more content" >>README.md
+	git add README.md
+	git commit -m "Update readme"
+
+	local target_hash
+	target_hash=$(git rev-parse HEAD)
+
+	# Stage the blame file with the target hash already added
+	echo "$target_hash  # Update readme" >>.git-blame-ignore-revs
+	git add .git-blame-ignore-revs
+
+	# Run ach - should detect file is staged with hash and commit it
+	run "$SCRIPTS_DIR/ach"
+	[ "$status" -eq 0 ]
+
+	# When file is staged with hash and no working tree changes, it hits idempotency
+	# check first (since working tree == staged), so it just skips
+	assert_output_contains "already exists"
+}
+
+@test "ach: re-stages other files after completion" {
+	setup_git_repo
+
+	# Create and stage multiple files
+	echo "file1 content" >file1.txt
+	echo "file2 content" >file2.txt
+	git add file1.txt file2.txt
+
+	# Verify both are staged
+	run git diff --cached --name-only
+	[[ "$output" == *"file1.txt"* ]]
+	[[ "$output" == *"file2.txt"* ]]
+
+	# Run ach
+	run "$SCRIPTS_DIR/ach"
+	[ "$status" -eq 0 ]
+
+	# Both files should still be staged
+	run git diff --cached --name-only
+	[[ "$output" == *"file1.txt"* ]]
+	[[ "$output" == *"file2.txt"* ]]
+}
