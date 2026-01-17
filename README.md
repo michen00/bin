@@ -49,6 +49,4 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 - [`update-mine`](update-mine): Update all branches with open pull requests authored by you.
 - [`venv-now`](venv-now): Create a new Python virtual environment in ./.venv (or the given directory), activating it if sourced.
 
-## Docs
-
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/michen00/bin)
+## Documentation: [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/michen00/bin)
