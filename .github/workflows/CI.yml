@@ -16,8 +16,11 @@ defaults:
 
 jobs:
   test:
-    name: Run Tests
-    runs-on: ubuntu-latest
+    name: Run Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v6
       - name: Setup BATS
@@ -26,8 +29,11 @@ jobs:
         run: bats --jobs 4 --timing tests/*.bats
 
   run-ci:
-    name: Run CI
-    runs-on: ubuntu-latest
+    name: Run CI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v6
       - name: Install pre-commit
