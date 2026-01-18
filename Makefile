@@ -97,13 +97,60 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
 
 .PHONY: test
 PARALLEL ?= true
-test: ## Run all tests (PARALLEL={true|false}, default=true)
-	@if [ "$(PARALLEL)" = "true" ]; then \
-        echo "$(CYAN)Running tests in parallel...$(_COLOR)"; \
-        bats --jobs 4 --timing tests/*.bats; \
+SCRIPTS ?= *
+test: ## Run tests for specified scripts (PARALLEL={true|false}, SCRIPTS={script1,script2,...}, defaults: true, *)
+	@if [ "$(SCRIPTS)" = "*" ]; then \
+        test_files=$$(ls tests/*.bats 2>/dev/null | grep -v test_helper); \
+        script_count=$$(echo "$$test_files" | wc -w | tr -d ' '); \
     else \
-        echo "$(CYAN)Running tests sequentially...$(_COLOR)"; \
-        bats tests/*.bats; \
+        valid_tests=""; \
+        invalid_scripts=""; \
+        scripts_var="$(SCRIPTS)"; \
+        old_ifs=$$IFS; \
+        IFS=,; \
+        for script in $$scripts_var; do \
+            script=$$(echo "$$script" | sed 's/^[[:space:]]*//;s/[[:space:]]*$$//'); \
+            if [ ! -f "$(CURDIR)/$$script" ]; then \
+                invalid_scripts="$$invalid_scripts$$script (script not found)\n"; \
+            elif [ ! -f "tests/$$script.bats" ]; then \
+                invalid_scripts="$$invalid_scripts$$script (test file not found)\n"; \
+            else \
+                valid_tests="$$valid_tests tests/$$script.bats"; \
+            fi; \
+        done; \
+        IFS=$$old_ifs; \
+        if [ -n "$$invalid_scripts" ]; then \
+            echo "$(RED)Error: The following scripts are invalid:$(_COLOR)" >&2; \
+            echo "$$invalid_scripts" | sed 's/^/  - /' >&2; \
+            echo "$(YELLOW)Available scripts with tests:$(_COLOR)" >&2; \
+            for f in tests/*.bats; do \
+                [ "$$f" = "tests/test_helper.bash" ] && continue; \
+                script=$$(basename "$$f" .bats); \
+                [ -f "$(CURDIR)/$$script" ] && echo "  - $$script" >&2; \
+            done; \
+            exit 1; \
+        fi; \
+        test_files=$$valid_tests; \
+        script_count=$$(echo $$valid_tests | wc -w | tr -d ' '); \
+    fi; \
+    if [ -z "$$test_files" ]; then \
+        echo "$(RED)Error: No test files found$(_COLOR)" >&2; \
+        exit 1; \
+    fi; \
+    if [ "$$script_count" -eq 1 ]; then \
+        echo "$(CYAN)Running test sequentially (1 script)...$(_COLOR)"; \
+        bats $$test_files; \
+    elif [ "$(PARALLEL)" = "true" ]; then \
+        if [ "$$script_count" -le 3 ]; then \
+            jobs=$$script_count; \
+        else \
+            jobs=4; \
+        fi; \
+        echo "$(CYAN)Running tests in parallel ($$script_count scripts, --jobs $$jobs)...$(_COLOR)"; \
+        bats --jobs $$jobs --timing $$test_files; \
+    else \
+        echo "$(CYAN)Running tests sequentially ($$script_count scripts)...$(_COLOR)"; \
+        bats $$test_files; \
     fi
 
 .PHONY: check
