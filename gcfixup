@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 
 gcfixup() {
-	read -r -d '' HELP_MSG <<EOF
+	read -r -d '' HELP_MSG <<EOF || true
 $SCRIPT_NAME - Create a fixup commit and automatically rebase with autosquash
 
 Usage:
@@ -27,7 +27,7 @@ Notes:
   - The rebase will stop for manual resolution if there are conflicts.
 EOF
 
-	if [[ -z $1 || $1 == "--help" || $1 == "-h" ]]; then
+	if [[ -z ${1:-} || ${1:-} == "--help" || ${1:-} == "-h" ]]; then
 		echo "$HELP_MSG"
 		return 0
 	fi
