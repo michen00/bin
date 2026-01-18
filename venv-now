@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 SOURCED=$([[ ${BASH_SOURCE[0]} != "$0" ]] && echo true || echo false)
+if [[ $SOURCED == false ]]; then
+	set -euo pipefail
+fi
 return-or-exit() {
 	[[ $SOURCED == true ]] && return "$1" || exit "$1"
 }
