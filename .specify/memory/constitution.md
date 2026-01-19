@@ -1,27 +1,22 @@
 <!--
 Sync Impact Report:
-Version: 1.0.0
+Version: 1.0.0 → 1.0.1
 Ratified: 2025-01-18
-Last Amended: 2025-01-18
+Last Amended: 2026-01-18
 
-Principles Added:
-- I. Script-First
-- II. CLI Interface
-- III. Test-First
-- IV. Simplicity
-- V. Portability
+Principles Modified:
+- III. Test-First: Clarified scope - only scripts in project root require testing
 
-Sections Added:
-- Development Standards
-- Quality Assurance
+Sections Modified:
+- Quality Assurance / Testing Requirements: Clarified scope
 
 Templates Status:
-✅ plan-template.md - Constitution Check section aligns with principles
-✅ spec-template.md - No changes needed
-✅ tasks-template.md - No changes needed
+✅ plan-template.md - No changes needed (generic testing guidance)
+✅ spec-template.md - No changes needed (generic testing guidance)
+✅ tasks-template.md - No changes needed (tests are optional per spec)
 ✅ Command files - No outdated references found
 
-Follow-up TODOs: None
+Version Bump Rationale: PATCH - Clarification of testing scope (scripts in project root vs other scripts like dev scripts). No breaking changes, backward compatible.
 -->
 
 # bin Constitution
@@ -38,7 +33,9 @@ All scripts MUST follow Unix conventions: text input/output via stdin/stdout/std
 
 ### III. Test-First (NON-NEGOTIABLE)
 
-Every script MUST have comprehensive test coverage using bats. Tests MUST be written before or alongside implementation. Tests MUST cover happy paths, error cases, edge cases, and help output. All tests MUST pass before merging. Test files MUST be located in `tests/` directory with naming convention `[script-name].bats`.
+Every script in the project root MUST have comprehensive test coverage using bats. Tests MUST be written before or alongside implementation. Tests MUST cover happy paths, error cases, edge cases, and help output. All tests MUST pass before merging. Test files MUST be located in `tests/` directory with naming convention `[script-name].bats`.
+
+**Scope**: This requirement applies to scripts located in the project root directory. Scripts in other locations (e.g., `.github/scripts/`, development tooling, or helper scripts) may be exempt from testing requirements at the project's discretion, but scripts in the project root that are part of the main utility suite MUST have tests.
 
 ### IV. Simplicity
 
@@ -69,7 +66,8 @@ Scripts MUST work across Unix-like systems (Linux, macOS, BSD). Use POSIX-compli
 
 ### Testing Requirements
 
-- All scripts MUST have corresponding test files in `tests/`
+- All scripts in the project root MUST have corresponding test files in `tests/`
+- Scripts in other locations (e.g., `.github/scripts/`, dev tooling) may be exempt from testing at project discretion
 - Tests MUST use bats framework (minimum version 1.5.0)
 - Tests MUST be independent and idempotent
 - Tests MUST clean up after themselves
@@ -100,4 +98,4 @@ This constitution supersedes all other development practices and guidelines. All
 
 **Compliance Review**: All PRs MUST include a constitution check. Violations MUST be justified in the Complexity Tracking section of implementation plans, or the PR MUST be updated to comply.
 
-**Version**: 1.0.0 | **Ratified**: 2025-01-18 | **Last Amended**: 2025-01-18
+**Version**: 1.0.1 | **Ratified**: 2025-01-18 | **Last Amended**: 2026-01-18
