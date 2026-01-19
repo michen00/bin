@@ -26,6 +26,9 @@ jobs:
       - uses: actions/checkout@v6
       - name: Setup BATS
         uses: bats-core/bats-action@3.0.1
+      - name: Install GNU parallel (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: brew install parallel
       - name: Run BATS tests
         run: bats --jobs 4 --timing tests/*.bats
 
