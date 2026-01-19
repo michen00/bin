@@ -1,0 +1,89 @@
+---
+name: Validate Script Documentation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "!*.*"
+      - .github/scripts/validate-scripts.sh
+      - .github/workflows/validate-scripts.yml
+      - "*"
+      - "tests/*.bats"
+      - README.md
+  push:
+    branches: [main]
+    paths:
+      - "!*.*"
+      - .github/scripts/validate-scripts.sh
+      - .github/workflows/validate-scripts.yml
+      - "*"
+      - "tests/*.bats"
+      - README.md
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -el {0}
+
+jobs:
+  validate:
+    name: Validate Documentation & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Full history for diff checks
+
+      - name: Early-exit optimization - check for shebang files
+        id: check_shebangs
+        run: |
+          # Get list of changed files in PR
+          base_ref="${{ github.base_ref }}"
+          changed_files=$(
+            git diff --name-only --diff-filter=ACMR \
+              "origin/${base_ref}...HEAD" 2>/dev/null ||
+            git diff --name-only --diff-filter=ACMR HEAD~1 HEAD 2>/dev/null ||
+            echo ""
+          )
+
+          if [[ -z "$changed_files" ]]; then
+            echo "No changed files detected"
+            echo "has_shebangs=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if any changed file (excluding those with extensions)
+          # starts with shebang
+          has_shebangs=false
+          while IFS= read -r file; do
+            # Skip files with extensions (e.g., script.sh, tool.py)
+            if [[ "$file" =~ \.[^/]+$ ]]; then
+              continue
+            fi
+            # Skip hidden files
+            if [[ "$(basename "$file")" =~ ^\. ]]; then
+              continue
+            fi
+            # Check if file exists and starts with shebang
+            if [[ -f "$file" ]] && \
+              head -n 1 "$file" 2>/dev/null | grep -q '^#!'; then
+              has_shebangs=true
+              break
+            fi
+          done <<< "$changed_files"
+
+          echo "has_shebangs=$has_shebangs" >> "$GITHUB_OUTPUT"
+          if [[ "$has_shebangs" == "false" ]]; then
+            echo "No shebang-prefixed files detected in PR changes,"
+            echo "skipping validation"
+          fi
+
+      - name: Run validation script
+        if: steps.check_shebangs.outputs.has_shebangs == 'true'
+        run: ./.github/scripts/validate-scripts.sh
