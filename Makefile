@@ -100,8 +100,8 @@ PARALLEL ?= true
 SCRIPTS ?= *
 test: ## Run tests for specified scripts (PARALLEL={true|false}, SCRIPTS={script1,script2,...}, defaults: true, *)
 	@if [ "$(SCRIPTS)" = "*" ]; then \
-        test_files=$$(ls tests/*.bats 2>/dev/null | grep -v test_helper); \
-        script_count=$$(echo "$$test_files" | wc -w | tr -d ' '); \
+        test_files=$$(ls tests/*.bats 2>/dev/null); \
+        script_count=$$(echo "$$test_files" | grep -c .); \
     else \
         valid_tests=""; \
         invalid_scripts=""; \
