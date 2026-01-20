@@ -163,14 +163,9 @@ discover_readme_entries() {
   local filtered="$1"
 
   # Extract script names from entries matching pattern: - [`scriptname`](scriptname): ...
-  # grep returns non-zero when no matches found, which is expected and should not cause script failure
-  local matches
-  # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-  matches=$(echo "$filtered" | grep -E '^- \[`[^`]+`\]\([^)]+\):' 2> /dev/null || true)
-  if [[ -n "$matches" ]]; then
-    # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-    echo "$matches" | sed -E 's/^- \[`([^`]+)`\].*/\1/' 2> /dev/null
-  fi
+  # sed -n with 'p' flag prints only matching lines, improving efficiency over grep | sed.
+  # shellcheck disable=SC2016 # Single quotes intentional - backticks are literal regex chars, not command substitution
+  sed -nE 's/^- \[`([^`]+)`\].*/\1/p' <<< "$filtered"
 }
 
 # Validate correspondence between scripts, tests, and README entries
@@ -270,7 +265,7 @@ validate_executable_permissions() {
     local has_executable=0
 
     # Check shebang
-    if head -n 1 "$readme_script" 2> /dev/null | grep -q '^#!'; then
+    if head -n 1 "$readme_script" | grep -q '^#!'; then
       has_shebang=1
     fi
 
@@ -304,7 +299,7 @@ validate_executable_permissions() {
       local has_executable=0
 
       # Check shebang
-      if head -n 1 "$test_file" 2> /dev/null | grep -q '^#!'; then
+      if head -n 1 "$test_file" | grep -q '^#!'; then
         has_shebang=1
       fi
 
