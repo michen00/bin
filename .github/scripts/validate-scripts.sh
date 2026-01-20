@@ -99,8 +99,9 @@ discover_tests() {
   done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null || true)
 }
 
-# Discover README entries from ## Scripts section
-discover_readme_entries() {
+# Extract and filter the ## Scripts section from README.md
+# Outputs the filtered section to stdout, or error messages to stderr and returns non-zero on failure
+extract_readme_scripts_section() {
   if [[ ! -f "README.md" ]]; then
     echo "ERROR: README.md not found" >&2
     return 1
@@ -125,9 +126,15 @@ discover_readme_entries() {
   # Remove lines that are purely HTML comments: <!-- ... -->
   # This preserves entry lines. Multi-line comments (<!-- ... --> spanning multiple lines)
   # are handled by removing the opening and closing lines separately.
-  local filtered
   # Remove single-line HTML comments and comment boundary lines
-  filtered=$(echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d')
+  echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d'
+}
+
+# Discover README entries from filtered Scripts section
+# Arguments: filtered_readme_section
+# Extracts script names from the provided filtered section text
+discover_readme_entries() {
+  local filtered="$1"
 
   # Extract script names from entries matching pattern: - [`scriptname`](scriptname): ...
   # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
@@ -403,13 +410,12 @@ validate_sorting() {
   local names_in_order=()
   set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r line; do
-    if [[ "$line" =~ ^-.* ]]; then
-      local script_name
-      # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-      script_name=$(echo "$line" | sed -nE 's/.*\[`([^`]+)`\].*/\1/p')
-      if [[ -n "$script_name" ]]; then
-        names_in_order+=("$script_name")
-      fi
+    # Use bash regex for efficiency and consistency with validate_formatting
+    # Pattern: - [`script-name`](...)
+    # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
+    local regex_pattern='^-\ \[`([^`]+)`\]'
+    if [[ "$line" =~ $regex_pattern ]]; then
+      names_in_order+=("${BASH_REMATCH[1]}")
     fi
   done <<< "$filtered"
   set -e # Re-enable -e
@@ -494,31 +500,19 @@ main() {
   local -a cached_tests=()
   mapfile -t cached_tests < <(discover_tests | grep -v '^$')
 
-  # Cache README entries
-  local -a cached_readme_entries=()
-  local readme_output
-  set +e # Temporarily disable -e to capture exit code
-  readme_output=$(discover_readme_entries)
-  local readme_exit=$?
-  set -e
-  if [[ $readme_exit -ne 0 ]]; then
-    # Re-run to get error message if function failed
-    discover_readme_entries >&2
-    exit 1
-  fi
-  # Filter out ERROR lines and empty lines before populating array
-  mapfile -t cached_readme_entries < <(grep -v '^ERROR:' <<< "$readme_output" | grep -v '^$')
-
-  # Cache filtered README scripts section for formatting/sorting validation
+  # Cache filtered README scripts section (extract once, use many times)
   # This avoids re-extracting and filtering the section multiple times
   local cached_readme_section=""
-  if [[ -f "README.md" ]]; then
-    # Extract Scripts section
-    local scripts_section
-    scripts_section=$(awk '/^## Scripts$/{flag=1; next} /^## /{flag=0} flag' README.md)
-    # Filter out HTML comments (single-line)
-    cached_readme_section=$(echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d')
+  local readme_section_output
+  if ! readme_section_output=$(extract_readme_scripts_section); then
+    # Error message from extract_readme_scripts_section was already printed to stderr
+    exit 1
   fi
+  cached_readme_section="$readme_section_output"
+
+  # Cache README entries (extract script names from filtered section)
+  local -a cached_readme_entries=()
+  mapfile -t cached_readme_entries < <(discover_readme_entries "$cached_readme_section" | grep -v '^$')
 
   # Calculate counts for success message (from cached arrays)
   local script_count=${#cached_scripts[@]}
