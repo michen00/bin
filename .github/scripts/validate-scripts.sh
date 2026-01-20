@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
+# Requires bash 4.0+ for associative arrays and mapfile builtin
 
 set -euo pipefail
+
+# Verify bash version (requires 4.0+)
+if [[ "${BASH_VERSION%%.*}" -lt 4 ]]; then
+  echo "Error: This script requires bash 4.0 or later (found: $BASH_VERSION)" >&2
+  echo "On macOS, install bash via: brew install bash" >&2
+  exit 1
+fi
 
 # Trap SIGPIPE to handle broken pipes gracefully (common when output is piped)
 # This prevents "Broken pipe" errors from causing script failure.
