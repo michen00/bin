@@ -586,7 +586,7 @@ main() {
 
   # 1. Formatting check - O(n) regex parsing per entry (catches malformed entries)
   #    Validates: backticks, capitalization, periods, link format
-  #    Must run before correspondence to catch malformed entries that won'''t be discovered
+  #    Must run before correspondence to catch malformed entries that won't be discovered
   validate_formatting "$cached_readme_section"
 
   # 2. Correspondence checks - O(n) associative array lookups (P1 priority)
