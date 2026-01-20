@@ -43,14 +43,25 @@ jobs:
       - name: Early-exit optimization - check for shebang files
         id: check_shebangs
         run: |
-          # Get list of changed files in PR
+          # Get list of changed files in PR or push
           base_ref="${{ github.base_ref }}"
-          changed_files=$(
-            git diff --name-only --diff-filter=ACMR \
-              "origin/${base_ref}...HEAD" 2>/dev/null ||
-            git diff --name-only --diff-filter=ACMR HEAD~1 HEAD 2>/dev/null ||
-            echo ""
-          )
+          before_sha="${{ github.event.before }}"
+          head_sha="${{ github.sha }}"
+
+          # Determine the appropriate diff range
+          if [[ -n "$base_ref" ]]; then
+            # Pull request event: diff against base branch
+            changed_files=$(git diff --name-only --diff-filter=ACMR \
+              "origin/${base_ref}...HEAD" 2>/dev/null || echo "")
+          elif [[ -n "$before_sha" ]] && [[ -n "$head_sha" ]]; then
+            # Push event: diff across the full push range
+            changed_files=$(git diff --name-only --diff-filter=ACMR \
+              "${before_sha}...${head_sha}" 2>/dev/null || echo "")
+          else
+            # Fallback: last commit only (should rarely be needed)
+            changed_files=$(git diff --name-only --diff-filter=ACMR \
+              HEAD~1 HEAD 2>/dev/null || echo "")
+          fi
 
           if [[ -z "$changed_files" ]]; then
             echo "No changed files detected"
