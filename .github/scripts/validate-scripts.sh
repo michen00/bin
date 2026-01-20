@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # Verify bash version (requires 4.3+)
-if (( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3) )); then
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3))); then
   echo "Error: This script requires bash 4.3 or later (found: $BASH_VERSION)" >&2
   echo "On macOS, install bash via: brew install bash" >&2
   exit 1
