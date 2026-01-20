@@ -49,7 +49,7 @@ discover_scripts() {
     if head -n 1 "$script" 2> /dev/null | grep -q '^#!' && [ -x "$script" ]; then
       # Skip if exempted
       if ! is_exempted "$script"; then
-        echo "$script"
+        echo "$script" || true # Ignore broken pipe errors when consumer exits early
       fi
     fi
   done < <(find . -maxdepth 1 -type f ! -name '.*' ! -name '*.*' -print0)
@@ -68,7 +68,7 @@ discover_tests() {
       # Extract script name (remove tests/ prefix and .bats suffix)
       local script_name="${test_file#tests/}"
       script_name="${script_name%.bats}"
-      echo "$script_name"
+      echo "$script_name" || true # Ignore broken pipe errors when consumer exits early
     fi
   done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null || true)
 }
@@ -101,7 +101,7 @@ discover_readme_entries() {
 
   # Extract script names from entries matching pattern: - [`scriptname`](scriptname): ...
   # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-  echo "$filtered" | grep -E '^- \[`[^`]+`\]\([^)]+\):' | sed -E 's/^- \[`([^`]+)`\].*/\1/'
+  echo "$filtered" | grep -E '^- \[`[^`]+`\]\([^)]+\):' | sed -E 's/^- \[`([^`]+)`\].*/\1/' || true # Ignore broken pipe errors
 }
 
 # Validate correspondence between scripts, tests, and README entries
