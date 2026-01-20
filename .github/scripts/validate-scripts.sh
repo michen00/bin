@@ -12,8 +12,9 @@ fi
 
 # Trap SIGPIPE to handle broken pipes gracefully (common when output is piped)
 # This prevents "Broken pipe" errors from causing script failure.
-# Note: This trap prevents the script from exiting on SIGPIPE, but error messages
-# may still be printed. We handle those at the command level with || true.
+# Note: This trap prevents the script from exiting on SIGPIPE signals.
+# We use explicit error handling (printf instead of echo, explicit read patterns)
+# rather than suppressing errors with || true to maintain strict error handling.
 trap '' PIPE
 
 SCRIPT_NAME=$(basename "$0")
@@ -59,10 +60,15 @@ discover_scripts() {
   # Pre-calculate all symlink targets for efficient lookup
   local -A symlink_targets
   while IFS= read -r -d '' link; do
-    local target
-    target=$(readlink "$link" 2> /dev/null || true)
-    # Normalize target path and add to associative array
-    [[ -n "$target" ]] && symlink_targets["${target#./}"]=1
+    # Only process actual symlinks (find already filtered, but double-check for safety)
+    if [[ -L "$link" ]]; then
+      local target
+      target=$(readlink "$link" 2> /dev/null)
+      # Normalize target path and add to associative array
+      if [[ -n "$target" ]]; then
+        symlink_targets["${target#./}"]=1
+      fi
+    fi
   done < <(find . -maxdepth 1 -type l -print0)
 
   while IFS= read -r -d '' script; do
@@ -80,11 +86,17 @@ discover_scripts() {
     fi
 
     # Check if file has shebang (starts with #!) AND executable permissions
-    if head -n 1 "$script" 2> /dev/null | grep -q '^#!' && [ -x "$script" ]; then
-      # Skip if exempted
-      if ! is_exempted "$script"; then
-        echo "$script" 2> /dev/null || true # Suppress broken pipe errors (expected when consumer exits early)
-      fi
+    if [ -x "$script" ]; then
+      local first_line=""
+      IFS= read -r first_line < "$script" 2> /dev/null || continue
+      case "$first_line" in
+        '#!'*)
+          # Skip if exempted
+          if ! is_exempted "$script"; then
+            printf '%s\n' "$script"
+          fi
+          ;;
+      esac
     fi
   done < <(find . -maxdepth 1 -type f ! -name '.*' ! -name '*.*' -print0)
 }
@@ -98,13 +110,19 @@ discover_tests() {
   local test_file
   while IFS= read -r -d '' test_file; do
     # Check if test file has shebang AND executable permissions
-    if head -n 1 "$test_file" 2> /dev/null | grep -q '^#!' && [ -x "$test_file" ]; then
-      # Extract script name (remove tests/ prefix and .bats suffix)
-      local script_name="${test_file#tests/}"
-      script_name="${script_name%.bats}"
-      echo "$script_name" 2> /dev/null || true # Suppress broken pipe errors (expected when consumer exits early)
+    if [ -x "$test_file" ]; then
+      local first_line=""
+      IFS= read -r first_line < "$test_file" 2> /dev/null || continue
+      case "$first_line" in
+        '#!'*)
+          # Extract script name (remove tests/ prefix and .bats suffix)
+          local script_name="${test_file#tests/}"
+          script_name="${script_name%.bats}"
+          printf '%s\n' "$script_name"
+          ;;
+      esac
     fi
-  done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null || true)
+  done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null)
 }
 
 # Extract and filter the ## Scripts section from README.md
@@ -145,8 +163,14 @@ discover_readme_entries() {
   local filtered="$1"
 
   # Extract script names from entries matching pattern: - [`scriptname`](scriptname): ...
+  # grep returns non-zero when no matches found, which is expected and should not cause script failure
+  local matches
   # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-  echo "$filtered" | grep -E '^- \[`[^`]+`\]\([^)]+\):' | sed -E 's/^- \[`([^`]+)`\].*/\1/' 2> /dev/null || true # Suppress broken pipe errors
+  matches=$(echo "$filtered" | grep -E '^- \[`[^`]+`\]\([^)]+\):' 2> /dev/null || true)
+  if [[ -n "$matches" ]]; then
+    # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
+    echo "$matches" | sed -E 's/^- \[`([^`]+)`\].*/\1/' 2> /dev/null
+  fi
 }
 
 # Validate correspondence between scripts, tests, and README entries
@@ -272,6 +296,9 @@ validate_executable_permissions() {
   # Discover ALL test files (not just valid ones) to catch missing shebang/permissions
   if [[ -d "tests" ]]; then
     local test_file
+    # find should not fail since we've verified tests directory exists
+    # If it does fail (e.g., directory removed between check and find), handle gracefully
+    set +e
     while IFS= read -r -d '' test_file; do
       local has_shebang=0
       local has_executable=0
@@ -297,7 +324,13 @@ validate_executable_permissions() {
         invalid_tests+=("Test file '$test_file' lacks executable permissions")
         ((++invalid_tests_count))
       fi
-    done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null || true)
+    done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null)
+    local find_exit_code=$?
+    set -e
+    # find returns 0 on success, 1 if no files found (expected), >1 on error (unexpected)
+    if [[ $find_exit_code -gt 1 ]]; then
+      echo "Warning: find failed unexpectedly (exit code $find_exit_code)" >&2
+    fi
   fi
 
   # Fail-fast: exit immediately on first error
@@ -327,7 +360,6 @@ validate_formatting() {
     return 0
   fi
 
-  # Process each README entry line
   # Get line numbers from original README for accurate reporting
   local scripts_section_start_line
   scripts_section_start_line=$(grep -n '^## Scripts$' README.md | head -n 1 | cut -d: -f1)
@@ -336,21 +368,39 @@ validate_formatting() {
     exit 1
   fi
 
-  # Process filtered section but track original line numbers for error reporting
-  # Line number tracking is approximate (doesn't account for filtered HTML comments)
-  # but provides useful context for developers fixing formatting errors
-  local line_number_in_section=0
+  # Extract original Scripts section (before filtering) to track accurate line numbers
+  # This ensures line numbers account for HTML comments that are filtered out
+  local original_section
+  original_section=$(awk '/^## Scripts$/{flag=1; next} /^## /{flag=0} flag' README.md)
+
+  # Process original section line by line, tracking actual line numbers
+  # Skip HTML comments during processing but maintain accurate line number tracking
+  local current_line_number=$scripts_section_start_line
   set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r line; do
-    ((line_number_in_section++))
+    ((current_line_number++))
+
+    # Skip HTML comment lines (single-line and boundary lines)
+    # These are filtered out but we still increment line numbers to maintain accuracy
+    # Use case statement to avoid regex parsing issues with shfmt
+    case "$line" in
+      *'<!--'*'-->'*)
+        continue
+        ;;
+      *'<!--'*)
+        continue
+        ;;
+      *'-->'*)
+        continue
+        ;;
+    esac
+
     # Skip empty lines
     [[ -z "$line" ]] && continue
 
     # Check if this is a README entry line (starts with "-")
     if [[ "$line" =~ ^-.* ]]; then
-      # Calculate approximate line number in README for error messages
-      # Note: This is approximate because HTML comments are filtered but line numbers aren't adjusted
-      local current_line=$((scripts_section_start_line + line_number_in_section))
+      local current_line=$current_line_number
 
       # Use Bash's built-in regex to parse the line efficiently and correctly
       # Pattern: - [`script-name`](script-name): Description.
@@ -399,7 +449,7 @@ validate_formatting() {
         exit 1
       fi
     fi
-  done <<< "$filtered"
+  done <<< "$original_section"
   set -e # Re-enable -e
 
   return 0

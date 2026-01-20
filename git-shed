@@ -61,16 +61,21 @@ if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
 fi
 
 echo "Fetching latest remote info and pruning..."
-git fetch --prune 2>/dev/null || true
+# git fetch may fail if no remote is configured or network issues occur
+# This is non-fatal - we can still proceed with local branch analysis
+if ! git fetch --prune 2>/dev/null; then
+	echo "Warning: git fetch failed (this is non-fatal)" >&2
+fi
 
 # Identify local branches fully merged into the remote target branch.
 # Using origin/$TARGET_BRANCH ensures we compare against the up-to-date remote.
 # Wrap in subshell so filtering applies to both the primary and fallback command.
+# grep -v returns non-zero when no matches found, which is expected and should not cause failure
 MERGED_BRANCHES=$( (git branch --merged "origin/$TARGET_BRANCH" 2>/dev/null ||
 	git branch --merged "$TARGET_BRANCH") |
 	grep -v "^\*" |
 	sed 's/^  //' |
-	grep -v -F -x "$TARGET_BRANCH" || true)
+	grep -v -F -x "$TARGET_BRANCH" 2>/dev/null || true)
 
 if [ -z "$MERGED_BRANCHES" ]; then
 	echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
