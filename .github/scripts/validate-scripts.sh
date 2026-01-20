@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Requires bash 4.0+ for associative arrays and mapfile builtin
+# Requires bash 4.3+ for associative arrays, mapfile, and namerefs
 
 set -euo pipefail
 
-# Verify bash version (requires 4.0+)
-if [[ "${BASH_VERSION%%.*}" -lt 4 ]]; then
-  echo "Error: This script requires bash 4.0 or later (found: $BASH_VERSION)" >&2
+# Verify bash version (requires 4.3+)
+if (( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3) )); then
+  echo "Error: This script requires bash 4.3 or later (found: $BASH_VERSION)" >&2
   echo "On macOS, install bash via: brew install bash" >&2
   exit 1
 fi
