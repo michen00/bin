@@ -100,63 +100,7 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
 PARALLEL ?= true
 SCRIPTS ?= *
 test: ## Run tests for specified scripts (PARALLEL={true|false}, SCRIPTS={script1,script2,...}, defaults: true, *)
-	@set -e; \
-    declare -a test_files_array; \
-    script_count=0; \
-    if [ "$(SCRIPTS)" = "*" ]; then \
-        while IFS= read -r -d '' test_file; do \
-            test_files_array+=("$$test_file"); \
-            ((script_count++)); \
-        done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2>/dev/null || true); \
-    else \
-        valid_tests_array=(); \
-        invalid_scripts=""; \
-        scripts_var="$(SCRIPTS)"; \
-        old_ifs=$$IFS; \
-        IFS=,; \
-        for script in $$scripts_var; do \
-            script=$$(echo "$$script" | sed 's/^[[:space:]]*//;s/[[:space:]]*$$//'); \
-            if [ ! -f "$(CURDIR)/$$script" ]; then \
-                invalid_scripts="$$invalid_scripts$$script (script not found)\n"; \
-            elif [ ! -f "tests/$$script.bats" ]; then \
-                invalid_scripts="$$invalid_scripts$$script (test file not found)\n"; \
-            else \
-                valid_tests_array+=("tests/$$script.bats"); \
-            fi; \
-        done; \
-        IFS=$$old_ifs; \
-        if [ -n "$$invalid_scripts" ]; then \
-            echo "$(RED)Error: The following scripts are invalid:$(_COLOR)" >&2; \
-            echo "$$invalid_scripts" | sed 's/^/  - /' >&2; \
-            echo "$(YELLOW)Available scripts with tests:$(_COLOR)" >&2; \
-            while IFS= read -r -d '' f; do \
-                script=$$(basename "$$f" .bats); \
-                [ -f "$(CURDIR)/$$script" ] && echo "  - $$script" >&2; \
-            done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2>/dev/null || true); \
-            exit 1; \
-        fi; \
-        test_files_array=("$${valid_tests_array[@]}"); \
-        script_count=$${#test_files_array[@]}; \
-    fi; \
-    if [ $$script_count -eq 0 ]; then \
-        echo "$(RED)Error: No test files found$(_COLOR)" >&2; \
-        exit 1; \
-    fi; \
-    if [ $$script_count -eq 1 ]; then \
-        echo "$(CYAN)Running test sequentially (1 script)...$(_COLOR)"; \
-        bats "$${test_files_array[0]}"; \
-    elif [ "$(PARALLEL)" = "true" ]; then \
-        if [ $$script_count -lt 4 ]; then \
-            jobs=$$script_count; \
-        else \
-            jobs=4; \
-        fi; \
-        echo "$(CYAN)Running tests in parallel ($$script_count scripts, --jobs $$jobs)...$(_COLOR)"; \
-        bats --jobs $$jobs --timing "$${test_files_array[@]}"; \
-    else \
-        echo "$(CYAN)Running tests sequentially ($$script_count scripts)...$(_COLOR)"; \
-        bats "$${test_files_array[@]}"; \
-    fi
+	@PARALLEL="$(PARALLEL)" SCRIPTS="$(SCRIPTS)" bash tests/run-tests.sh
 
 .PHONY: check
 check: run-pre-commit test ## Run all code quality checks and tests
