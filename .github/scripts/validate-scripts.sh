@@ -48,6 +48,15 @@ is_exempted() {
 # Discover all scripts in project root (no extension, not hidden, not symlink, has shebang AND executable permissions)
 discover_scripts() {
   local script
+  # Pre-calculate all symlink targets for efficient lookup
+  local -A symlink_targets
+  while IFS= read -r -d '' link; do
+    local target
+    target=$(readlink "$link" 2> /dev/null || true)
+    # Normalize target path and add to associative array
+    [[ -n "$target" ]] && symlink_targets["${target#./}"]=1
+  done < <(find . -maxdepth 1 -type l -print0)
+
   while IFS= read -r -d '' script; do
     # Remove leading ./
     script="${script#./}"
@@ -58,20 +67,7 @@ discover_scripts() {
     fi
 
     # Check if script is a symlink target (should be ignored)
-    local is_target=false
-    for link in ./*; do
-      if [ -L "$link" ]; then
-        local target
-        target=$(readlink "$link" 2> /dev/null || echo "")
-        # Normalize paths for comparison (remove leading ./ if present)
-        target="${target#./}"
-        if [ "$target" = "$script" ]; then
-          is_target=true
-          break
-        fi
-      fi
-    done
-    if [ "$is_target" = true ]; then
+    if [[ ${symlink_targets[$script]+_} ]]; then
       continue # Skip symlink targets
     fi
 
@@ -139,7 +135,11 @@ discover_readme_entries() {
 }
 
 # Validate correspondence between scripts, tests, and README entries
+# Arguments: scripts_array_name tests_array_name readme_entries_array_name
 validate_correspondence() {
+  local -n scripts_ref=$1
+  local -n tests_ref=$2
+  local -n readme_entries_ref=$3
 
   # Build associative arrays for O(1) lookup performance
   # Associative arrays (bash 4.0+) provide fast key-based lookups for correspondence checks
@@ -147,41 +147,23 @@ validate_correspondence() {
   declare -A test_map   # Maps test script names to 1 (test file exists)
   declare -A readme_map # Maps README script names to 1 (documented)
 
-  # Populate script map
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-  while IFS= read -r script; do
-    [[ -n "$script" ]] && script_map["$script"]=1
-  done < <(discover_scripts)
-  set -e # Re-enable -e
+  # Populate script map from cached array
+  local script
+  for script in "${scripts_ref[@]}"; do
+    script_map["$script"]=1
+  done
 
-  # Populate test map
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-  while IFS= read -r test_script; do
-    [[ -n "$test_script" ]] && test_map["$test_script"]=1
-  done < <(discover_tests)
-  set -e # Re-enable -e
+  # Populate test map from cached array
+  local test_script
+  for test_script in "${tests_ref[@]}"; do
+    test_map["$test_script"]=1
+  done
 
-  # Populate README map
-  # Note: We temporarily disable "set -e" because command substitution with set -e
-  # would cause the script to exit immediately if discover_readme_entries returns non-zero.
-  # We need to capture the exit code explicitly to handle errors gracefully.
-  local readme_output
-  set +e # Temporarily disable exit-on-error to capture exit code
-  readme_output=$(discover_readme_entries)
-  local readme_exit=$?
-  set -e # Re-enable exit-on-error
-  if [[ $readme_exit -ne 0 ]]; then
-    # Re-run to get error message if function failed
-    discover_readme_entries >&2
-    exit 1
-  fi
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-  while IFS= read -r readme_script; do
-    # Skip error messages (lines starting with ERROR)
-    [[ "$readme_script" =~ ^ERROR: ]] && continue
-    [[ -n "$readme_script" ]] && readme_map["$readme_script"]=1
-  done <<< "$readme_output"
-  set -e # Re-enable -e
+  # Populate README map from cached array
+  local readme_script
+  for readme_script in "${readme_entries_ref[@]}"; do
+    readme_map["$readme_script"]=1
+  done
 
   # Check each script for missing test file (fail-fast: exit on first error)
   for script in "${!script_map[@]}"; do
@@ -220,7 +202,11 @@ validate_correspondence() {
 }
 
 # Validate that scripts referenced in README and test files have both shebang and executable permissions
+# Arguments: readme_entries_array_name tests_array_name
 validate_executable_permissions() {
+  local -n readme_entries_ref=$1
+  local -n tests_ref=$2
+
   # Local arrays to collect error messages (used for fail-fast error reporting)
   local -a invalid_scripts
   local -a invalid_tests
@@ -229,89 +215,78 @@ validate_executable_permissions() {
   local invalid_tests_count=0
 
   # Validate scripts referenced in README entries have both shebang and executable permissions
-  local readme_output
-  set +e
-  readme_output=$(discover_readme_entries)
-  local readme_exit=$?
-  set -e
-  if [[ $readme_exit -eq 0 ]]; then
-    set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-    while IFS= read -r readme_script; do
-      [[ "$readme_script" =~ ^ERROR: ]] && continue
-      [[ -z "$readme_script" ]] && continue
+  local readme_script
+  for readme_script in "${readme_entries_ref[@]}"; do
+    # Skip if exempted
+    if is_exempted "$readme_script"; then
+      continue
+    fi
 
-      # Skip if exempted
-      if is_exempted "$readme_script"; then
-        continue
-      fi
+    # Check if script exists
+    if [[ ! -f "$readme_script" ]]; then
+      continue # Already handled by validate_correspondence() orphaned README check
+    fi
 
-      # Check if script exists
-      if [[ ! -f "$readme_script" ]]; then
-        continue # Already handled by validate_correspondence() orphaned README check
-      fi
+    local has_shebang=0
+    local has_executable=0
 
-      local has_shebang=0
-      local has_executable=0
+    # Check shebang
+    if head -n 1 "$readme_script" 2> /dev/null | grep -q '^#!'; then
+      has_shebang=1
+    fi
 
-      # Check shebang
-      if head -n 1 "$readme_script" 2> /dev/null | grep -q '^#!'; then
-        has_shebang=1
-      fi
+    # Check executable permissions
+    if [ -x "$readme_script" ]; then
+      has_executable=1
+    fi
 
-      # Check executable permissions
-      if [ -x "$readme_script" ]; then
-        has_executable=1
-      fi
-
-      # Report if missing either requirement
-      if [[ $has_shebang -eq 0 ]] && [[ $has_executable -eq 0 ]]; then
-        invalid_scripts+=("README-referenced script '$readme_script' lacks both shebang and executable permissions")
-        ((invalid_scripts_count++))
-      elif [[ $has_shebang -eq 0 ]]; then
-        invalid_scripts+=("README-referenced script '$readme_script' lacks shebang (must start with #!)")
-        ((invalid_scripts_count++))
-      elif [[ $has_executable -eq 0 ]]; then
-        invalid_scripts+=("README-referenced script '$readme_script' lacks executable permissions (must have chmod +x)")
-        ((invalid_scripts_count++))
-      fi
-    done <<< "$readme_output"
-    set -e # Re-enable -e
-  fi
+    # Report if missing either requirement
+    if [[ $has_shebang -eq 0 ]] && [[ $has_executable -eq 0 ]]; then
+      invalid_scripts+=("README-referenced script '$readme_script' lacks both shebang and executable permissions")
+      ((invalid_scripts_count++))
+    elif [[ $has_shebang -eq 0 ]]; then
+      invalid_scripts+=("README-referenced script '$readme_script' lacks shebang (must start with #!)")
+      ((invalid_scripts_count++))
+    elif [[ $has_executable -eq 0 ]]; then
+      invalid_scripts+=("README-referenced script '$readme_script' lacks executable permissions (must have chmod +x)")
+      ((invalid_scripts_count++))
+    fi
+  done
 
   # Validate all discovered test files have both shebang and executable permissions
   # Note: discover_tests() already filters, but we validate explicitly for clearer error messages
-  if [[ -d "tests" ]]; then
-    set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-    while IFS= read -r -d '' test_file; do
-      local has_shebang=0
-      local has_executable=0
+  local test_script
+  for test_script in "${tests_ref[@]}"; do
+    local test_file="tests/${test_script}.bats"
+    if [[ ! -f "$test_file" ]]; then
+      continue # Skip if test file doesn't exist
+    fi
 
-      # Check shebang
-      if head -n 1 "$test_file" 2> /dev/null | grep -q '^#!'; then
-        has_shebang=1
-      fi
+    local has_shebang=0
+    local has_executable=0
 
-      # Check executable permissions
-      if [ -x "$test_file" ]; then
-        has_executable=1
-      fi
+    # Check shebang
+    if head -n 1 "$test_file" 2> /dev/null | grep -q '^#!'; then
+      has_shebang=1
+    fi
 
-      # Report if missing either requirement
-      if [[ $has_shebang -eq 0 ]] && [[ $has_executable -eq 0 ]]; then
-        local test_name="${test_file#tests/}"
-        test_name="${test_name%.bats}"
-        invalid_tests+=("Test file '$test_file' lacks both shebang and executable permissions")
-        ((invalid_tests_count++))
-      elif [[ $has_shebang -eq 0 ]]; then
-        invalid_tests+=("Test file '$test_file' lacks shebang (must start with #!)")
-        ((invalid_tests_count++))
-      elif [[ $has_executable -eq 0 ]]; then
-        invalid_tests+=("Test file '$test_file' lacks executable permissions (must have chmod +x)")
-        ((invalid_tests_count++))
-      fi
-    done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null || true)
-    set -e # Re-enable -e
-  fi
+    # Check executable permissions
+    if [ -x "$test_file" ]; then
+      has_executable=1
+    fi
+
+    # Report if missing either requirement
+    if [[ $has_shebang -eq 0 ]] && [[ $has_executable -eq 0 ]]; then
+      invalid_tests+=("Test file '$test_file' lacks both shebang and executable permissions")
+      ((invalid_tests_count++))
+    elif [[ $has_shebang -eq 0 ]]; then
+      invalid_tests+=("Test file '$test_file' lacks shebang (must start with #!)")
+      ((invalid_tests_count++))
+    elif [[ $has_executable -eq 0 ]]; then
+      invalid_tests+=("Test file '$test_file' lacks executable permissions (must have chmod +x)")
+      ((invalid_tests_count++))
+    fi
+  done
 
   # Fail-fast: exit immediately on first error
   if [[ $invalid_scripts_count -gt 0 ]]; then
@@ -332,23 +307,13 @@ validate_executable_permissions() {
 }
 
 # Validate README entry formatting
+# Arguments: filtered_readme_section
 validate_formatting() {
+  local filtered="$1"
 
-  if [[ ! -f "README.md" ]]; then
+  if [[ -z "$filtered" ]]; then
     return 0
   fi
-
-  # Extract Scripts section
-  local scripts_section
-  scripts_section=$(awk '/^## Scripts$/{flag=1; next} /^## /{flag=0} flag' README.md)
-
-  # Filter out HTML comments (single-line)
-  # Remove lines that are purely HTML comments: <!-- ... -->
-  # This preserves entry lines. Multi-line comments (<!-- ... --> spanning multiple lines)
-  # are handled by removing the opening and closing lines separately.
-  local filtered
-  # Remove single-line HTML comments and comment boundary lines
-  filtered=$(echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d')
 
   # Process each README entry line
   # Get line numbers from original README for accurate reporting
@@ -444,23 +409,13 @@ validate_formatting() {
 }
 
 # Validate alphabetical sorting of README entries
+# Arguments: filtered_readme_section
 validate_sorting() {
+  local filtered="$1"
 
-  if [[ ! -f "README.md" ]]; then
+  if [[ -z "$filtered" ]]; then
     return 0
   fi
-
-  # Extract Scripts section
-  local scripts_section
-  scripts_section=$(awk '/^## Scripts$/{flag=1; next} /^## /{flag=0} flag' README.md)
-
-  # Filter out HTML comments (single-line)
-  # Remove lines that are purely HTML comments: <!-- ... -->
-  # This preserves entry lines. Multi-line comments (<!-- ... --> spanning multiple lines)
-  # are handled by removing the opening and closing lines separately.
-  local filtered
-  # Remove single-line HTML comments and comment boundary lines
-  filtered=$(echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d')
 
   # Extract script names in order from README entries
   local names_in_order=()
@@ -504,44 +459,20 @@ validate_sorting() {
 }
 
 # Validate count consistency
+# Arguments: scripts_array_name readme_entries_array_name tests_array_name
 validate_counts() {
+  local -n scripts_ref=$1
+  local -n readme_entries_ref=$2
+  local -n tests_ref=$3
 
-  # Count scripts (non-exempted)
-  local script_count=0
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-  while IFS= read -r script; do
-    [[ -n "$script" ]] && ((script_count++))
-  done < <(discover_scripts)
-  set -e # Re-enable -e
+  # Count scripts (non-exempted) from cached array
+  local script_count=${#scripts_ref[@]}
 
-  # Count README entries
-  local readme_count=0
-  local readme_output
-  # Temporarily disable -e to capture exit code
-  set +e
-  readme_output=$(discover_readme_entries)
-  local readme_exit=$?
-  set -e
-  if [[ $readme_exit -ne 0 ]]; then
-    # Re-run to get error message if function failed
-    discover_readme_entries >&2
-    exit 1
-  fi
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-  while IFS= read -r readme_script; do
-    # Skip error messages (lines starting with ERROR)
-    [[ "$readme_script" =~ ^ERROR: ]] && continue
-    [[ -n "$readme_script" ]] && ((readme_count++))
-  done <<< "$readme_output"
-  set -e # Re-enable -e
+  # Count README entries from cached array
+  local readme_count=${#readme_entries_ref[@]}
 
-  # Count test files (for informational purposes, but not required to match)
-  local test_count=0
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-  while IFS= read -r test_script; do
-    [[ -n "$test_script" ]] && ((test_count++))
-  done < <(discover_tests)
-  set -e # Re-enable -e
+  # Count test files (for informational purposes, but not required to match) from cached array
+  local test_count=${#tests_ref[@]}
 
   # Check if script count matches README entry count (fail-fast: exit on first error)
   if [[ $script_count -ne $readme_count ]]; then
@@ -573,27 +504,26 @@ main() {
     shift
   done
 
-  # Cache counts for success message (calculate before validation)
-  # We count before validation so we can display counts even if validation fails
-  # This provides useful context in the success message
-  local script_count=0
+  # Cache discovery results once at the start (discover once, validate many)
+  # This avoids redundant work from calling discovery functions multiple times
+  local -a cached_scripts=()
   set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r script; do
-    [[ -n "$script" ]] && ((script_count++))
+    [[ -n "$script" ]] && cached_scripts+=("$script")
   done < <(discover_scripts)
   set -e # Re-enable -e
 
-  local test_count=0
+  local -a cached_tests=()
   set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r test_script; do
-    [[ -n "$test_script" ]] && ((test_count++))
+    [[ -n "$test_script" ]] && cached_tests+=("$test_script")
   done < <(discover_tests)
   set -e # Re-enable -e
 
-  local readme_count=0
+  # Cache README entries
+  local -a cached_readme_entries=()
   local readme_output
-  # Temporarily disable -e to capture exit code
-  set +e
+  set +e # Temporarily disable -e to capture exit code
   readme_output=$(discover_readme_entries)
   local readme_exit=$?
   set -e
@@ -606,35 +536,51 @@ main() {
   while IFS= read -r readme_script; do
     # Skip error messages (lines starting with ERROR)
     [[ "$readme_script" =~ ^ERROR: ]] && continue
-    [[ -n "$readme_script" ]] && ((readme_count++))
+    [[ -n "$readme_script" ]] && cached_readme_entries+=("$readme_script")
   done <<< "$readme_output"
   set -e # Re-enable -e
+
+  # Cache filtered README scripts section for formatting/sorting validation
+  # This avoids re-extracting and filtering the section multiple times
+  local cached_readme_section=""
+  if [[ -f "README.md" ]]; then
+    # Extract Scripts section
+    local scripts_section
+    scripts_section=$(awk '/^## Scripts$/{flag=1; next} /^## /{flag=0} flag' README.md)
+    # Filter out HTML comments (single-line)
+    cached_readme_section=$(echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d')
+  fi
+
+  # Calculate counts for success message (from cached arrays)
+  local script_count=${#cached_scripts[@]}
+  local test_count=${#cached_tests[@]}
+  local readme_count=${#cached_readme_entries[@]}
 
   # Run validation in order of cost (cheapest first for early failure)
   # Fail-fast: each validation function exits immediately on first error
   # Order optimized for performance: fastest checks run first to fail early
   #
   # 0. Executable permissions check - O(n) file attribute checks (very fast)
-  validate_executable_permissions
+  validate_executable_permissions cached_readme_entries cached_tests
 
   # 1. Formatting check - O(n) regex parsing per entry (catches malformed entries)
   #    Validates: backticks, capitalization, periods, link format
   #    Must run before correspondence to catch malformed entries that won'''t be discovered
-  validate_formatting
+  validate_formatting "$cached_readme_section"
 
   # 2. Correspondence checks - O(n) associative array lookups (P1 priority)
   #    Checks: scripts→tests, scripts→README, README→scripts
   #    Runs before count check to provide specific error messages instead of generic "Count Mismatch"
-  validate_correspondence
+  validate_correspondence cached_scripts cached_tests cached_readme_entries
 
   # 3. Count check - O(n) counting operations (catches obvious mismatches)
   #    Validates: script count == README entry count
   #    Runs after correspondence so specific errors are reported first
-  validate_counts
+  validate_counts cached_scripts cached_readme_entries cached_tests
 
   # 4. Sorting check - O(n log n) sorting operation (most expensive)
   #    Validates alphabetical order (case-sensitive)
-  validate_sorting
+  validate_sorting "$cached_readme_section"
 
   local exempted_count=${#exempted_scripts[@]}
 
