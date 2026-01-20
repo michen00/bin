@@ -2,6 +2,12 @@
 
 set -euo pipefail
 
+# Trap SIGPIPE to handle broken pipes gracefully (common when output is piped)
+# This prevents "Broken pipe" errors from causing script failure.
+# Note: This trap prevents the script from exiting on SIGPIPE, but error messages
+# may still be printed. We handle those at the command level with || true.
+trap '' PIPE
+
 SCRIPT_NAME=$(basename "$0")
 
 # Exempted scripts (from command-line arguments)
@@ -45,11 +51,35 @@ discover_scripts() {
   while IFS= read -r -d '' script; do
     # Remove leading ./
     script="${script#./}"
+
+    # Skip if script itself is a symlink (should be ignored)
+    if [ -L "$script" ]; then
+      continue
+    fi
+
+    # Check if script is a symlink target (should be ignored)
+    local is_target=false
+    for link in ./*; do
+      if [ -L "$link" ]; then
+        local target
+        target=$(readlink "$link" 2> /dev/null || echo "")
+        # Normalize paths for comparison (remove leading ./ if present)
+        target="${target#./}"
+        if [ "$target" = "$script" ]; then
+          is_target=true
+          break
+        fi
+      fi
+    done
+    if [ "$is_target" = true ]; then
+      continue # Skip symlink targets
+    fi
+
     # Check if file has shebang (starts with #!) AND executable permissions
     if head -n 1 "$script" 2> /dev/null | grep -q '^#!' && [ -x "$script" ]; then
       # Skip if exempted
       if ! is_exempted "$script"; then
-        echo "$script" || true # Ignore broken pipe errors when consumer exits early
+        echo "$script" 2> /dev/null || true # Suppress broken pipe errors (expected when consumer exits early)
       fi
     fi
   done < <(find . -maxdepth 1 -type f ! -name '.*' ! -name '*.*' -print0)
@@ -68,7 +98,7 @@ discover_tests() {
       # Extract script name (remove tests/ prefix and .bats suffix)
       local script_name="${test_file#tests/}"
       script_name="${script_name%.bats}"
-      echo "$script_name" || true # Ignore broken pipe errors when consumer exits early
+      echo "$script_name" 2> /dev/null || true # Suppress broken pipe errors (expected when consumer exits early)
     fi
   done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null || true)
 }
@@ -95,13 +125,17 @@ discover_readme_entries() {
   local scripts_section
   scripts_section=$(awk '/^## Scripts$/{flag=1; next} /^## /{flag=0} flag' README.md)
 
-  # Filter out HTML comments (single-line and multi-line)
+  # Filter out HTML comments (single-line)
+  # Remove lines that are purely HTML comments: <!-- ... -->
+  # This preserves entry lines. Multi-line comments (<!-- ... --> spanning multiple lines)
+  # are handled by removing the opening and closing lines separately.
   local filtered
-  filtered=$(echo "$scripts_section" | sed '/<!--/,/-->/d')
+  # Remove single-line HTML comments and comment boundary lines
+  filtered=$(echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d')
 
   # Extract script names from entries matching pattern: - [`scriptname`](scriptname): ...
   # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-  echo "$filtered" | grep -E '^- \[`[^`]+`\]\([^)]+\):' | sed -E 's/^- \[`([^`]+)`\].*/\1/' || true # Ignore broken pipe errors
+  echo "$filtered" | grep -E '^- \[`[^`]+`\]\([^)]+\):' | sed -E 's/^- \[`([^`]+)`\].*/\1/' 2> /dev/null || true # Suppress broken pipe errors
 }
 
 # Validate correspondence between scripts, tests, and README entries
@@ -114,14 +148,18 @@ validate_correspondence() {
   declare -A readme_map # Maps README script names to 1 (documented)
 
   # Populate script map
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r script; do
     [[ -n "$script" ]] && script_map["$script"]=1
   done < <(discover_scripts)
+  set -e # Re-enable -e
 
   # Populate test map
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r test_script; do
     [[ -n "$test_script" ]] && test_map["$test_script"]=1
   done < <(discover_tests)
+  set -e # Re-enable -e
 
   # Populate README map
   # Note: We temporarily disable "set -e" because command substitution with set -e
@@ -129,18 +167,21 @@ validate_correspondence() {
   # We need to capture the exit code explicitly to handle errors gracefully.
   local readme_output
   set +e # Temporarily disable exit-on-error to capture exit code
-  readme_output=$(discover_readme_entries 2>&1)
+  readme_output=$(discover_readme_entries)
   local readme_exit=$?
   set -e # Re-enable exit-on-error
   if [[ $readme_exit -ne 0 ]]; then
-    echo "$readme_output" >&2
+    # Re-run to get error message if function failed
+    discover_readme_entries >&2
     exit 1
   fi
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r readme_script; do
     # Skip error messages (lines starting with ERROR)
     [[ "$readme_script" =~ ^ERROR: ]] && continue
     [[ -n "$readme_script" ]] && readme_map["$readme_script"]=1
   done <<< "$readme_output"
+  set -e # Re-enable -e
 
   # Check each script for missing test file (fail-fast: exit on first error)
   for script in "${!script_map[@]}"; do
@@ -190,10 +231,11 @@ validate_executable_permissions() {
   # Validate scripts referenced in README entries have both shebang and executable permissions
   local readme_output
   set +e
-  readme_output=$(discover_readme_entries 2>&1)
+  readme_output=$(discover_readme_entries)
   local readme_exit=$?
   set -e
   if [[ $readme_exit -eq 0 ]]; then
+    set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
     while IFS= read -r readme_script; do
       [[ "$readme_script" =~ ^ERROR: ]] && continue
       [[ -z "$readme_script" ]] && continue
@@ -233,11 +275,13 @@ validate_executable_permissions() {
         ((invalid_scripts_count++))
       fi
     done <<< "$readme_output"
+    set -e # Re-enable -e
   fi
 
   # Validate all discovered test files have both shebang and executable permissions
   # Note: discover_tests() already filters, but we validate explicitly for clearer error messages
   if [[ -d "tests" ]]; then
+    set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
     while IFS= read -r -d '' test_file; do
       local has_shebang=0
       local has_executable=0
@@ -266,6 +310,7 @@ validate_executable_permissions() {
         ((invalid_tests_count++))
       fi
     done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null || true)
+    set -e # Re-enable -e
   fi
 
   # Fail-fast: exit immediately on first error
@@ -297,9 +342,13 @@ validate_formatting() {
   local scripts_section
   scripts_section=$(awk '/^## Scripts$/{flag=1; next} /^## /{flag=0} flag' README.md)
 
-  # Filter out HTML comments
+  # Filter out HTML comments (single-line)
+  # Remove lines that are purely HTML comments: <!-- ... -->
+  # This preserves entry lines. Multi-line comments (<!-- ... --> spanning multiple lines)
+  # are handled by removing the opening and closing lines separately.
   local filtered
-  filtered=$(echo "$scripts_section" | sed '/<!--/,/-->/d')
+  # Remove single-line HTML comments and comment boundary lines
+  filtered=$(echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d')
 
   # Process each README entry line
   # Get line numbers from original README for accurate reporting
@@ -310,6 +359,7 @@ validate_formatting() {
   # Line number tracking is approximate (doesn't account for filtered HTML comments)
   # but provides useful context for developers fixing formatting errors
   local line_number_in_section=0
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r line; do
     ((line_number_in_section++))
     # Skip empty lines
@@ -325,20 +375,23 @@ validate_formatting() {
       local link_url
       local description
 
-      # Extract script name from backticks: [`scriptname`]
-      # Use sed to extract content between backticks (escape backticks properly)
+      # Extract script name and link URL from markdown link: [`scriptname`](scriptname)
+      # Pattern: [`scriptname`](scriptname) - extract both the link text and URL
       # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-      link_text=$(echo "$line" | sed -nE 's/.*\[`([^`]+)`\].*/\1/p')
-      if [[ -z "$link_text" ]]; then
+      if ! echo "$line" | grep -qE '\[`[^`]+`\]\([^)]+\)'; then
         echo "❌ Validation Failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
-        echo "  - README entry missing backticks (line $current_line): $line" >&2
+        echo "  - README entry missing backticks or link URL (line $current_line): $line" >&2
         exit 1
       fi
-
-      # Extract link URL: (scriptname)
-      link_url=$(echo "$line" | sed -nE 's/.*\(([^)]+)\).*/\1/p')
+      # Extract link text from backticks: [`scriptname`]
+      # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
+      link_text=$(echo "$line" | sed -nE 's/.*\[`([^`]+)`\].*/\1/p')
+      # Extract link URL immediately after the backticked link text: (scriptname)
+      # This ensures we get the URL from the markdown link, not from parentheses in the description
+      # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
+      link_url=$(echo "$line" | sed -nE 's/.*\[`[^`]+`\]\(([^)]+)\).*/\1/p')
       if [[ -z "$link_url" ]]; then
         echo "❌ Validation Failed" >&2
         echo "" >&2
@@ -385,6 +438,7 @@ validate_formatting() {
       fi
     fi
   done <<< "$filtered"
+  set -e # Re-enable -e
 
   return 0
 }
@@ -400,12 +454,17 @@ validate_sorting() {
   local scripts_section
   scripts_section=$(awk '/^## Scripts$/{flag=1; next} /^## /{flag=0} flag' README.md)
 
-  # Filter out HTML comments
+  # Filter out HTML comments (single-line)
+  # Remove lines that are purely HTML comments: <!-- ... -->
+  # This preserves entry lines. Multi-line comments (<!-- ... --> spanning multiple lines)
+  # are handled by removing the opening and closing lines separately.
   local filtered
-  filtered=$(echo "$scripts_section" | sed '/<!--/,/-->/d')
+  # Remove single-line HTML comments and comment boundary lines
+  filtered=$(echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d')
 
   # Extract script names in order from README entries
   local names_in_order=()
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r line; do
     if [[ "$line" =~ ^-.* ]]; then
       local script_name
@@ -416,6 +475,7 @@ validate_sorting() {
       fi
     fi
   done <<< "$filtered"
+  set -e # Re-enable -e
 
   # Create sorted version (case-sensitive alphabetical order)
   local names_sorted=()
@@ -448,33 +508,40 @@ validate_counts() {
 
   # Count scripts (non-exempted)
   local script_count=0
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r script; do
     [[ -n "$script" ]] && ((script_count++))
   done < <(discover_scripts)
+  set -e # Re-enable -e
 
   # Count README entries
   local readme_count=0
   local readme_output
   # Temporarily disable -e to capture exit code
   set +e
-  readme_output=$(discover_readme_entries 2>&1)
+  readme_output=$(discover_readme_entries)
   local readme_exit=$?
   set -e
   if [[ $readme_exit -ne 0 ]]; then
-    echo "$readme_output" >&2
+    # Re-run to get error message if function failed
+    discover_readme_entries >&2
     exit 1
   fi
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r readme_script; do
     # Skip error messages (lines starting with ERROR)
     [[ "$readme_script" =~ ^ERROR: ]] && continue
     [[ -n "$readme_script" ]] && ((readme_count++))
   done <<< "$readme_output"
+  set -e # Re-enable -e
 
   # Count test files (for informational purposes, but not required to match)
   local test_count=0
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r test_script; do
     [[ -n "$test_script" ]] && ((test_count++))
   done < <(discover_tests)
+  set -e # Re-enable -e
 
   # Check if script count matches README entry count (fail-fast: exit on first error)
   if [[ $script_count -ne $readme_count ]]; then
@@ -510,31 +577,38 @@ main() {
   # We count before validation so we can display counts even if validation fails
   # This provides useful context in the success message
   local script_count=0
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r script; do
     [[ -n "$script" ]] && ((script_count++))
   done < <(discover_scripts)
+  set -e # Re-enable -e
 
   local test_count=0
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r test_script; do
     [[ -n "$test_script" ]] && ((test_count++))
   done < <(discover_tests)
+  set -e # Re-enable -e
 
   local readme_count=0
   local readme_output
   # Temporarily disable -e to capture exit code
   set +e
-  readme_output=$(discover_readme_entries 2>&1)
+  readme_output=$(discover_readme_entries)
   local readme_exit=$?
   set -e
   if [[ $readme_exit -ne 0 ]]; then
-    echo "$readme_output" >&2
+    # Re-run to get error message if function failed
+    discover_readme_entries >&2
     exit 1
   fi
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
   while IFS= read -r readme_script; do
     # Skip error messages (lines starting with ERROR)
     [[ "$readme_script" =~ ^ERROR: ]] && continue
     [[ -n "$readme_script" ]] && ((readme_count++))
   done <<< "$readme_output"
+  set -e # Re-enable -e
 
   # Run validation in order of cost (cheapest first for early failure)
   # Fail-fast: each validation function exits immediately on first error
@@ -543,16 +617,20 @@ main() {
   # 0. Executable permissions check - O(n) file attribute checks (very fast)
   validate_executable_permissions
 
-  # 1. Count check - O(n) counting operations (fast, catches obvious mismatches)
-  validate_counts
+  # 1. Formatting check - O(n) regex parsing per entry (catches malformed entries)
+  #    Validates: backticks, capitalization, periods, link format
+  #    Must run before correspondence to catch malformed entries that won'''t be discovered
+  validate_formatting
 
-  # 2. Correspondence checks - O(n) associative array lookups (efficient)
+  # 2. Correspondence checks - O(n) associative array lookups (P1 priority)
   #    Checks: scripts→tests, scripts→README, README→scripts
+  #    Runs before count check to provide specific error messages instead of generic "Count Mismatch"
   validate_correspondence
 
-  # 3. Formatting check - O(n) regex parsing per entry (more expensive)
-  #    Validates: backticks, capitalization, periods, link format
-  validate_formatting
+  # 3. Count check - O(n) counting operations (catches obvious mismatches)
+  #    Validates: script count == README entry count
+  #    Runs after correspondence so specific errors are reported first
+  validate_counts
 
   # 4. Sorting check - O(n log n) sorting operation (most expensive)
   #    Validates alphabetical order (case-sensitive)
