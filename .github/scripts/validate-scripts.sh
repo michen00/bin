@@ -318,7 +318,11 @@ validate_formatting() {
   # Process each README entry line
   # Get line numbers from original README for accurate reporting
   local scripts_section_start_line
-  scripts_section_start_line=$(grep -n '^## Scripts$' README.md | cut -d: -f1)
+  scripts_section_start_line=$(grep -n '^## Scripts$' README.md | head -n 1 | cut -d: -f1)
+  if ! [[ "$scripts_section_start_line" =~ ^[0-9]+$ ]]; then
+    echo "❌ Validation Failed: Could not find '## Scripts' section in README.md" >&2
+    exit 1
+  fi
 
   # Process filtered section but track original line numbers for error reporting
   # Line number tracking is approximate (doesn't account for filtered HTML comments)
@@ -335,35 +339,26 @@ validate_formatting() {
       # Calculate approximate line number in README for error messages
       # Note: This is approximate because HTML comments are filtered but line numbers aren't adjusted
       local current_line=$((scripts_section_start_line + line_number_in_section))
-      local script_name
-      local link_text
-      local link_url
-      local description
 
-      # Extract script name and link URL from markdown link: [`scriptname`](scriptname)
-      # Pattern: [`scriptname`](scriptname) - extract both the link text and URL
+      # Use Bash's built-in regex to parse the line efficiently and correctly
+      # Pattern: - [`script-name`](script-name): Description.
+      # This single regex captures all three parts (link_text, link_url, description)
+      # and correctly handles parentheses in descriptions by matching only the first URL
+      # Store regex pattern in variable to avoid backtick escaping issues
       # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-      if ! echo "$line" | grep -qE '\[`[^`]+`\]\([^)]+\)'; then
+      local regex_pattern='^-\ \[`([^`]+)`\]\(([^)]+)\):[[:space:]]*(.+)$'
+      if ! [[ "$line" =~ $regex_pattern ]]; then
         echo "❌ Validation Failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
-        echo "  - README entry missing backticks or link URL (line $current_line): $line" >&2
+        echo "  - README entry has invalid format (line $current_line): $line" >&2
+        echo "    Expected format: - [\`script-name\`](script-name): Description." >&2
         exit 1
       fi
-      # Extract link text from backticks: [`scriptname`]
-      # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-      link_text=$(echo "$line" | sed -nE 's/.*\[`([^`]+)`\].*/\1/p')
-      # Extract link URL immediately after the backticked link text: (scriptname)
-      # This ensures we get the URL from the markdown link, not from parentheses in the description
-      # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-      link_url=$(echo "$line" | sed -nE 's/.*\[`[^`]+`\]\(([^)]+)\).*/\1/p')
-      if [[ -z "$link_url" ]]; then
-        echo "❌ Validation Failed" >&2
-        echo "" >&2
-        echo "Formatting Errors:" >&2
-        echo "  - README entry missing link URL (line $current_line): $line" >&2
-        exit 1
-      fi
+
+      local link_text="${BASH_REMATCH[1]}"
+      local link_url="${BASH_REMATCH[2]}"
+      local description="${BASH_REMATCH[3]}"
 
       # Check if link text matches URL
       if [[ "$link_text" != "$link_url" ]]; then
@@ -371,16 +366,6 @@ validate_formatting() {
         echo "" >&2
         echo "Formatting Errors:" >&2
         echo "  - README entry link text '$link_text' doesn't match URL '$link_url' (line $current_line)" >&2
-        exit 1
-      fi
-
-      # Extract description (after colon)
-      description=$(echo "$line" | sed -nE 's/.*:[[:space:]]*(.+)/\1/p')
-      if [[ -z "$description" ]]; then
-        echo "❌ Validation Failed" >&2
-        echo "" >&2
-        echo "Formatting Errors:" >&2
-        echo "  - README entry missing description (line $current_line): $line" >&2
         exit 1
       fi
 
@@ -507,18 +492,10 @@ main() {
   # Cache discovery results once at the start (discover once, validate many)
   # This avoids redundant work from calling discovery functions multiple times
   local -a cached_scripts=()
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-  while IFS= read -r script; do
-    [[ -n "$script" ]] && cached_scripts+=("$script")
-  done < <(discover_scripts)
-  set -e # Re-enable -e
+  mapfile -t cached_scripts < <(discover_scripts | grep -v '^$')
 
   local -a cached_tests=()
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-  while IFS= read -r test_script; do
-    [[ -n "$test_script" ]] && cached_tests+=("$test_script")
-  done < <(discover_tests)
-  set -e # Re-enable -e
+  mapfile -t cached_tests < <(discover_tests | grep -v '^$')
 
   # Cache README entries
   local -a cached_readme_entries=()
@@ -532,13 +509,8 @@ main() {
     discover_readme_entries >&2
     exit 1
   fi
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
-  while IFS= read -r readme_script; do
-    # Skip error messages (lines starting with ERROR)
-    [[ "$readme_script" =~ ^ERROR: ]] && continue
-    [[ -n "$readme_script" ]] && cached_readme_entries+=("$readme_script")
-  done <<< "$readme_output"
-  set -e # Re-enable -e
+  # Filter out ERROR lines and empty lines before populating array
+  mapfile -t cached_readme_entries < <(grep -v '^ERROR:' <<< "$readme_output" | grep -v '^$')
 
   # Cache filtered README scripts section for formatting/sorting validation
   # This avoids re-extracting and filtering the section multiple times
