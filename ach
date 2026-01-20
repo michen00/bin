@@ -66,19 +66,22 @@ ORIGINAL_CONTENT=""
 # Helper to re-stage files, skipping any that no longer exist
 restage_other_files() {
 	if [[ -z $OTHER_STAGED_FILES ]]; then
-		return
+		return 0
 	fi
 	echo "Re-staging other files..."
 	while IFS= read -r f; do
-		if [[ -e $f ]]; then
-			git add -- "$f"
-		else
+		if [[ -n "$f" && -e "$f" ]]; then
+			# Use || true to prevent script exit on git add failure
+			git add -- "$f" || echo "Warning: Failed to re-stage '$f'" >&2
+		elif [[ -n "$f" ]]; then
 			echo "Warning: '$f' no longer exists (was it a new file?)" >&2
 		fi
 	done <<<"$OTHER_STAGED_FILES"
+	return 0
 }
 
 # Cleanup function to restore state on error
+# shellcheck disable=SC2329
 cleanup() {
 	local exit_code=$?
 	# Restore file if we modified it but didn't commit
@@ -93,7 +96,7 @@ cleanup() {
 	fi
 	# Re-stage other files
 	restage_other_files
-	exit $exit_code
+	exit "$exit_code"
 }
 trap cleanup EXIT
 
@@ -228,3 +231,5 @@ if [[ $STASHED == true ]]; then
 		echo "Your changes are in: git stash show -p stash@{0}" >&2
 	fi
 fi
+
+exit 0
