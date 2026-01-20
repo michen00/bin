@@ -62,7 +62,7 @@ discover_scripts() {
     script="${script#./}"
 
     # Skip if script itself is a symlink (should be ignored)
-    if [ -L "$script" ]; then
+    if [[ -L "$script" ]]; then
       continue
     fi
 
@@ -236,7 +236,7 @@ validate_executable_permissions() {
     fi
 
     # Check executable permissions
-    if [ -x "$readme_script" ]; then
+    if [[ -x "$readme_script" ]]; then
       has_executable=1
     fi
 
@@ -271,7 +271,7 @@ validate_executable_permissions() {
     fi
 
     # Check executable permissions
-    if [ -x "$test_file" ]; then
+    if [[ -x "$test_file" ]]; then
       has_executable=1
     fi
 
