@@ -162,15 +162,17 @@ extract_readme_scripts_section() {
 discover_readme_entries() {
   local filtered="$1"
 
-  # Extract script names from entries matching pattern: - [`scriptname`](scriptname): ...
-  # grep returns non-zero when no matches found, which is expected and should not cause script failure
-  local matches
-  # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-  matches=$(echo "$filtered" | grep -E '^- \[`[^`]+`\]\([^)]+\):' 2> /dev/null || true)
-  if [[ -n "$matches" ]]; then
-    # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-    echo "$matches" | sed -E 's/^- \[`([^`]+)`\].*/\1/' 2> /dev/null
-  fi
+  # Use bash's built-in regex for consistency and to avoid forking external processes.
+  # This pattern is already used in `validate_sorting`.
+  # shellcheck disable=SC2016
+  local regex_pattern='^-\ \[\`([^`]+)\`\]'
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
+  while IFS= read -r line; do
+    if [[ "$line" =~ $regex_pattern ]]; then
+      printf '%s\n' "${BASH_REMATCH[1]}"
+    fi
+  done <<< "$filtered"
+  set -e # Re-enable -e
 }
 
 # Validate correspondence between scripts, tests, and README entries
