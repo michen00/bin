@@ -86,7 +86,7 @@ discover_scripts() {
     fi
 
     # Check if file has shebang (starts with #!) AND executable permissions
-    if [ -x "$script" ]; then
+    if [[ -x "$script" ]]; then
       local first_line=""
       IFS= read -r first_line < "$script" 2> /dev/null || continue
       case "$first_line" in
@@ -110,7 +110,7 @@ discover_tests() {
   local test_file
   while IFS= read -r -d '' test_file; do
     # Check if test file has shebang AND executable permissions
-    if [ -x "$test_file" ]; then
+    if [[ -x "$test_file" ]]; then
       local first_line=""
       IFS= read -r first_line < "$test_file" 2> /dev/null || continue
       case "$first_line" in
