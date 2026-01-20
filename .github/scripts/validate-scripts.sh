@@ -153,7 +153,7 @@ extract_readme_scripts_section() {
   # This preserves entry lines. Multi-line comments (<!-- ... --> spanning multiple lines)
   # are handled by removing the opening and closing lines separately.
   # Remove single-line HTML comments and comment boundary lines
-  echo "$scripts_section" | sed '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' | sed '/^[[:space:]]*<!--[[:space:]]*$/d' | sed '/^[[:space:]]*-->[[:space:]]*$/d'
+  echo "$scripts_section" | sed -e '/^[[:space:]]*<!--.*-->[[:space:]]*$/d' -e '/^[[:space:]]*<!--[[:space:]]*$/d' -e '/^[[:space:]]*-->[[:space:]]*$/d'
 }
 
 # Discover README entries from filtered Scripts section
