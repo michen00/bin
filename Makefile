@@ -124,7 +124,6 @@ test: ## Run tests for specified scripts (PARALLEL={true|false}, SCRIPTS={script
             echo "$$invalid_scripts" | sed 's/^/  - /' >&2; \
             echo "$(YELLOW)Available scripts with tests:$(_COLOR)" >&2; \
             for f in tests/*.bats; do \
-                [ "$$f" = "tests/test_helper.bash" ] && continue; \
                 script=$$(basename "$$f" .bats); \
                 [ -f "$(CURDIR)/$$script" ] && echo "  - $$script" >&2; \
             done; \
