@@ -243,50 +243,47 @@ validate_executable_permissions() {
     # Report if missing either requirement
     if [[ $has_shebang -eq 0 ]] && [[ $has_executable -eq 0 ]]; then
       invalid_scripts+=("README-referenced script '$readme_script' lacks both shebang and executable permissions")
-      ((invalid_scripts_count++))
+      ((++invalid_scripts_count))
     elif [[ $has_shebang -eq 0 ]]; then
-      invalid_scripts+=("README-referenced script '$readme_script' lacks shebang (must start with #!)")
-      ((invalid_scripts_count++))
+      invalid_scripts+=("README-referenced script '$readme_script' lacks shebang")
+      ((++invalid_scripts_count))
     elif [[ $has_executable -eq 0 ]]; then
-      invalid_scripts+=("README-referenced script '$readme_script' lacks executable permissions (must have chmod +x)")
-      ((invalid_scripts_count++))
+      invalid_scripts+=("README-referenced script '$readme_script' lacks executable permissions")
+      ((++invalid_scripts_count))
     fi
   done
 
-  # Validate all discovered test files have both shebang and executable permissions
-  # Note: discover_tests() already filters, but we validate explicitly for clearer error messages
-  local test_script
-  for test_script in "${tests_ref[@]}"; do
-    local test_file="tests/${test_script}.bats"
-    if [[ ! -f "$test_file" ]]; then
-      continue # Skip if test file doesn't exist
-    fi
+  # Validate all test files have both shebang and executable permissions
+  # Discover ALL test files (not just valid ones) to catch missing shebang/permissions
+  if [[ -d "tests" ]]; then
+    local test_file
+    while IFS= read -r -d '' test_file; do
+      local has_shebang=0
+      local has_executable=0
 
-    local has_shebang=0
-    local has_executable=0
+      # Check shebang
+      if head -n 1 "$test_file" 2> /dev/null | grep -q '^#!'; then
+        has_shebang=1
+      fi
 
-    # Check shebang
-    if head -n 1 "$test_file" 2> /dev/null | grep -q '^#!'; then
-      has_shebang=1
-    fi
+      # Check executable permissions
+      if [[ -x "$test_file" ]]; then
+        has_executable=1
+      fi
 
-    # Check executable permissions
-    if [[ -x "$test_file" ]]; then
-      has_executable=1
-    fi
-
-    # Report if missing either requirement
-    if [[ $has_shebang -eq 0 ]] && [[ $has_executable -eq 0 ]]; then
-      invalid_tests+=("Test file '$test_file' lacks both shebang and executable permissions")
-      ((invalid_tests_count++))
-    elif [[ $has_shebang -eq 0 ]]; then
-      invalid_tests+=("Test file '$test_file' lacks shebang (must start with #!)")
-      ((invalid_tests_count++))
-    elif [[ $has_executable -eq 0 ]]; then
-      invalid_tests+=("Test file '$test_file' lacks executable permissions (must have chmod +x)")
-      ((invalid_tests_count++))
-    fi
-  done
+      # Report if missing either requirement
+      if [[ $has_shebang -eq 0 ]] && [[ $has_executable -eq 0 ]]; then
+        invalid_tests+=("Test file '$test_file' lacks both shebang and executable permissions")
+        ((++invalid_tests_count))
+      elif [[ $has_shebang -eq 0 ]]; then
+        invalid_tests+=("Test file '$test_file' lacks shebang")
+        ((++invalid_tests_count))
+      elif [[ $has_executable -eq 0 ]]; then
+        invalid_tests+=("Test file '$test_file' lacks executable permissions")
+        ((++invalid_tests_count))
+      fi
+    done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null || true)
+  fi
 
   # Fail-fast: exit immediately on first error
   if [[ $invalid_scripts_count -gt 0 ]]; then
