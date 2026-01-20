@@ -67,7 +67,7 @@ teardown() {
 	echo '#!/usr/bin/env bats' >tests/script2.bats
 	chmod +x tests/script1.bats tests/script2.bats
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 }
 
@@ -84,7 +84,7 @@ teardown() {
 	echo '#!/usr/bin/env bats' >tests/script3.bats
 	chmod +x tests/script1.bats tests/script2.bats tests/script3.bats
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 1 ]
 	# With new validation order: correspondence check runs before count check
 	# So specific error is reported (missing README entry for script3)
@@ -111,7 +111,7 @@ teardown() {
 - [`nonexistent`](nonexistent): This script doesn't exist.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 1 ]
 	# With new validation order: correspondence check runs before count check
 	# So specific error is reported (orphaned README entry for nonexistent)
@@ -130,7 +130,7 @@ EOF
 	chmod +x tests/script1.bats
 	# script2.bats is missing
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 1 ]
 	assert_output_contains "Missing Test Files"
 	assert_output_contains "script2"
@@ -158,7 +158,7 @@ EOF
 - [`script2`](script2): Second test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh exempted-script
+	run bash ./.github/scripts/validate-scripts.sh exempted-script
 	[ "$status" -eq 0 ]
 }
 
@@ -181,7 +181,7 @@ EOF
 - [`script1`](script1): First test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 }
 
@@ -201,7 +201,7 @@ EOF
 - [script1](script1): First test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 1 ]
 	assert_output_contains "Formatting Errors"
 }
@@ -222,7 +222,7 @@ EOF
 - [`script1`](script1): first test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 1 ]
 	assert_output_contains "Formatting Errors"
 }
@@ -243,7 +243,7 @@ EOF
 - [`script1`](script1): First test script
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 1 ]
 	assert_output_contains "Formatting Errors"
 }
@@ -264,7 +264,7 @@ EOF
 - [`script1`](script2): First test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 1 ]
 	assert_output_contains "Formatting Errors"
 }
@@ -288,7 +288,7 @@ EOF
 - [`script2`](script2): Second test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 }
 
@@ -310,7 +310,7 @@ EOF
 - [`script1`](script1): Add the last commit hash to a given file (`.git-blame-ignore-revs` file by default).
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 }
 
@@ -333,7 +333,7 @@ EOF
 - [`script1`](script1): First test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 1 ]
 	assert_output_contains "Sorting Errors"
 }
@@ -357,7 +357,7 @@ EOF
 - [`script2`](script2): Second test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 }
 
@@ -382,7 +382,7 @@ EOF
 - [`script2`](script2): Second test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 1 ]
 	# With new validation order: correspondence check runs before count check
 	# So specific error is reported (missing README entry for script3)
@@ -412,7 +412,7 @@ EOF
 - [`script2`](script2): Second test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 }
 
@@ -437,7 +437,7 @@ EOF
 - [`script2`](script2): Second test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 	# Verify success message contains counts
 	assert_output_contains "Validation passed"
@@ -460,7 +460,7 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -ne 0 ]
 	assert_output_contains "README-referenced script 'script1' lacks shebang"
 }
@@ -479,7 +479,7 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -ne 0 ]
 	assert_output_contains "README-referenced script 'script1' lacks executable permissions"
 }
@@ -502,7 +502,7 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -ne 0 ]
 	assert_output_contains "Test file 'tests/script1.bats' lacks shebang"
 }
@@ -526,7 +526,7 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -ne 0 ]
 	assert_output_contains "Test file 'tests/script1.bats' lacks executable permissions"
 }
@@ -545,7 +545,7 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -ne 0 ]
 	assert_output_contains "README-referenced script 'script1' lacks executable permissions"
 }
@@ -572,7 +572,7 @@ EOF
 - [`script2`](script2): first test script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -ne 0 ]
 	# With new validation order: formatting check runs first
 	# Should only report the first error (formatting error for script2: lowercase 'first')
@@ -602,7 +602,7 @@ EOF
 <!-- Another comment -->
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 }
 
@@ -628,7 +628,7 @@ EOF
 - [`validscript`](validscript): Valid script without extension.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 	# Should not complain about ignored.sh or ignored.py
 	assert_output_not_contains "ignored.sh"
@@ -655,7 +655,7 @@ EOF
 - [`validscript`](validscript): Valid script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 	# Should not complain about .hidden-script
 	assert_output_not_contains ".hidden-script"
@@ -682,7 +682,7 @@ EOF
 - [`validscript`](validscript): Valid script.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -eq 0 ]
 	# Should not complain about symlink-script
 	assert_output_not_contains "symlink-script"
@@ -704,7 +704,7 @@ EOF
 Some content here.
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	[ "$status" -ne 0 ]
 	assert_output_contains "README.md is missing '## Scripts' section"
 }
@@ -719,7 +719,7 @@ EOF
 
 EOF
 
-	run ./.github/scripts/validate-scripts.sh
+	run bash ./.github/scripts/validate-scripts.sh
 	# Should pass (0 scripts = 0 README entries = 0 test files)
 	[ "$status" -eq 0 ]
 	assert_output_contains "Validation passed"
