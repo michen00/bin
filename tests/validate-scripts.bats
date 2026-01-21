@@ -314,6 +314,26 @@ EOF
 	[ "$status" -eq 0 ]
 }
 
+@test "validate-scripts: validation passes when script name contains parentheses" {
+	# Create script with parentheses in name
+	echo '#!/usr/bin/env bash' >'script(name)'
+	chmod +x 'script(name)'
+	echo '#!/usr/bin/env bats' >'tests/script(name).bats'
+	chmod +x 'tests/script(name).bats'
+
+	# Create README with script name containing parentheses
+	cat >README.md <<'EOF'
+# Test Repository
+
+## Scripts
+
+- [`script(name)`](script(name)): Test script with parentheses in name.
+EOF
+
+	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	[ "$status" -eq 0 ]
+}
+
 @test "validate-scripts: validation fails when README entries not sorted alphabetically" {
 	# Create scripts
 	echo '#!/usr/bin/env bash' >script1

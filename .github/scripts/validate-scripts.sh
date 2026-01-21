@@ -431,10 +431,11 @@ validate_formatting() {
       # Use Bash's built-in regex to parse the line efficiently and correctly
       # Pattern: - [`script-name`](script-name): Description.
       # This single regex captures all three parts (link_text, link_url, description)
-      # and correctly handles parentheses in descriptions by matching only the first URL
+      # Uses greedy match (.+) for URL to correctly handle script names containing parentheses
+      # The greedy match stops at the last ')' before ':', correctly identifying URL boundaries
       # Store regex pattern in variable to avoid backtick escaping issues
       # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
-      local regex_pattern='^-\ \[`([^`]+)`\]\(([^)]+)\):[[:space:]]*(.+)$'
+      local regex_pattern='^-\ \[`([^`]+)`\]\((.+)\):[[:space:]]*(.+)$'
       if ! [[ "$line" =~ $regex_pattern ]]; then
         echo "❌ Validation Failed" >&2
         echo "" >&2
