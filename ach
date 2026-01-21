@@ -45,12 +45,7 @@ while [[ $# -gt 0 ]]; do
 		;;
 	esac
 done
-# Safely handle empty array - check if array has elements before expanding
-if ((${#POSITIONAL[@]} > 0)); then
-	set -- "${POSITIONAL[@]}"
-else
-	set --
-fi
+set -- "${POSITIONAL[@]}"
 
 HASH_ARG=${1:-}
 FILE=${2:-$DEFAULT_FILE}
