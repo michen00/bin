@@ -71,8 +71,11 @@ restage_other_files() {
 	echo "Re-staging other files..."
 	while IFS= read -r f; do
 		if [[ -n "$f" && -e "$f" ]]; then
-			# Use || true to prevent script exit on git add failure
-			git add -- "$f" || echo "Warning: Failed to re-stage '$f'" >&2
+			# Capture stderr to get actual error message if git add fails
+			local add_error
+			if ! add_error=$(git add -- "$f" 2>&1); then
+				echo "Warning: Failed to re-stage '$f': $add_error" >&2
+			fi
 		elif [[ -n "$f" ]]; then
 			echo "Warning: '$f' no longer exists (was it a new file?)" >&2
 		fi
