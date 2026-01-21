@@ -1,6 +1,6 @@
 # bin
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/michen00/bin/ci.yml?style=plastic)](https://github.com/michen00/bin/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/michen00/bin/CI.yml?style=plastic)](https://github.com/michen00/bin/actions)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=plastic)](CONTRIBUTING.md)
 [![License](https://img.shields.io/github/license/michen00/bin?style=plastic)](LICENSE)
 
