@@ -163,9 +163,16 @@ discover_readme_entries() {
   local filtered="$1"
 
   # Extract script names from entries matching pattern: - [`scriptname`](scriptname): ...
-  # sed -n with 'p' flag prints only matching lines, improving efficiency over grep | sed.
+  # Use bash's built-in regex for consistency and to avoid forking external processes.
   # shellcheck disable=SC2016 # Single quotes intentional - backticks are literal regex chars, not command substitution
-  sed -nE 's/^- \[`([^`]+)`\].*/\1/p' <<< "$filtered"
+  local regex_pattern='^-\ \[`([^`]+)`\]'
+  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
+  while IFS= read -r line; do
+    if [[ "$line" =~ $regex_pattern ]]; then
+      printf '%s\n' "${BASH_REMATCH[1]}"
+    fi
+  done <<< "$filtered"
+  set -e # Re-enable -e
 }
 
 # Validate correspondence between scripts, tests, and README entries
@@ -265,8 +272,20 @@ validate_executable_permissions() {
     local has_executable=0
 
     # Check shebang
-    if head -n 1 "$readme_script" | grep -q '^#!'; then
-      has_shebang=1
+    if [[ ! -r "$readme_script" ]]; then
+      echo "❌ Validation Failed" >&2
+      echo "" >&2
+      echo "Invalid Scripts:" >&2
+      echo "  - README-referenced script '$readme_script' is not readable" >&2
+      exit 1
+    fi
+    local first_line=""
+    if IFS= read -r first_line < "$readme_script"; then
+      case "$first_line" in
+        '#!'*)
+          has_shebang=1
+          ;;
+      esac
     fi
 
     # Check executable permissions
@@ -299,8 +318,20 @@ validate_executable_permissions() {
       local has_executable=0
 
       # Check shebang
-      if head -n 1 "$test_file" | grep -q '^#!'; then
-        has_shebang=1
+      if [[ ! -r "$test_file" ]]; then
+        echo "❌ Validation Failed" >&2
+        echo "" >&2
+        echo "Invalid Test Files:" >&2
+        echo "  - Test file '$test_file' is not readable" >&2
+        exit 1
+      fi
+      local first_line=""
+      if IFS= read -r first_line < "$test_file"; then
+        case "$first_line" in
+          '#!'*)
+            has_shebang=1
+            ;;
+        esac
       fi
 
       # Check executable permissions
