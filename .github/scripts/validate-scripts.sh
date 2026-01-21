@@ -10,9 +10,11 @@ if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3))); 
   exit 1
 fi
 
-# Trap SIGPIPE to handle broken pipes gracefully (common when output is piped)
-# This prevents "Broken pipe" errors from causing script failure.
-# Note: This trap prevents the script from exiting on SIGPIPE signals.
+# Trap SIGPIPE to handle broken pipes gracefully when script output is piped
+# SIGPIPE can occur when the script's output is piped to commands that exit early
+# (e.g., `validate-scripts.sh | head`). This trap prevents SIGPIPE from causing
+# script failure with `set -euo pipefail`. Note: This only affects SIGPIPE signals;
+# actual command failures (non-zero exit codes) are still caught by `set -e`.
 # We use explicit error handling (printf instead of echo, explicit read patterns)
 # rather than suppressing errors with || true to maintain strict error handling.
 trap '' PIPE
