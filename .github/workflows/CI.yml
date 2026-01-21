@@ -1,9 +1,10 @@
+---
 name: CI
-
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -16,18 +17,34 @@ defaults:
 
 jobs:
   test:
-    name: Run Tests
-    runs-on: ubuntu-latest
+    name: Run Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v6
       - name: Setup BATS
         uses: bats-core/bats-action@3.0.1
+      - name: Install bash and GNU parallel (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install bash parallel
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+      - name: Verify bash version
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "Resolved bash: $(which bash)"
+          bash -c 'echo "BASH_VERSION=$BASH_VERSION"'
       - name: Run BATS tests
         run: bats --jobs 4 --timing tests/*.bats
 
   run-ci:
-    name: Run CI
-    runs-on: ubuntu-latest
+    name: Run CI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v6
       - name: Install pre-commit

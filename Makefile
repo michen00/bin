@@ -1,4 +1,5 @@
 .ONESHELL:
+SHELL := /bin/bash
 
 DEBUG    ?= false
 VERBOSE  ?= false
@@ -97,14 +98,9 @@ develop: ## Set up the project for development (WITH_HOOKS={true|false}, default
 
 .PHONY: test
 PARALLEL ?= true
-test: ## Run all tests (PARALLEL={true|false}, default=true)
-	@if [ "$(PARALLEL)" = "true" ]; then \
-        echo "$(CYAN)Running tests in parallel...$(_COLOR)"; \
-        bats --jobs 4 --timing tests/*.bats; \
-    else \
-        echo "$(CYAN)Running tests sequentially...$(_COLOR)"; \
-        bats tests/*.bats; \
-    fi
+SCRIPTS ?= *
+test: ## Run tests for specified scripts (PARALLEL={true|false}, SCRIPTS={script1,script2,...}, defaults: true, *)
+	@PARALLEL="$(PARALLEL)" SCRIPTS="$(SCRIPTS)" bash tests/run-tests.sh
 
 .PHONY: check
 check: run-pre-commit test ## Run all code quality checks and tests

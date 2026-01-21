@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # original author: @ragavi-ashok
 
 HELP=$(
@@ -59,16 +61,27 @@ if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
 fi
 
 echo "Fetching latest remote info and pruning..."
-git fetch --prune
+# git fetch may fail if no remote is configured or network issues occur
+# This is non-fatal - we can still proceed with local branch analysis
+if ! git fetch --prune 2>/dev/null; then
+	echo "Warning: git fetch failed (this is non-fatal)" >&2
+fi
 
 # Identify local branches fully merged into the remote target branch.
 # Using origin/$TARGET_BRANCH ensures we compare against the up-to-date remote.
 # Wrap in subshell so filtering applies to both the primary and fallback command.
-MERGED_BRANCHES=$( (git branch --merged "origin/$TARGET_BRANCH" 2>/dev/null ||
-	git branch --merged "$TARGET_BRANCH") |
-	grep -v "^\*" |
-	sed 's/^  //' |
-	grep -v -F -x "$TARGET_BRANCH")
+# Use awk so an empty result doesn't trip pipefail (grep -v returns 1 on no matches).
+MERGED_BRANCHES=$(
+	(git branch --merged "origin/$TARGET_BRANCH" 2>/dev/null ||
+		git branch --merged "$TARGET_BRANCH") |
+		awk -v target="$TARGET_BRANCH" '
+			/^\*/ { next }
+			{
+				sub(/^  /, "")
+				if ($0 != target) print
+			}
+		'
+)
 
 if [ -z "$MERGED_BRANCHES" ]; then
 	echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
