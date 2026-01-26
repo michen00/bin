@@ -4,3 +4,4 @@ e257f44613ca0004a3156c47b7b2b45137f05869  # style(README.md): use a shorter lang
 1858a6813b38f1c22e7ec0811927bf07d53e47c5  # style: fix indents
 6857734c07a78c4a8c0411cb258b9dea40807147  # style(.editorconfig): rearrange a table
 c6514fc9d69b1f148054ce944144f240df7dcf4c  # style: edit whitespace
+4c85a1bed8891c637f22a44da41daf1304690e51  # style(.github/dependabot.yml): use fewer quotes
