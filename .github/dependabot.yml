@@ -2,7 +2,7 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: '/'
+    directory: /
     schedule:
       interval: cron
       cronjob: '0 0 1,15 * *' # 1st and 15th monthly at midnight UTC
