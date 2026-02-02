@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_NAME=$(basename "$0")
+
+# Trap handlers for error recovery
+trap 'cleanup_on_error' ERR
+trap 'cleanup_on_exit' EXIT
+
+cleanup_on_error() {
+	local exit_code=$?
+	echo "Error: Script failed with exit code $exit_code" >&2
+	exit $exit_code
+}
+
+cleanup_on_exit() {
+	# Cleanup logic if needed
+	:
+}
+
+# Detect platform
+detect_platform() {
+	case "$(uname -s)" in
+	Darwin*)
+		echo "macos"
+		;;
+	Linux*)
+		if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+			echo "wayland"
+		else
+			echo "x11"
+		fi
+		;;
+	CYGWIN* | MINGW* | MSYS*)
+		echo "windows"
+		;;
+	*)
+		echo "unknown"
+		;;
+	esac
+}
+
+# Select clipboard command based on platform
+select_clipboard_command() {
+	local platform=$1
+	case "$platform" in
+	macos)
+		if command -v pbcopy >/dev/null 2>&1; then
+			echo "pbcopy"
+		else
+			echo "ERROR:pbcopy not found"
+		fi
+		;;
+	x11)
+		if command -v xclip >/dev/null 2>&1; then
+			echo "xclip -selection clipboard"
+		elif command -v xsel >/dev/null 2>&1; then
+			echo "xsel --clipboard"
+		else
+			echo "ERROR:xclip or xsel not found"
+		fi
+		;;
+	wayland)
+		if command -v wl-copy >/dev/null 2>&1; then
+			echo "wl-copy"
+		else
+			echo "ERROR:wl-copy not found"
+		fi
+		;;
+	windows)
+		if command -v clip.exe >/dev/null 2>&1; then
+			echo "clip.exe"
+		else
+			echo "ERROR:clip.exe not found"
+		fi
+		;;
+	*)
+		echo "ERROR:unsupported platform"
+		;;
+	esac
+}
+
+# Select dash character based on script name
+select_dash() {
+	case "$SCRIPT_NAME" in
+	en_)
+		echo "–" # en dash U+2013
+		;;
+	em_)
+		echo "—" # em dash U+2014
+		;;
+	*)
+		echo "ERROR:invalid script name"
+		;;
+	esac
+}
+
+# Display help message
+usage() {
+	cat <<EOF
+Usage: $SCRIPT_NAME [OPTIONS]
+
+Copies $(if [[ "$SCRIPT_NAME" == "en_" ]]; then echo "en dash"; else echo "em dash"; fi) (Unicode U+$(if [[ "$SCRIPT_NAME" == "en_" ]]; then echo "2013"; else echo "2014"; fi)) to the system clipboard.
+
+Options:
+  -h, --help    Show this help message and exit.
+
+Examples:
+  $SCRIPT_NAME           # Copy $(if [[ "$SCRIPT_NAME" == "en_" ]]; then echo "en dash (–)"; else echo "em dash (—)"; fi) to clipboard
+
+Note: This script must be invoked as 'en_' or 'em_'. The dash character
+copied is determined by the command name used.
+EOF
+	exit 0
+}
+
+# Main execution
+main() {
+	# Parse command-line arguments
+	if [[ $# -gt 0 ]]; then
+		case "$1" in
+		-h | --help)
+			usage
+			;;
+		*)
+			echo "Error: Unknown option '$1'" >&2
+			echo "Run '$SCRIPT_NAME --help' for usage information." >&2
+			exit 2
+			;;
+		esac
+	fi
+
+	# Validate script name
+	if [[ "$SCRIPT_NAME" == "_mnn" ]]; then
+		echo "Error: This script must be invoked as 'en_' or 'em_'" >&2
+		exit 1
+	fi
+
+	# Select dash character
+	local dash
+	dash=$(select_dash)
+	if [[ "$dash" == ERROR:* ]]; then
+		echo "Error: This script must be invoked as 'en_' or 'em_'" >&2
+		exit 1
+	fi
+
+	# Detect platform
+	local platform
+	platform=$(detect_platform)
+	if [[ "$platform" == "unknown" ]]; then
+		local uname_output
+		uname_output=$(uname -s)
+		echo "Error: Unsupported platform: $uname_output. This script supports macOS, Linux (X11/Wayland), and Windows." >&2
+		exit 1
+	fi
+
+	# Select clipboard command
+	local clipboard_cmd
+	clipboard_cmd=$(select_clipboard_command "$platform")
+	if [[ "$clipboard_cmd" == ERROR:* ]]; then
+		case "$platform" in
+		macos)
+			echo "Error: Clipboard tool 'pbcopy' not found. This should be available on macOS." >&2
+			;;
+		x11)
+			echo "Error: Clipboard tool 'xclip' or 'xsel' not found. Please install xclip (preferred) or xsel." >&2
+			;;
+		wayland)
+			echo "Error: Clipboard tool 'wl-copy' not found. Please install wl-clipboard package." >&2
+			;;
+		windows)
+			echo "Error: Clipboard tool 'clip.exe' not found. This should be available on Windows." >&2
+			;;
+		esac
+		exit 1
+	fi
+
+	# Copy to clipboard
+	if [[ "$platform" == "windows" ]]; then
+		# Windows echo doesn't support -n flag
+		echo "$dash" | $clipboard_cmd || {
+			echo "Error: Failed to copy to clipboard: $?" >&2
+			exit 1
+		}
+	else
+		# Unix-like systems support echo -n
+		echo -n "$dash" | $clipboard_cmd || {
+			echo "Error: Failed to copy to clipboard: $?" >&2
+			exit 1
+		}
+	fi
+}
+
+main "$@"
