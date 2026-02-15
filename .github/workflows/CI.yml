@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Setup BATS
-        uses: bats-core/bats-action@3.0.1
+        uses: bats-core/bats-action@4.0.0
       - name: Install bash and GNU parallel (macOS only)
         if: matrix.os == 'macos-latest'
         run: |
