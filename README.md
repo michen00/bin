@@ -42,7 +42,8 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 
 - [`ach`](ach): Add the last commit hash to a given file (`.git-blame-ignore-revs` file by default).
 - [`chdirx`](chdirx): Add `+x` permission to all executable files (that start with `#!`) in the given directory.
-- [`em_`](em_) / [`en_`](en_): Copy typographic dashes to the system clipboard. `em_` copies em dash (—, Unicode U+2014), `en_` copies en dash (–, Unicode U+2013).
+- [`em_`](em_): Copy em dash (—, Unicode U+2014) to the system clipboard.
+- [`en_`](en_): Copy en dash (–, Unicode U+2013) to the system clipboard.
 - [`gcfixup`](gcfixup): Create a fixup commit and automatically rebase with autosquash.
 - [`git-shed`](git-shed): Identify and remove merged & stale branches with respect to a target branch.
 - [`how-big`](how-big): Show the size of the given directory.

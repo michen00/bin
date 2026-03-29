@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+echo "[1/2] verify prepare-readme succeeds on current repository"
+./scripts/prepare-readme.sh
+
+echo "[2/2] verify prepare-readme fails on malformed README entry"
+cp README.md "$tmpdir/README.md.bak"
+restore_readme() {
+	cp "$tmpdir/README.md.bak" README.md
+}
+trap 'restore_readme; rm -rf "$tmpdir"' EXIT
+
+# Intentionally break one script line format similarly to historical CI failure.
+sed 's#- \[`em_`\](em_):#- [`em_`](em_) / [`en_`](en_):#' README.md >"$tmpdir/README.md.bad"
+cp "$tmpdir/README.md.bad" README.md
+
+if ./scripts/prepare-readme.sh >/dev/null 2>&1; then
+	echo "Expected prepare-readme.sh to fail for malformed README, but it succeeded" >&2
+	exit 1
+fi
+
+restore_readme
+trap 'rm -rf "$tmpdir"' EXIT
+
+echo "prepare-readme tests passed"

@@ -708,6 +708,58 @@ EOF
 	assert_output_not_contains "symlink-script"
 }
 
+@test "validate-scripts: README entries for symlink aliases are allowed" {
+	# Create symlink target script
+	echo '#!/usr/bin/env bash' >core-script
+	chmod +x core-script
+	echo '#!/usr/bin/env bats' >tests/core-script.bats
+	chmod +x tests/core-script.bats
+
+	# Create symlink aliases (like em_/en_ -> _mnn in real repo)
+	ln -s core-script alias-a
+	ln -s core-script alias-b
+
+	# README documents symlink aliases only
+	cat >README.md <<'EOF'
+# Test Repository
+
+## Scripts
+
+- [`alias-a`](alias-a): First alias script.
+- [`alias-b`](alias-b): Second alias script.
+EOF
+
+	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	[ "$status" -eq 0 ]
+}
+
+@test "validate-scripts: script entries and symlink alias entries can coexist" {
+	# Create normal script
+	echo '#!/usr/bin/env bash' >script1
+	chmod +x script1
+	echo '#!/usr/bin/env bats' >tests/script1.bats
+	chmod +x tests/script1.bats
+
+	# Create symlink target and alias
+	echo '#!/usr/bin/env bash' >core-script
+	chmod +x core-script
+	echo '#!/usr/bin/env bats' >tests/core-script.bats
+	chmod +x tests/core-script.bats
+	ln -s core-script alias-a
+
+	cat >README.md <<'EOF'
+# Test Repository
+
+## Scripts
+
+- [`alias-a`](alias-a): Alias script.
+- [`script1`](script1): Standalone script.
+EOF
+
+	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	[ "$status" -eq 0 ]
+}
+
 @test "validate-scripts: validation fails when README is malformed (missing Scripts section)" {
 	# Create script
 	echo '#!/usr/bin/env bash' >script1
