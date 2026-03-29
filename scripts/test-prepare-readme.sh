@@ -14,7 +14,7 @@ echo "[1/2] verify prepare-readme succeeds on current repository"
 echo "[2/2] verify prepare-readme fails on malformed README entry"
 cp README.md "$tmpdir/README.md.bak"
 restore_readme() {
-	cp "$tmpdir/README.md.bak" README.md
+  cp "$tmpdir/README.md.bak" README.md
 }
 trap 'restore_readme; rm -rf "$tmpdir"' EXIT
 
@@ -24,12 +24,12 @@ awk '
 /^- \[`en_`\]\(en_\):/ {
   print "- [`em_`](em_) / [`en_`](en_): Malformed combined entry."
 }
-' README.md >"$tmpdir/README.md.bad"
+' README.md > "$tmpdir/README.md.bad"
 cp "$tmpdir/README.md.bad" README.md
 
-if ./scripts/prepare-readme.sh >/dev/null 2>&1; then
-	echo "Expected prepare-readme.sh to fail for malformed README, but it succeeded" >&2
-	exit 1
+if ./scripts/prepare-readme.sh > /dev/null 2>&1; then
+  echo "Expected prepare-readme.sh to fail for malformed README, but it succeeded" >&2
+  exit 1
 fi
 
 restore_readme

@@ -563,9 +563,6 @@ validate_counts() {
   # Count README entries from cached array
   local readme_count=${#readme_entries_ref[@]}
 
-  # Count root-level symlinks from cached array
-  local symlink_count=${#symlinks_ref[@]}
-
   # Count test files (for informational purposes, but not required to match) from cached array
   local test_count=${#tests_ref[@]}
 
@@ -588,7 +585,7 @@ validate_counts() {
     echo "❌ Validation Failed" >&2
     echo "" >&2
     echo "Count Mismatch:" >&2
-    local readme_symlink_count=$(( readme_count - readme_script_count ))
+    local readme_symlink_count=$((readme_count - readme_script_count))
     echo "  - Count mismatch: $script_count scripts, $readme_count README entries ($readme_script_count non-symlink + $readme_symlink_count symlink), $test_count test files" >&2
     exit 1
   fi
@@ -624,8 +621,8 @@ main() {
 
   # shellcheck disable=SC2034 # Used via nameref in validate_correspondence/validate_counts
   local -a cached_symlinks=()
+  # shellcheck disable=SC2034 # Populates nameref-consumed array
   mapfile -t cached_symlinks < <(discover_symlinks | grep -v '^$')
-  : "${cached_symlinks[@]}"
 
   # Cache filtered README scripts section (extract once, use many times)
   # This avoids re-extracting and filtering the section multiple times

@@ -6,8 +6,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readme="$repo_root/README.md"
 
 if [[ ! -f "$readme" ]]; then
-	echo "README.md not found at $readme" >&2
-	exit 1
+  echo "README.md not found at $readme" >&2
+  exit 1
 fi
 
 # Validate script docs consistency; this enforces current project assumptions:
