@@ -25,6 +25,12 @@ awk '
   print "- [`em_`](em_) / [`en_`](en_): Malformed combined entry."
 }
 ' README.md > "$tmpdir/README.md.bad"
+
+if cmp -s README.md "$tmpdir/README.md.bad"; then
+  echo "Failed to inject malformed README entry for prepare-readme negative test" >&2
+  exit 1
+fi
+
 cp "$tmpdir/README.md.bad" README.md
 
 if ./scripts/prepare-readme.sh > /dev/null 2>&1; then
