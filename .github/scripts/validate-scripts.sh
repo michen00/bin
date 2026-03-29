@@ -195,9 +195,9 @@ validate_correspondence() {
 
   # Build associative arrays for O(1) lookup performance
   # Associative arrays (bash 4.0+) provide fast key-based lookups for correspondence checks
-  declare -A script_map # Maps script names to 1 (exists)
-  declare -A test_map   # Maps test script names to 1 (test file exists)
-  declare -A readme_map # Maps README script names to 1 (documented)
+  declare -A script_map  # Maps script names to 1 (exists)
+  declare -A test_map    # Maps test script names to 1 (test file exists)
+  declare -A readme_map  # Maps README script names to 1 (documented)
   declare -A symlink_map # Maps root symlink names to 1
 
   # Populate script map from cached array
@@ -588,7 +588,8 @@ validate_counts() {
     echo "❌ Validation Failed" >&2
     echo "" >&2
     echo "Count Mismatch:" >&2
-    echo "  - Count mismatch: $script_count scripts, $readme_count README entries ($readme_script_count non-symlink + $symlink_count symlink), $test_count test files" >&2
+    local readme_symlink_count=$(( readme_count - readme_script_count ))
+    echo "  - Count mismatch: $script_count scripts, $readme_count README entries ($readme_script_count non-symlink + $readme_symlink_count symlink), $test_count test files" >&2
     exit 1
   fi
 
@@ -621,8 +622,10 @@ main() {
   local -a cached_tests=()
   mapfile -t cached_tests < <(discover_tests | grep -v '^$')
 
+  # shellcheck disable=SC2034 # Used via nameref in validate_correspondence/validate_counts
   local -a cached_symlinks=()
   mapfile -t cached_symlinks < <(discover_symlinks | grep -v '^$')
+  : "${cached_symlinks[@]}"
 
   # Cache filtered README scripts section (extract once, use many times)
   # This avoids re-extracting and filtering the section multiple times
