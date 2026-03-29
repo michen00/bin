@@ -18,8 +18,13 @@ restore_readme() {
 }
 trap 'restore_readme; rm -rf "$tmpdir"' EXIT
 
-# Intentionally break one script line format similarly to historical CI failure.
-sed 's#- \[`em_`\](em_):#- [`em_`](em_) / [`en_`](en_):#' README.md >"$tmpdir/README.md.bad"
+# Intentionally inject a malformed script entry inside the Scripts section.
+awk '
+{ print }
+/^- \[`en_`\]\(en_\):/ {
+  print "- [`em_`](em_) / [`en_`](en_): Malformed combined entry."
+}
+' README.md >"$tmpdir/README.md.bad"
 cp "$tmpdir/README.md.bad" README.md
 
 if ./scripts/prepare-readme.sh >/dev/null 2>&1; then

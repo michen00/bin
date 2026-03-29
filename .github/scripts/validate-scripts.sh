@@ -588,7 +588,7 @@ validate_counts() {
     echo "❌ Validation Failed" >&2
     echo "" >&2
     echo "Count Mismatch:" >&2
-    echo "  - Count mismatch: $script_count scripts, $readme_count README entries ($readme_script_count scripts + $symlink_count symlinks), $test_count test files" >&2
+    echo "  - Count mismatch: $script_count scripts, $readme_count README entries ($readme_script_count non-symlink + $symlink_count symlink), $test_count test files" >&2
     exit 1
   fi
 
