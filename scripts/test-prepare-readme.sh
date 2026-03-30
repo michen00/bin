@@ -10,6 +10,8 @@ if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3))); 
       exec "$candidate" "$0" "$@"
     fi
   done
+  echo "Error: Bash 4.3 or later is required, but no suitable interpreter was found (tried: ${candidates[*]})." >&2
+  exit 1
 fi
 
 set -euo pipefail
