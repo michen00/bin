@@ -135,6 +135,63 @@ discover_symlinks() {
   done < <(find . -maxdepth 1 -type l -print0 2> /dev/null)
 }
 
+# Discover root-level symlink aliases that resolve to an existing executable script target
+# with a shebang. Returns alias names only (no leading ./).
+# Symlinks that are dangling, point to non-executable files, lack shebangs, or are
+# exempted are silently skipped.
+discover_valid_symlink_aliases() {
+  local link
+  while IFS= read -r -d '' link; do
+    local alias_name="${link#./}"
+    local target
+    target=$(readlink "$link" 2> /dev/null)
+    if [[ -z "$target" ]]; then
+      continue
+    fi
+
+    local target_path
+    if [[ "$target" = /* ]]; then
+      target_path="$target"
+    else
+      target_path="$(dirname "$link")/$target"
+    fi
+
+    local target_name="${target_path#./}"
+    if [[ "$target_name" == */* ]]; then
+      continue
+    fi
+
+    if is_exempted "$target_name"; then
+      continue
+    fi
+
+    if [[ ! -f "$target_path" ]] || [[ ! -x "$target_path" ]]; then
+      continue
+    fi
+
+    local first_line=""
+    if ! IFS= read -r first_line < "$target_path"; then
+      continue
+    fi
+    case "$first_line" in
+      '#!'*)
+        printf '%s\n' "$alias_name"
+        ;;
+    esac
+  done < <(find . -maxdepth 1 -type l -print0 2> /dev/null)
+}
+
+# Populate associative map from indexed array values
+# Arguments: map_name_ref (nameref to associative array) array_name_ref (nameref to indexed array)
+populate_map_from_array() {
+  local -n map_ref=$1
+  local -n array_ref=$2
+  local item
+  for item in "${array_ref[@]}"; do
+    map_ref["$item"]=1
+  done
+}
+
 # Extract and filter the ## Scripts section from README.md
 # Outputs the filtered section to stdout, or error messages to stderr and returns non-zero on failure
 extract_readme_scripts_section() {
@@ -219,10 +276,7 @@ validate_correspondence() {
   done
 
   # Populate symlink map from cached array
-  local symlink_name
-  for symlink_name in "${symlinks_ref[@]}"; do
-    symlink_map["$symlink_name"]=1
-  done
+  populate_map_from_array symlink_map symlinks_ref
 
   # Check each script for missing test file (fail-fast: exit on first error)
   for script in "${!script_map[@]}"; do
@@ -568,10 +622,7 @@ validate_counts() {
 
   # Count README entries that are not symlink aliases
   local -A symlink_map
-  local symlink_name
-  for symlink_name in "${symlinks_ref[@]}"; do
-    symlink_map["$symlink_name"]=1
-  done
+  populate_map_from_array symlink_map symlinks_ref
   local readme_script_count=0
   local readme_entry
   for readme_entry in "${readme_entries_ref[@]}"; do
@@ -622,7 +673,7 @@ main() {
   # shellcheck disable=SC2034 # Used via nameref in validate_correspondence/validate_counts
   local -a cached_symlinks=()
   # shellcheck disable=SC2034 # Populates nameref-consumed array
-  mapfile -t cached_symlinks < <(discover_symlinks | grep -v '^$')
+  mapfile -t cached_symlinks < <(discover_valid_symlink_aliases | grep -v '^$')
 
   # Cache filtered README scripts section (extract once, use many times)
   # This avoids re-extracting and filtering the section multiple times

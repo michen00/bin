@@ -760,6 +760,31 @@ EOF
 	[ "$status" -eq 0 ]
 }
 
+@test "validate-scripts: README entry for dangling symlink alias is rejected" {
+	# Create script to satisfy script/test coverage
+	echo '#!/usr/bin/env bash' >script1
+	chmod +x script1
+	echo '#!/usr/bin/env bats' >tests/script1.bats
+	chmod +x tests/script1.bats
+
+	# Create dangling alias in root
+	ln -s missing-target alias-a
+
+	cat >README.md <<'EOF'
+# Test Repository
+
+## Scripts
+
+- [`alias-a`](alias-a): Dangling alias.
+- [`script1`](script1): Valid script.
+EOF
+
+	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	[ "$status" -ne 0 ]
+	assert_output_contains "Orphaned README Entries:"
+	assert_output_contains "README entry for 'alias-a' references a non-existent script"
+}
+
 @test "validate-scripts: validation fails when README is malformed (missing Scripts section)" {
 	# Create script
 	echo '#!/usr/bin/env bash' >script1
