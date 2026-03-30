@@ -49,6 +49,17 @@ has_clipboard_tool() {
 	esac
 }
 
+# One-time setup: prime the macOS pasteboard daemon before any clipboard test.
+# The daemon initialises lazily; the first pbcopy from a BATS subprocess can
+# race against it starting, causing the first read-back to fail even though
+# pbcopy exits 0.  A direct write here (outside any subshell) ensures the
+# service is up before test 3 runs.
+setup_file() {
+	if command -v pbcopy >/dev/null 2>&1; then
+		printf "" | pbcopy 2>/dev/null || true
+	fi
+}
+
 @test "_mnn: script has valid bash syntax" {
 	bash -n "$SCRIPTS_DIR/_mnn"
 }
