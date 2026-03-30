@@ -177,19 +177,10 @@ main() {
 	fi
 
 	# Copy to clipboard
-	if [[ "$platform" == "windows" ]]; then
-		# Windows echo doesn't support -n flag
-		echo "$dash" | $clipboard_cmd || {
-			echo "Error: Failed to copy to clipboard: $?" >&2
-			exit 1
-		}
-	else
-		# Unix-like systems support echo -n
-		echo -n "$dash" | $clipboard_cmd || {
-			echo "Error: Failed to copy to clipboard: $?" >&2
-			exit 1
-		}
-	fi
+	printf "%s" "$dash" | $clipboard_cmd || {
+		echo "Error: Failed to copy to clipboard: $?" >&2
+		exit 1
+	}
 }
 
 main "$@"
