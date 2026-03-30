@@ -38,7 +38,4 @@ if ./scripts/prepare-readme.sh > /dev/null 2>&1; then
   exit 1
 fi
 
-restore_readme
-trap 'rm -rf "$tmpdir"' EXIT
-
 echo "prepare-readme tests passed"

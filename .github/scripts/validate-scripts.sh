@@ -137,8 +137,8 @@ discover_symlinks() {
 
 # Discover root-level symlink aliases that resolve to an existing executable script target
 # with a shebang. Returns alias names only (no leading ./).
-# Symlinks that are dangling, point to non-executable files, lack shebangs, or are
-# exempted are silently skipped.
+# Symlinks that are dangling, point to non-executable files, lack shebangs, or point
+# to exempted targets are silently skipped.
 discover_valid_symlink_aliases() {
   local link
   while IFS= read -r -d '' link; do
