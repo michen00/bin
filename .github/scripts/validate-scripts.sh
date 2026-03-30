@@ -127,14 +127,6 @@ discover_tests() {
   done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null)
 }
 
-# Discover all root-level symlinks (names only, no leading ./)
-discover_symlinks() {
-  local link
-  while IFS= read -r -d '' link; do
-    printf '%s\n' "${link#./}"
-  done < <(find . -maxdepth 1 -type l -print0 2> /dev/null)
-}
-
 # Discover root-level symlink aliases that resolve to an existing executable script target
 # with a shebang. Returns alias names only (no leading ./).
 # Symlinks that are dangling, point to non-executable files, lack shebangs, or point
@@ -188,6 +180,7 @@ populate_map_from_array() {
   local -n array_ref=$2
   local item
   for item in "${array_ref[@]}"; do
+    # shellcheck disable=SC2034 # Written through nameref for caller-owned associative map
     map_ref["$item"]=1
   done
 }
@@ -609,6 +602,7 @@ validate_counts() {
   local -n scripts_ref=$1
   local -n readme_entries_ref=$2
   local -n tests_ref=$3
+  # shellcheck disable=SC2034 # Consumed via nameref in populate_map_from_array
   local -n symlinks_ref=$4
 
   # Count scripts (non-exempted) from cached array
