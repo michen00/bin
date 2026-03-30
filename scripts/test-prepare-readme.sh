@@ -6,7 +6,7 @@ if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3))); 
     candidates=("$(brew --prefix bash 2> /dev/null)/bin/bash" "${candidates[@]}")
   fi
   for candidate in "${candidates[@]}"; do
-    if [[ -x "$candidate" ]] && "$candidate" -lc '((BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 3)))'; then
+    if [[ -x "$candidate" ]] && "$candidate" -c '((BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 3)))'; then
       exec "$candidate" "$0" "$@"
     fi
   done
@@ -21,10 +21,16 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
 echo "[1/3] verify README documents em_/en_ symlinks and omits _mnn"
-grep -qF -- "- [\`em_\`](em_):" README.md
-grep -qF -- "- [\`en_\`](en_):" README.md
+if ! grep -qF -- "- [\`em_\`](em_):" README.md; then
+  echo "README is missing the em_ symlink entry" >&2
+  exit 1
+fi
+if ! grep -qF -- "- [\`en_\`](en_):" README.md; then
+  echo "README is missing the en_ symlink entry" >&2
+  exit 1
+fi
 if grep -qF -- "- [\`_mnn\`](_mnn):" README.md; then
-  echo "README should document em_ and en_ aliases, not _mnn" >&2
+  echo "README should document em_ and en_ symlinks, not _mnn" >&2
   exit 1
 fi
 
