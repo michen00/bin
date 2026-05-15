@@ -21,7 +21,8 @@ Description:
   This script performs the following actions:
   1. Fetches the latest remote information and prunes deleted branches.
   2. Identifies local branches that are fully merged into the TARGET_BRANCH.
-  3. Prompts the user (or automatically confirms with -y) to delete these merged branches.
+  3. Prompts the user (or automatically confirms with -y) to delete these merged branches
+     (removing a linked worktree first when that branch is checked out there).
   4. Identifies local branches that no longer have a remote.
   5. Prompts the user (or automatically confirms with -y) to delete these stale branches.
 EOF
@@ -67,26 +68,45 @@ if ! git fetch --prune 2>/dev/null; then
 	echo "Warning: git fetch failed (this is non-fatal)" >&2
 fi
 
-# Identify local branches fully merged into the remote target branch.
-# Using origin/$TARGET_BRANCH ensures we compare against the up-to-date remote.
-# Wrap in subshell so filtering applies to both the primary and fallback command.
-# Use awk so an empty result doesn't trip pipefail (grep -v returns 1 on no matches).
+# If $1 is checked out in a linked worktree, remove that tree so branch delete can succeed.
+remove_linked_worktree_for_branch() {
+	local branch=$1
+	local toplevel worktree
+	toplevel=$(git rev-parse --show-toplevel)
+	worktree=$(
+		git worktree list | grep -F "[$branch]" | awk '{print $1}' || true
+	)
+	if [[ -z "$worktree" || "$worktree" == "$toplevel" ]]; then
+		return 0
+	fi
+	if $DRY_RUN; then
+		echo "[DRY-RUN] Would remove worktree: $worktree (checks out $branch)"
+		return 0
+	fi
+	echo "Removing worktree: $worktree"
+	if ! git worktree remove --force "$worktree"; then
+		echo "Retrying worktree remove with --force --force..." >&2
+		git worktree remove --force --force "$worktree" || return 1
+	fi
+	return 0
+}
+
+# Local branch names only (avoids parsing `git branch` line prefixes: `*`, `+`, etc.).
+# `for BRANCH in $MERGED_BRANCHES` splits on whitespace; a raw `+ feat/...` line
+# produces a bogus token `+` and breaks `git branch -d '+'`.
+MERGED_INTO="origin/$TARGET_BRANCH"
+if ! git rev-parse --verify --quiet "$MERGED_INTO" >/dev/null; then
+	MERGED_INTO="$TARGET_BRANCH"
+fi
 MERGED_BRANCHES=$(
-	(git branch --merged "origin/$TARGET_BRANCH" 2>/dev/null ||
-		git branch --merged "$TARGET_BRANCH") |
-		awk -v target="$TARGET_BRANCH" '
-			/^\*/ { next }
-			{
-				sub(/^  /, "")
-				if ($0 != target) print
-			}
-		'
+	git for-each-ref --format='%(refname:short)' --merged="$MERGED_INTO" refs/heads/ |
+		grep -vxF "$TARGET_BRANCH" || true
 )
 
 if [ -z "$MERGED_BRANCHES" ]; then
-	echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
+	echo "No local branches merged into '$MERGED_INTO' found. Nothing to clean."
 else
-	echo "The following branches are fully merged into '$TARGET_BRANCH':"
+	echo "The following branches are fully merged into '$MERGED_INTO':"
 	echo "$MERGED_BRANCHES"
 	if $AUTO_CONFIRM; then
 		CONFIRM="y"
@@ -96,9 +116,14 @@ else
 	if [[ $CONFIRM =~ ^[Yy]$ ]]; then
 		for BRANCH in $MERGED_BRANCHES; do
 			if $DRY_RUN; then
+				remove_linked_worktree_for_branch "$BRANCH"
 				echo "[DRY-RUN] Would delete merged branch: $BRANCH"
 			else
-				git branch -d "$BRANCH"
+				if ! remove_linked_worktree_for_branch "$BRANCH"; then
+					echo "Warning: skipping merged branch '$BRANCH' (worktree removal failed)." >&2
+					continue
+				fi
+				git branch -d "$BRANCH" || echo "Warning: could not delete merged branch '$BRANCH'." >&2
 			fi
 		done
 	else
@@ -108,7 +133,10 @@ fi
 
 # Identify local branches that no longer have a remote.
 # Use -vv to show tracking info; ": gone]" indicates deleted upstream
-STALE_BRANCHES=$(git branch -vv | awk '/: gone]/ {print ($1 == "*" ? $2 : $1)}')
+STALE_BRANCHES=$(
+	git branch -vv |
+		awk '/: gone]/ { print ($1 == "*" || $1 == "+" ? $2 : $1) }'
+)
 
 if [ -z "$STALE_BRANCHES" ]; then
 	echo "No stale branches (i.e., branches with no remote) found."
@@ -123,9 +151,14 @@ else
 	if [[ $CONFIRM_STALE =~ ^[Yy]$ ]]; then
 		for BRANCH in $STALE_BRANCHES; do
 			if $DRY_RUN; then
+				remove_linked_worktree_for_branch "$BRANCH"
 				echo "[DRY-RUN] Would delete stale branch: $BRANCH"
 			else
-				git branch -D "$BRANCH"
+				if ! remove_linked_worktree_for_branch "$BRANCH"; then
+					echo "Warning: skipping stale branch '$BRANCH' (worktree removal failed)." >&2
+					continue
+				fi
+				git branch -D "$BRANCH" || echo "Warning: could not delete stale branch '$BRANCH'." >&2
 			fi
 		done
 	else
