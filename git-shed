@@ -69,26 +69,37 @@ if ! git fetch --prune 2>/dev/null; then
 fi
 
 # If $1 is checked out in a linked worktree, remove that tree so branch delete can succeed.
+# Uses `git worktree list --porcelain` to match by full ref so paths with whitespace
+# (common on macOS / Windows) and bracketed path components are handled correctly.
+# Multiple matches are iterated independently rather than collapsed into one argument.
 remove_linked_worktree_for_branch() {
 	local branch=$1
-	local toplevel worktree
+	local toplevel worktrees rc=0
 	toplevel=$(git rev-parse --show-toplevel)
-	worktree=$(
-		git worktree list | grep -F "[$branch]" | awk '{print $1}' || true
+	worktrees=$(
+		git worktree list --porcelain | awk -v target="refs/heads/$branch" '
+			$1 == "worktree" { wt = substr($0, 10) }
+			$1 == "branch" && $2 == target { print wt }
+		'
 	)
-	if [[ -z "$worktree" || "$worktree" == "$toplevel" ]]; then
+	if [[ -z "$worktrees" ]]; then
 		return 0
 	fi
-	if $DRY_RUN; then
-		echo "[DRY-RUN] Would remove worktree: $worktree (checks out $branch)"
-		return 0
-	fi
-	echo "Removing worktree: $worktree"
-	if ! git worktree remove --force "$worktree"; then
-		echo "Retrying worktree remove with --force --force..." >&2
-		git worktree remove --force --force "$worktree" || return 1
-	fi
-	return 0
+	while IFS= read -r worktree; do
+		[[ -z "$worktree" || "$worktree" == "$toplevel" ]] && continue
+		if $DRY_RUN; then
+			echo "[DRY-RUN] Would remove worktree: $worktree (checks out $branch)"
+			continue
+		fi
+		echo "Removing worktree: $worktree"
+		if ! git worktree remove --force "$worktree"; then
+			echo "Retrying worktree remove with --force --force..." >&2
+			if ! git worktree remove --force --force "$worktree"; then
+				rc=1
+			fi
+		fi
+	done <<<"$worktrees"
+	return "$rc"
 }
 
 # Local branch names only (avoids parsing `git branch` line prefixes: `*`, `+`, etc.).
