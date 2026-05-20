@@ -100,7 +100,15 @@ git worktree list
 remove_linked_worktree_for_branch() {
 	local branch=$1
 	local toplevel worktrees rc=0
-	toplevel=$(git rev-parse --show-toplevel)
+	# Bare repos (and other no-worktree contexts) have nothing to remove;
+	# `git rev-parse --show-toplevel` would exit non-zero and -- under
+	# `set -e` -- abort the entire script before cleanup can complete.
+	if [[ "$(git rev-parse --is-bare-repository 2>/dev/null)" == "true" ]]; then
+		return 0
+	fi
+	if ! toplevel=$(git rev-parse --show-toplevel 2>/dev/null); then
+		return 0
+	fi
 	worktrees=$(
 		git worktree list --porcelain | awk -v target="refs/heads/$branch" '
 			$1 == "worktree" { wt = substr($0, 10) }

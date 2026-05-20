@@ -92,3 +92,26 @@ load 'test_helper'
 	[ "$status" -eq 2 ]
 	assert_output_contains "Unknown option: -wip"
 }
+
+@test "git-shed: bare repo does not hard-fail" {
+	# Build a non-bare source, create a merged feature branch, then clone
+	# bare so the bare clone has refs/heads/main and refs/heads/feature
+	# but no working tree. `remove_linked_worktree_for_branch` must
+	# tolerate this rather than aborting under `set -e`.
+	setup_git_repo
+	git switch -c feature-branch
+	echo "feature" >feature.txt
+	git add feature.txt
+	git commit -m "Add feature"
+	git switch main
+	git merge feature-branch
+	source_dir="$PWD"
+
+	cd "$TEST_TEMP_DIR"
+	git clone --bare "$source_dir" bare.git
+	cd bare.git
+
+	run "$SCRIPTS_DIR/git-shed" --dry-run -y main
+	[ "$status" -eq 0 ]
+	assert_output_not_contains "must be run in a work tree"
+}
