@@ -6,16 +6,18 @@ set -euo pipefail
 
 HELP=$(
 	cat <<EOF
-Usage: $(basename "$0") [-y] [--dry-run] [--gone-only] [TARGET_BRANCH]
+Usage: $(basename "$0") [-y] [--dry-run] [--gone-only] [--] [TARGET_BRANCH]
 
 Arguments:
   TARGET_BRANCH  Branch to compare for merged locals. Defaults to 'main'. Ignored with --gone-only.
+                 Use '--' before a dash-prefixed branch name (e.g. 'git-shed -- -wip').
 
 Options:
   -h, --help     Show this help and exit.
   -y             Confirm deletion without prompting.
   --dry-run      Show what would be deleted; make no changes.
   --gone-only    Only delete branches whose upstream was removed on the remote ([gone]).
+  --             End of options; treat remaining arguments as positional.
 
 Description:
   1. git fetch --prune (non-fatal if fetch fails)
@@ -47,6 +49,15 @@ while [[ $# -gt 0 ]]; do
 	--gone-only)
 		GONE_ONLY=true
 		shift
+		;;
+	--)
+		# End-of-options marker: remaining args are positional. This lets
+		# callers pass dash-prefixed branch names (e.g. `git-shed -- -wip`).
+		shift
+		while [[ $# -gt 0 ]]; do
+			TARGET_BRANCH="$1"
+			shift
+		done
 		;;
 	-*)
 		echo "Unknown option: $1" >&2

@@ -72,3 +72,23 @@ load 'test_helper'
 	assert_output_not_contains "merged into"
 	git show-ref --verify --quiet refs/heads/feature-branch
 }
+
+@test "git-shed: -- accepts dash-prefixed target branch" {
+	setup_git_repo
+	# `git branch` / `git switch -c` refuse dash-prefixed names; use
+	# update-ref directly so we can exercise the parser path for branches
+	# named like '-wip'.
+	git update-ref refs/heads/-wip HEAD
+
+	run "$SCRIPTS_DIR/git-shed" --dry-run -y -- -wip
+	[ "$status" -eq 0 ]
+	assert_output_not_contains "Unknown option"
+}
+
+@test "git-shed: rejects dash-prefixed target without --" {
+	setup_git_repo
+
+	run "$SCRIPTS_DIR/git-shed" --dry-run -y -wip
+	[ "$status" -eq 2 ]
+	assert_output_contains "Unknown option: -wip"
+}
