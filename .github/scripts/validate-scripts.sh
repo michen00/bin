@@ -127,6 +127,64 @@ discover_tests() {
   done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null)
 }
 
+# Discover root-level symlink aliases that resolve to an existing executable script target
+# with a shebang. Returns alias names only (no leading ./).
+# Symlinks that are dangling, point to non-executable files, lack shebangs, or point
+# to exempted targets are silently skipped.
+discover_valid_symlink_aliases() {
+  local link
+  while IFS= read -r -d '' link; do
+    local alias_name="${link#./}"
+    local target
+    target=$(readlink "$link" 2> /dev/null)
+    if [[ -z "$target" ]]; then
+      continue
+    fi
+
+    local target_path
+    if [[ "$target" = /* ]]; then
+      target_path="$target"
+    else
+      target_path="$(dirname "$link")/$target"
+    fi
+
+    local target_name="${target_path#./}"
+    if [[ "$target_name" == */* ]]; then
+      continue
+    fi
+
+    if is_exempted "$target_name"; then
+      continue
+    fi
+
+    if [[ ! -f "$target_path" ]] || [[ ! -x "$target_path" ]]; then
+      continue
+    fi
+
+    local first_line=""
+    if ! IFS= read -r first_line < "$target_path"; then
+      continue
+    fi
+    case "$first_line" in
+      '#!'*)
+        printf '%s\n' "$alias_name"
+        ;;
+    esac
+  done < <(find . -maxdepth 1 -type l -print0 2> /dev/null)
+}
+
+# Populate associative map from indexed array values
+# Arguments: map_name_ref (nameref to associative array) array_name_ref (nameref to indexed array)
+populate_map_from_array() {
+  local -n map_ref=$1
+  local -n array_ref=$2
+  local item
+  for item in "${array_ref[@]}"; do
+    # shellcheck disable=SC2034 # Written through nameref for caller-owned associative map
+    map_ref["$item"]=1
+  done
+}
+
 # Extract and filter the ## Scripts section from README.md
 # Outputs the filtered section to stdout, or error messages to stderr and returns non-zero on failure
 extract_readme_scripts_section() {
@@ -178,17 +236,19 @@ discover_readme_entries() {
 }
 
 # Validate correspondence between scripts, tests, and README entries
-# Arguments: scripts_array_name tests_array_name readme_entries_array_name
+# Arguments: scripts_array_name tests_array_name readme_entries_array_name symlinks_array_name
 validate_correspondence() {
   local -n scripts_ref=$1
   local -n tests_ref=$2
   local -n readme_entries_ref=$3
+  local -n symlinks_ref=$4
 
   # Build associative arrays for O(1) lookup performance
   # Associative arrays (bash 4.0+) provide fast key-based lookups for correspondence checks
-  declare -A script_map # Maps script names to 1 (exists)
-  declare -A test_map   # Maps test script names to 1 (test file exists)
-  declare -A readme_map # Maps README script names to 1 (documented)
+  declare -A script_map  # Maps script names to 1 (exists)
+  declare -A test_map    # Maps test script names to 1 (test file exists)
+  declare -A readme_map  # Maps README script names to 1 (documented)
+  declare -A symlink_map # Maps root symlink names to 1
 
   # Populate script map from cached array
   local script
@@ -207,6 +267,9 @@ validate_correspondence() {
   for readme_script in "${readme_entries_ref[@]}"; do
     readme_map["$readme_script"]=1
   done
+
+  # Populate symlink map from cached array
+  populate_map_from_array symlink_map symlinks_ref
 
   # Check each script for missing test file (fail-fast: exit on first error)
   for script in "${!script_map[@]}"; do
@@ -232,7 +295,7 @@ validate_correspondence() {
 
   # Check each README entry for missing script (README → scripts) (fail-fast: exit on first error)
   for readme_script in "${!readme_map[@]}"; do
-    if [[ ! ${script_map[$readme_script]+_} ]]; then
+    if [[ ! ${script_map[$readme_script]+_} ]] && [[ ! ${symlink_map[$readme_script]+_} ]]; then
       echo "❌ Validation Failed" >&2
       echo "" >&2
       echo "Orphaned README Entries:" >&2
@@ -534,11 +597,13 @@ validate_sorting() {
 }
 
 # Validate count consistency
-# Arguments: scripts_array_name readme_entries_array_name tests_array_name
+# Arguments: scripts_array_name readme_entries_array_name tests_array_name symlinks_array_name
 validate_counts() {
   local -n scripts_ref=$1
   local -n readme_entries_ref=$2
   local -n tests_ref=$3
+  # shellcheck disable=SC2034 # Consumed via nameref in populate_map_from_array
+  local -n symlinks_ref=$4
 
   # Count scripts (non-exempted) from cached array
   local script_count=${#scripts_ref[@]}
@@ -549,12 +614,24 @@ validate_counts() {
   # Count test files (for informational purposes, but not required to match) from cached array
   local test_count=${#tests_ref[@]}
 
-  # Check if script count matches README entry count (fail-fast: exit on first error)
-  if [[ $script_count -ne $readme_count ]]; then
+  # Count README entries that are not symlink aliases
+  local -A symlink_map
+  populate_map_from_array symlink_map symlinks_ref
+  local readme_script_count=0
+  local readme_entry
+  for readme_entry in "${readme_entries_ref[@]}"; do
+    if [[ ! ${symlink_map[$readme_entry]+_} ]]; then
+      ((++readme_script_count))
+    fi
+  done
+
+  # Check if script count matches non-symlink README entry count (fail-fast: exit on first error)
+  if [[ $script_count -ne $readme_script_count ]]; then
     echo "❌ Validation Failed" >&2
     echo "" >&2
     echo "Count Mismatch:" >&2
-    echo "  - Count mismatch: $script_count scripts, $readme_count README entries, $test_count test files" >&2
+    local readme_symlink_count=$((readme_count - readme_script_count))
+    echo "  - Count mismatch: $script_count scripts, $readme_count README entries ($readme_script_count non-symlink + $readme_symlink_count symlink), $test_count test files" >&2
     exit 1
   fi
 
@@ -586,6 +663,11 @@ main() {
 
   local -a cached_tests=()
   mapfile -t cached_tests < <(discover_tests | grep -v '^$')
+
+  # shellcheck disable=SC2034 # Used via nameref in validate_correspondence/validate_counts
+  local -a cached_symlinks=()
+  # shellcheck disable=SC2034 # Populates nameref-consumed array
+  mapfile -t cached_symlinks < <(discover_valid_symlink_aliases | grep -v '^$')
 
   # Cache filtered README scripts section (extract once, use many times)
   # This avoids re-extracting and filtering the section multiple times
@@ -621,12 +703,12 @@ main() {
   # 2. Correspondence checks - O(n) associative array lookups (P1 priority)
   #    Checks: scripts→tests, scripts→README, README→scripts
   #    Runs before count check to provide specific error messages instead of generic "Count Mismatch"
-  validate_correspondence cached_scripts cached_tests cached_readme_entries
+  validate_correspondence cached_scripts cached_tests cached_readme_entries cached_symlinks
 
   # 3. Count check - O(n) counting operations (catches obvious mismatches)
   #    Validates: script count == README entry count
   #    Runs after correspondence so specific errors are reported first
-  validate_counts cached_scripts cached_readme_entries cached_tests
+  validate_counts cached_scripts cached_readme_entries cached_tests cached_symlinks
 
   # 4. Sorting check - O(n log n) sorting operation (most expensive)
   #    Validates alphabetical order (case-sensitive)

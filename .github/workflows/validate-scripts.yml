@@ -5,20 +5,20 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "!*.*"
+      - '!*.*'
       - .github/scripts/validate-scripts.sh
       - .github/workflows/validate-scripts.yml
-      - "*"
-      - "tests/*.bats"
+      - '*'
+      - 'tests/*.bats'
       - README.md
   push:
     branches: [main]
     paths:
-      - "!*.*"
+      - '!*.*'
       - .github/scripts/validate-scripts.sh
       - .github/workflows/validate-scripts.yml
-      - "*"
-      - "tests/*.bats"
+      - '*'
+      - 'tests/*.bats'
       - README.md
 
 concurrency:
