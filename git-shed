@@ -112,7 +112,7 @@ remove_linked_worktree_for_branch() {
 	worktrees=$(
 		git worktree list --porcelain | awk -v target="refs/heads/$branch" '
 			$1 == "worktree" { wt = substr($0, 10) }
-			$1 == "branch" && $2 == target { print wt }
+			$1 == "branch" && substr($0, 8) == target { print wt }
 		'
 	)
 	if [[ -z "$worktrees" ]]; then
@@ -170,7 +170,8 @@ delete_merged_branches() {
 		fi
 	fi
 
-	for branch in $merged_branches; do
+	while IFS= read -r branch; do
+		[[ -z "$branch" ]] && continue
 		echo ""
 		echo "Processing merged branch: $branch"
 		if $DRY_RUN; then
@@ -183,14 +184,15 @@ delete_merged_branches() {
 			continue
 		fi
 		git branch -d "$branch" || echo "Warning: could not delete merged branch '$branch'." >&2
-	done
+	done <<<"$merged_branches"
 }
 
 delete_gone_branches() {
 	local stale_branches
 	stale_branches=$(
-		LC_ALL=C git branch -vv --no-color |
-			awk '/: gone]/ { if ($1 == "+") print $2; else if ($1 != "*") print $1 }'
+		git for-each-ref --format='%(HEAD)|%(refname:short)|%(upstream:track)' refs/heads/ |
+			awk -F'|' '$1 != "*" && $3 == "[gone]" { print $2 }' |
+			grep -vxF -e "$TARGET_BRANCH" || true
 	)
 
 	echo ""
@@ -210,7 +212,8 @@ delete_gone_branches() {
 		fi
 	fi
 
-	for branch in $stale_branches; do
+	while IFS= read -r branch; do
+		[[ -z "$branch" ]] && continue
 		echo ""
 		echo "Processing stale branch: $branch"
 		if $DRY_RUN; then
@@ -223,7 +226,7 @@ delete_gone_branches() {
 			continue
 		fi
 		git branch -D "$branch" || echo "Warning: could not delete stale branch '$branch'." >&2
-	done
+	done <<<"$stale_branches"
 }
 
 if ! $GONE_ONLY; then
