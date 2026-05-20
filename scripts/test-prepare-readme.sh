@@ -23,16 +23,18 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
 echo "[1/3] verify README documents em_/en_ symlinks and omits _mnn"
+errors=()
 if ! grep -qF -- "- [\`em_\`](em_):" README.md; then
-  echo "README is missing the em_ symlink entry" >&2
-  exit 1
+  errors+=("README is missing the em_ symlink entry")
 fi
 if ! grep -qF -- "- [\`en_\`](en_):" README.md; then
-  echo "README is missing the en_ symlink entry" >&2
-  exit 1
+  errors+=("README is missing the en_ symlink entry")
 fi
 if grep -qF -- "- [\`_mnn\`](_mnn):" README.md; then
-  echo "README should document em_ and en_ symlinks, not _mnn" >&2
+  errors+=("README should document em_ and en_ symlinks, not _mnn")
+fi
+if ((${#errors[@]} > 0)); then
+  printf "%s\n" "${errors[@]}" >&2
   exit 1
 fi
 
