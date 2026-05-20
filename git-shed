@@ -131,7 +131,7 @@ delete_merged_branches() {
 	fi
 
 	echo "Branches fully merged into '$merged_into':"
-	echo "$merged_branches" | sed 's/^/  /'
+	echo "  ${merged_branches//$'\n'/$'\n  '}"
 
 	if ! $AUTO_CONFIRM && ! $DRY_RUN; then
 		read -r -p "Delete these merged branches? [y/N]: " CONFIRM
@@ -170,7 +170,7 @@ delete_gone_branches() {
 	fi
 
 	echo "Branches with deleted upstream ([gone]):"
-	echo "$stale_branches" | sed 's/^/  /'
+	echo "  ${stale_branches//$'\n'/$'\n  '}"
 
 	if ! $AUTO_CONFIRM && ! $DRY_RUN; then
 		read -r -p "Delete these stale branches? [y/N]: " CONFIRM_STALE
