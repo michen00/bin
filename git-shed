@@ -170,7 +170,8 @@ delete_merged_branches() {
 delete_gone_branches() {
 	local stale_branches
 	stale_branches=$(
-		git branch -vv --no-color | awk '/: gone]/ { print ($1 == "*" || $1 == "+" ? $2 : $1) }'
+		LC_ALL=C git branch -vv --no-color |
+			awk '/: gone]/ { if ($1 == "+") print $2; else if ($1 != "*") print $1 }'
 	)
 
 	echo ""
