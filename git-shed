@@ -124,10 +124,14 @@ remove_linked_worktree_for_branch() {
 
 delete_merged_branches() {
 	local merged_into=$1
-	local merged_branches
+	local merged_branches current_branch
+	current_branch=$(git branch --show-current)
+	# Exclude the target and the currently checked-out branch: git refuses to
+	# delete HEAD's branch, and surfacing it as a candidate produces noisy
+	# warnings and unnecessary worktree-removal attempts.
 	merged_branches=$(
 		git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
-			grep -vxF "$TARGET_BRANCH" || true
+			grep -vxF -e "$TARGET_BRANCH" -e "$current_branch" || true
 	)
 
 	echo ""
