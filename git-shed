@@ -106,10 +106,16 @@ remove_linked_worktree_for_branch() {
 			continue
 		fi
 		echo "Removing worktree: $worktree"
-		if ! git worktree remove --force "$worktree"; then
-			echo "Retrying worktree remove with --force --force..." >&2
-			if ! git worktree remove --force --force "$worktree"; then
-				rc=1
+		# Try a non-destructive remove first so uncommitted work in the linked
+		# worktree is preserved; escalate to --force only if the worktree is
+		# dirty/locked, then to --force --force as a last resort.
+		if ! git worktree remove "$worktree" 2>/dev/null; then
+			echo "Retrying worktree remove with --force (worktree may be dirty or locked)..." >&2
+			if ! git worktree remove --force "$worktree"; then
+				echo "Retrying worktree remove with --force --force..." >&2
+				if ! git worktree remove --force --force "$worktree"; then
+					rc=1
+				fi
 			fi
 		fi
 	done <<<"$worktrees"
