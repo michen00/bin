@@ -147,11 +147,22 @@ delete_merged_branches() {
 	current_branch=$(git branch --show-current)
 	# Exclude the target and the currently checked-out branch: git refuses to
 	# delete HEAD's branch, and surfacing it as a candidate produces noisy
-	# warnings and unnecessary worktree-removal attempts.
-	merged_branches=$(
-		git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
-			grep -vxF -e "$TARGET_BRANCH" -e "$current_branch" || true
-	)
+	# warnings and unnecessary worktree-removal attempts. In detached-HEAD
+	# state, `git branch --show-current` is empty; passing it as a `grep -e`
+	# pattern would match every line and `-v` would filter them all out,
+	# silently disabling merged-branch cleanup. Only exclude current_branch
+	# when it is non-empty.
+	if [[ -n "$current_branch" ]]; then
+		merged_branches=$(
+			git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
+				grep -vxF -e "$TARGET_BRANCH" -e "$current_branch" || true
+		)
+	else
+		merged_branches=$(
+			git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
+				grep -vxF -e "$TARGET_BRANCH" || true
+		)
+	fi
 
 	echo ""
 	if [[ -z "$merged_branches" ]]; then

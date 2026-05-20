@@ -93,6 +93,26 @@ load 'test_helper'
 	assert_output_contains "Unknown option: -wip"
 }
 
+@test "git-shed: detached HEAD still surfaces merged branches" {
+	# When HEAD is detached, `git branch --show-current` is empty. The
+	# merged-branch filter must not pass that empty string as a `grep -e`
+	# pattern, or every line is matched and `-v` filters them all out,
+	# silently disabling merged-branch cleanup.
+	setup_git_repo
+	git switch -c feature-branch
+	echo "feature" >feature.txt
+	git add feature.txt
+	git commit -m "Add feature"
+	git switch main
+	git merge feature-branch
+	# Detach HEAD onto the merge commit so `git branch --show-current` is empty.
+	git checkout --detach HEAD
+
+	run "$SCRIPTS_DIR/git-shed" --dry-run -y main
+	[ "$status" -eq 0 ]
+	assert_output_contains "feature-branch"
+}
+
 @test "git-shed: bare repo does not hard-fail" {
 	# Build a non-bare source, create a merged feature branch, then clone
 	# bare so the bare clone has refs/heads/main and refs/heads/feature
