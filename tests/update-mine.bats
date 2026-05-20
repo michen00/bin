@@ -49,3 +49,52 @@ load 'test_helper'
 	[ "$status" -ne 0 ]
 	assert_output_contains "Unknown option"
 }
+
+# Stub gh so update-mine can run without network/auth.
+# Args become the lines emitted on `gh pr list` / `gh api .../branches`.
+# Also prepends SCRIPTS_DIR so update-mine can find sibling scripts (e.g. mergewith).
+stub_gh() {
+	mkdir -p "$TEST_TEMP_DIR/stubs"
+	cat >"$TEST_TEMP_DIR/stubs/gh" <<EOF
+#!/usr/bin/env bash
+case "\$1" in
+  pr|api) printf '%s\n' $(printf '"%s" ' "$@") ;;
+  *) exit 0 ;;
+esac
+EOF
+	chmod +x "$TEST_TEMP_DIR/stubs/gh"
+	export PATH="$TEST_TEMP_DIR/stubs:$SCRIPTS_DIR:$PATH"
+}
+
+@test "update-mine: skips branches checked out in another worktree" {
+	setup_git_repo
+	git checkout -b feature-a
+	echo "a" >a.txt && git add a.txt && git commit -m "feature-a work"
+	git checkout main
+
+	# Hold feature-a in a second worktree so it's "checked out elsewhere"
+	git worktree add "$TEST_TEMP_DIR/other-wt" feature-a
+
+	stub_gh feature-a
+
+	run "$SCRIPTS_DIR/update-mine" main
+	assert_output_contains "feature-a"
+	assert_output_contains "another worktree"
+	assert_output_not_contains "fatal:"
+}
+
+@test "update-mine: restores starting branch after processing" {
+	setup_git_repo
+	git checkout -b feature-a
+	echo "a" >a.txt && git add a.txt && git commit -m "feature-a work"
+	git checkout -b starting-branch main
+
+	stub_gh feature-a
+
+	# mergewith will fail (no origin remote configured) — that's fine; we're
+	# verifying the trap restores HEAD even when per-branch processing errors out.
+	"$SCRIPTS_DIR/update-mine" main || true
+
+	current=$(git branch --show-current)
+	[ "$current" = "starting-branch" ]
+}
