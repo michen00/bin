@@ -2,8 +2,8 @@
 
 if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3))); then
   candidates=(/opt/homebrew/bin/bash /usr/local/bin/bash)
-  if command -v brew > /dev/null 2>&1; then
-    candidates=("$(brew --prefix bash 2> /dev/null)/bin/bash" "${candidates[@]}")
+  if command -v brew > /dev/null 2>&1 && brew_prefix="$(brew --prefix bash 2> /dev/null)" && [[ -n "$brew_prefix" ]]; then
+    candidates=("$brew_prefix/bin/bash" "${candidates[@]}")
   fi
   for candidate in "${candidates[@]}"; do
     if [[ -x "$candidate" ]] && "$candidate" -c '((BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 3)))'; then
