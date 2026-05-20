@@ -51,3 +51,24 @@ load 'test_helper'
 	[ "$status" -eq 0 ]
 	assert_output_contains "Fetching"
 }
+
+@test "git-shed: --help mentions --gone-only" {
+	run "$SCRIPTS_DIR/git-shed" --help
+	[ "$status" -eq 0 ]
+	assert_output_contains "--gone-only"
+}
+
+@test "git-shed: --gone-only skips merged branch pass" {
+	setup_git_repo
+	git switch -c feature-branch
+	echo "feature" >feature.txt
+	git add feature.txt
+	git commit -m "Add feature"
+	git switch main
+	git merge feature-branch
+
+	run "$SCRIPTS_DIR/git-shed" --gone-only --dry-run -y
+	[ "$status" -eq 0 ]
+	assert_output_not_contains "merged into"
+	git show-ref --verify --quiet refs/heads/feature-branch
+}
