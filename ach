@@ -50,12 +50,10 @@ set -- "${POSITIONAL[@]}"
 HASH_ARG=${1:-}
 FILE=${2:-$DEFAULT_FILE}
 
-# Check we're at the root of a git repository (including linked worktrees)
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-	echo "Error: Must be run from the root of a git repository." >&2
-	exit 1
-fi
-if [[ $(git rev-parse --show-toplevel) != "$(pwd -P)" ]]; then
+# Check we're at the root of a git repository (including linked worktrees).
+# Guard `git rev-parse --show-toplevel` so a failure under `set -euo pipefail`
+# does not leak git's fatal stderr or abort the script before our own message.
+if ! toplevel=$(git rev-parse --show-toplevel 2>/dev/null) || [[ "$toplevel" != "$(pwd -P)" ]]; then
 	echo "Error: Must be run from the root of a git repository." >&2
 	exit 1
 fi
