@@ -98,3 +98,21 @@ EOF
 	current=$(git branch --show-current)
 	[ "$current" = "starting-branch" ]
 }
+
+@test "update-mine: restores detached HEAD after processing" {
+	setup_git_repo
+	git checkout -b feature-a
+	echo "a" >a.txt && git add a.txt && git commit -m "feature-a work"
+	git checkout main
+	starting_sha=$(git rev-parse HEAD)
+	git checkout --detach HEAD
+
+	stub_gh feature-a
+
+	"$SCRIPTS_DIR/update-mine" main || true
+
+	# HEAD should still be detached at the original commit.
+	run git symbolic-ref -q --short HEAD
+	[ "$status" -ne 0 ]
+	[ "$(git rev-parse HEAD)" = "$starting_sha" ]
+}
