@@ -138,6 +138,25 @@ load 'test_helper'
 	assert_output_contains "Must be run from the root of a git repository"
 }
 
+@test "ach: works from a git worktree checkout" {
+	setup_git_repo
+
+	local target_hash
+	target_hash=$(git rev-parse HEAD)
+
+	git worktree add "$TEST_TEMP_DIR/worktree" -b worktree-branch
+	cd "$TEST_TEMP_DIR/worktree" || return 1
+
+	# Linked worktrees use a .git file (gitdir pointer), not a .git directory
+	[ -f .git ]
+	[ ! -d .git ]
+
+	run "$SCRIPTS_DIR/ach" "$target_hash"
+	[ "$status" -eq 0 ]
+	assert_file_exists ".git-blame-ignore-revs"
+	grep -q "$target_hash" ".git-blame-ignore-revs"
+}
+
 @test "ach: idempotent - skips when hash already exists in file" {
 	setup_git_repo
 
