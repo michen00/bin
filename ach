@@ -50,8 +50,13 @@ set -- "${POSITIONAL[@]}"
 HASH_ARG=${1:-}
 FILE=${2:-$DEFAULT_FILE}
 
-# Check we're in a git repository
-if [ ! -d .git ]; then
+# Check we're at the root of a git repository (including linked worktrees).
+# Guard `git rev-parse --show-prefix` so a failure under `set -euo pipefail`
+# does not leak git's fatal stderr or abort the script before our own message.
+# `--show-prefix` returns the empty string only at the top of the working tree,
+# avoiding absolute-path comparisons that can mismatch under symlinks (e.g. on
+# macOS where `/tmp` resolves to `/private/tmp`).
+if ! prefix=$(git rev-parse --show-prefix 2>/dev/null) || [[ -n "$prefix" ]]; then
 	echo "Error: Must be run from the root of a git repository." >&2
 	exit 1
 fi
