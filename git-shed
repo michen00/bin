@@ -6,32 +6,32 @@ set -euo pipefail
 
 HELP=$(
 	cat <<EOF
-Usage: $(basename "$0") [-y] [--dry-run] [TARGET_BRANCH]
-Usage Example: $(basename "$0") -y --dry-run my-branch
+Usage: $(basename "$0") [-y] [--dry-run] [--gone-only] [--] [TARGET_BRANCH]
 
 Arguments:
-  TARGET_BRANCH  The branch to compare against for merged branches. Defaults to 'main'.
+  TARGET_BRANCH  Branch to compare for merged locals. Defaults to 'main'. Ignored with --gone-only.
+                 Use '--' before a dash-prefixed branch name (e.g. 'git-shed -- -wip').
 
 Options:
-  -h, --help     Show this help message and exit.
-  -y             Automatically confirm deletion of merged and stale branches.
-  --dry-run      Only show what would be deleted, without making changes.
+  -h, --help     Show this help and exit.
+  -y             Confirm deletion without prompting.
+  --dry-run      Show what would be deleted; make no changes.
+  --gone-only    Only delete branches whose upstream was removed on the remote ([gone]).
+  --             End of options; treat remaining arguments as positional.
 
 Description:
-  This script performs the following actions:
-  1. Fetches the latest remote information and prunes deleted branches.
-  2. Identifies local branches that are fully merged into the TARGET_BRANCH.
-  3. Prompts the user (or automatically confirms with -y) to delete these merged branches.
-  4. Identifies local branches that no longer have a remote.
-  5. Prompts the user (or automatically confirms with -y) to delete these stale branches.
+  1. git fetch --prune (non-fatal if fetch fails)
+  2. Unless --gone-only: delete local branches merged into TARGET_BRANCH (or origin/TARGET_BRANCH)
+  3. Delete local branches whose upstream no longer exists ([gone])
+  Linked worktrees are removed before branch delete when needed.
 EOF
 )
 
 AUTO_CONFIRM=false
 DRY_RUN=false
+GONE_ONLY=false
 TARGET_BRANCH=""
 
-# Parse options
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-h | --help)
@@ -46,6 +46,24 @@ while [[ $# -gt 0 ]]; do
 		DRY_RUN=true
 		shift
 		;;
+	--gone-only)
+		GONE_ONLY=true
+		shift
+		;;
+	--)
+		# End-of-options marker: remaining args are positional. This lets
+		# callers pass dash-prefixed branch names (e.g. `git-shed -- -wip`).
+		shift
+		while [[ $# -gt 0 ]]; do
+			TARGET_BRANCH="$1"
+			shift
+		done
+		;;
+	-*)
+		echo "Unknown option: $1" >&2
+		echo "$HELP" >&2
+		exit 2
+		;;
 	*)
 		TARGET_BRANCH="$1"
 		shift
@@ -55,82 +73,182 @@ done
 
 TARGET_BRANCH=${TARGET_BRANCH:-main}
 
-if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
-	echo "Error: Branch '$TARGET_BRANCH' does not exist."
-	exit 1
+if ! $GONE_ONLY; then
+	if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
+		echo "Error: Branch '$TARGET_BRANCH' does not exist."
+		exit 1
+	fi
 fi
 
 echo "Fetching latest remote info and pruning..."
-# git fetch may fail if no remote is configured or network issues occur
-# This is non-fatal - we can still proceed with local branch analysis
 if ! git fetch --prune 2>/dev/null; then
-	echo "Warning: git fetch failed (this is non-fatal)" >&2
+	echo "Warning: git fetch --prune failed (non-fatal; continuing with local state)" >&2
 fi
 
-# Identify local branches fully merged into the remote target branch.
-# Using origin/$TARGET_BRANCH ensures we compare against the up-to-date remote.
-# Wrap in subshell so filtering applies to both the primary and fallback command.
-# Use awk so an empty result doesn't trip pipefail (grep -v returns 1 on no matches).
-MERGED_BRANCHES=$(
-	(git branch --merged "origin/$TARGET_BRANCH" 2>/dev/null ||
-		git branch --merged "$TARGET_BRANCH") |
-		awk -v target="$TARGET_BRANCH" '
-			/^\*/ { next }
-			{
-				sub(/^  /, "")
-				if ($0 != target) print
-			}
+echo ""
+echo "Local branches:"
+git branch -v
+
+echo ""
+echo "Worktrees:"
+git worktree list
+
+# If $1 is checked out in a linked worktree, remove that tree so branch delete can succeed.
+# Uses `git worktree list --porcelain` to match by full ref so paths with whitespace
+# (common on macOS / Windows) and bracketed path components are handled correctly.
+# Multiple matches are iterated independently rather than collapsed into one argument.
+remove_linked_worktree_for_branch() {
+	local branch=$1
+	local toplevel worktrees rc=0
+	# Bare repos (and other no-worktree contexts) have nothing to remove;
+	# `git rev-parse --show-toplevel` would exit non-zero and -- under
+	# `set -e` -- abort the entire script before cleanup can complete.
+	if [[ "$(git rev-parse --is-bare-repository 2>/dev/null)" == "true" ]]; then
+		return 0
+	fi
+	if ! toplevel=$(git rev-parse --show-toplevel 2>/dev/null); then
+		return 0
+	fi
+	worktrees=$(
+		git worktree list --porcelain | awk -v target="refs/heads/$branch" '
+			$1 == "worktree" { wt = substr($0, 10) }
+			$1 == "branch" && substr($0, 8) == target { print wt }
 		'
-)
-
-if [ -z "$MERGED_BRANCHES" ]; then
-	echo "No local branches merged into '$TARGET_BRANCH' found. Nothing to clean."
-else
-	echo "The following branches are fully merged into '$TARGET_BRANCH':"
-	echo "$MERGED_BRANCHES"
-	if $AUTO_CONFIRM; then
-		CONFIRM="y"
-	else
-		read -r -p "Do you want to delete these merged branches? [y/N]: " CONFIRM
+	)
+	if [[ -z "$worktrees" ]]; then
+		return 0
 	fi
-	if [[ $CONFIRM =~ ^[Yy]$ ]]; then
-		for BRANCH in $MERGED_BRANCHES; do
-			if $DRY_RUN; then
-				echo "[DRY-RUN] Would delete merged branch: $BRANCH"
-			else
-				git branch -d "$BRANCH"
+	while IFS= read -r worktree; do
+		[[ -z "$worktree" || "$worktree" == "$toplevel" ]] && continue
+		if $DRY_RUN; then
+			echo "[DRY-RUN] Would remove worktree: $worktree (checks out $branch)"
+			continue
+		fi
+		echo "Removing worktree: $worktree"
+		# Try a non-destructive remove first so uncommitted work in the linked
+		# worktree is preserved; escalate to --force only if the worktree is
+		# dirty/locked, then to --force --force as a last resort.
+		if ! git worktree remove "$worktree" 2>/dev/null; then
+			echo "Retrying worktree remove with --force (worktree may be dirty or locked)..." >&2
+			if ! git worktree remove --force "$worktree"; then
+				echo "Retrying worktree remove with --force --force..." >&2
+				if ! git worktree remove --force --force "$worktree"; then
+					rc=1
+				fi
 			fi
-		done
+		fi
+	done <<<"$worktrees"
+	return "$rc"
+}
+
+delete_merged_branches() {
+	local merged_into=$1
+	local merged_branches current_branch
+	current_branch=$(git branch --show-current)
+	# Exclude the target and the currently checked-out branch: git refuses to
+	# delete HEAD's branch, and surfacing it as a candidate produces noisy
+	# warnings and unnecessary worktree-removal attempts. In detached-HEAD
+	# state, `git branch --show-current` is empty; passing it as a `grep -e`
+	# pattern would match every line and `-v` would filter them all out,
+	# silently disabling merged-branch cleanup. Only exclude current_branch
+	# when it is non-empty.
+	if [[ -n "$current_branch" ]]; then
+		merged_branches=$(
+			git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
+				grep -vxF -e "$TARGET_BRANCH" -e "$current_branch" || true
+		)
 	else
-		echo "Skipping deletion of merged branches."
+		merged_branches=$(
+			git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
+				grep -vxF -e "$TARGET_BRANCH" || true
+		)
 	fi
+
+	echo ""
+	if [[ -z "$merged_branches" ]]; then
+		echo "No local branches merged into '$merged_into' found."
+		return 0
+	fi
+
+	echo "Branches fully merged into '$merged_into':"
+	echo "  ${merged_branches//$'\n'/$'\n  '}"
+
+	if ! $AUTO_CONFIRM && ! $DRY_RUN; then
+		read -r -p "Delete these merged branches? [y/N]: " CONFIRM
+		if [[ ! $CONFIRM =~ ^[Yy]$ ]]; then
+			echo "Skipping deletion of merged branches."
+			return 0
+		fi
+	fi
+
+	while IFS= read -r branch; do
+		[[ -z "$branch" ]] && continue
+		echo ""
+		echo "Processing merged branch: $branch"
+		if $DRY_RUN; then
+			remove_linked_worktree_for_branch "$branch"
+			echo "[DRY-RUN] Would delete merged branch: $branch"
+			continue
+		fi
+		if ! remove_linked_worktree_for_branch "$branch"; then
+			echo "Warning: skipping merged branch '$branch' (worktree removal failed)." >&2
+			continue
+		fi
+		git branch -d "$branch" || echo "Warning: could not delete merged branch '$branch'." >&2
+	done <<<"$merged_branches"
+}
+
+delete_gone_branches() {
+	local stale_branches
+	stale_branches=$(
+		git for-each-ref --format='%(HEAD)|%(refname:short)|%(upstream:track)' refs/heads/ |
+			awk -F'|' '$1 != "*" && $3 == "[gone]" { print $2 }' |
+			grep -vxF -e "$TARGET_BRANCH" || true
+	)
+
+	echo ""
+	if [[ -z "$stale_branches" ]]; then
+		echo "No stale branches (upstream deleted on remote) found."
+		return 0
+	fi
+
+	echo "Branches with deleted upstream ([gone]):"
+	echo "  ${stale_branches//$'\n'/$'\n  '}"
+
+	if ! $AUTO_CONFIRM && ! $DRY_RUN; then
+		read -r -p "Delete these stale branches? [y/N]: " CONFIRM_STALE
+		if [[ ! $CONFIRM_STALE =~ ^[Yy]$ ]]; then
+			echo "Skipping deletion of stale branches."
+			return 0
+		fi
+	fi
+
+	while IFS= read -r branch; do
+		[[ -z "$branch" ]] && continue
+		echo ""
+		echo "Processing stale branch: $branch"
+		if $DRY_RUN; then
+			remove_linked_worktree_for_branch "$branch"
+			echo "[DRY-RUN] Would delete stale branch: $branch"
+			continue
+		fi
+		if ! remove_linked_worktree_for_branch "$branch"; then
+			echo "Warning: skipping stale branch '$branch' (worktree removal failed)." >&2
+			continue
+		fi
+		git branch -D "$branch" || echo "Warning: could not delete stale branch '$branch'." >&2
+	done <<<"$stale_branches"
+}
+
+if ! $GONE_ONLY; then
+	MERGED_INTO="origin/$TARGET_BRANCH"
+	if ! git rev-parse --verify --quiet "$MERGED_INTO" >/dev/null; then
+		MERGED_INTO="$TARGET_BRANCH"
+	fi
+	delete_merged_branches "$MERGED_INTO"
 fi
 
-# Identify local branches that no longer have a remote.
-# Use -vv to show tracking info; ": gone]" indicates deleted upstream
-STALE_BRANCHES=$(git branch -vv | awk '/: gone]/ {print ($1 == "*" ? $2 : $1)}')
+delete_gone_branches
 
-if [ -z "$STALE_BRANCHES" ]; then
-	echo "No stale branches (i.e., branches with no remote) found."
-else
-	echo "The following branches have no remote and might be stale:"
-	echo "$STALE_BRANCHES"
-	if $AUTO_CONFIRM; then
-		CONFIRM_STALE="y"
-	else
-		read -r -p "Do you want to delete these stale branches? [y/N]: " CONFIRM_STALE
-	fi
-	if [[ $CONFIRM_STALE =~ ^[Yy]$ ]]; then
-		for BRANCH in $STALE_BRANCHES; do
-			if $DRY_RUN; then
-				echo "[DRY-RUN] Would delete stale branch: $BRANCH"
-			else
-				git branch -D "$BRANCH"
-			fi
-		done
-	else
-		echo "Skipping deletion of stale branches."
-	fi
-fi
-
+echo ""
 echo "Done."
