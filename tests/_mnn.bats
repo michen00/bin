@@ -49,15 +49,13 @@ has_clipboard_tool() {
 	esac
 }
 
-# One-time setup: prime the macOS pasteboard daemon before any clipboard test.
-# The daemon initialises lazily; the first pbcopy from a BATS subprocess can
-# race against it starting, causing the first read-back to fail even though
-# pbcopy exits 0.  A direct write here (outside any subshell) ensures the
-# service is up before test 3 runs.
+# The clipboard tests in this file share one resource that no temp directory can
+# isolate: the system clipboard. Under `bats --jobs N` (CI uses 4) the tests in a
+# file run concurrently, so a sibling's copy can land between this test's copy and
+# its read-back, and the reader sees the other test's dash. Serialise this file;
+# it still runs in parallel with every other file in the suite.
 setup_file() {
-	if command -v pbcopy >/dev/null 2>&1; then
-		printf "" | pbcopy 2>/dev/null || true
-	fi
+	export BATS_NO_PARALLELIZE_WITHIN_FILE=true
 }
 
 @test "_mnn: script has valid bash syntax" {
