@@ -276,11 +276,10 @@ jobs:
               #
               # No per-workflow hold list here, unlike the sibling repositories that publish
               # something. This repository publishes nothing: every workflow except
-              # changelog-autoupdate.yml and pre-commit-autoupdate.yml runs on pull
-              # requests, so an actions break surfaces at review time, and a break in either
-              # of those two is a scheduled or dispatched job that fails visibly and costs a
-              # rerun. A list would be maintenance with nothing behind it, and a stale list
-              # fails silently in the arming direction.
+              # pre-commit-autoupdate.yml runs on pull requests, so an actions break
+              # surfaces at review time, and a break in that one is a dispatched job that
+              # fails visibly and costs a rerun. A list would be maintenance with nothing
+              # behind it, and a stale list fails silently in the arming direction.
               if [ "$ECOSYSTEM" = "github-actions" ]; then
                 echo "::notice::actions major; nothing here publishes unexercised; eligible."
                 echo "should_merge=true" >>"$GITHUB_OUTPUT"
