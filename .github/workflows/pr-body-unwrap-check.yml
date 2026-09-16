@@ -25,6 +25,8 @@ jobs:
   report:
     permissions:
       pull-requests: write
-    uses: michen00/markdown-prose-hooks/.github/workflows/unwrap-pr-body-check.yml@v0.5.0
+    # v0.5.0
+    uses: >-
+      michen00/markdown-prose-hooks/.github/workflows/unwrap-pr-body-check.yml@74e6a1e1df1b14a2053dfb62b3e29c770538b61c
     with:
       fail-on-wrapped: true
