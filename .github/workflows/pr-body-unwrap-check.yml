@@ -8,14 +8,6 @@ name: PR body unwrap check
 # body that picks up a manual wrap later in review is still caught.
 #
 # Deterministic detection, so this is allowed to block: fail-on-wrapped
-# reports the wrapped body as a failing check rather than only a comment.
-#
-# Calls michen00/markdown-prose-hooks/.github/workflows/unwrap-pr-body-check.yml,
-# documented under "On a pull request body" in that project's README. A
-# bot-authored or empty body is skipped by the reusable workflow itself.
-#
-# Pinned to v0.5.0, the first release carrying this file -- see the note in
-# pr-body-unwrap.yml for why that was verified rather than assumed.
 
 on:
   pull_request:
