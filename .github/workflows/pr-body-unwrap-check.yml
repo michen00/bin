@@ -1,0 +1,24 @@
+---
+name: PR body unwrap check
+
+# The report-only sibling of pr-body-unwrap.yml, for the two events that
+# workflow deliberately skips. It rewrites only on opened, reopened, and
+# ready_for_review, because rewriting on every push risks dropping text an
+# author is still typing; this checks synchronize and edited instead, so a
+# body that picks up a manual wrap later in review is still caught.
+#
+# Deterministic detection, so this is allowed to block: fail-on-wrapped
+
+on:
+  pull_request:
+    types: [synchronize, edited]
+
+jobs:
+  report:
+    permissions:
+      pull-requests: write
+    # v0.5.0
+    uses: >-
+      michen00/markdown-prose-hooks/.github/workflows/unwrap-pr-body-check.yml@74e6a1e1df1b14a2053dfb62b3e29c770538b61c
+    with:
+      fail-on-wrapped: true
