@@ -28,6 +28,7 @@ Known deviations this amendment creates, to be resolved by follow-up rather than
 - § II sends help printed after a usage error to stderr. Only `git-shed` does this today; `chdirx`, `mergewith`, `touchx`, `update-mine`, `venv-now` and `.scripts/concat_gitignores.sh` call `usage 1`, whose `cat` writes to stdout.
 - § II requires both `-h` and `--help`. `update-mine` accepts only `--help` and actively rejects `-h` as an unknown option.
 - § V requires a declared and enforced minimum where a script needs a newer bash. `.github/scripts/validate-scripts.sh` already complies; no other script declares one.
+- § Governance requires `README.md` and `CONTRIBUTING.md` to link here. Neither does.
 
 Version Bump Rationale: MINOR — one principle added and three materially expanded. No principle is removed or redefined in a way that invalidates an existing script, so not MAJOR; far beyond clarification, so not PATCH.
 -->
@@ -152,5 +153,7 @@ This constitution supersedes all other development practices and guidelines. All
 - PATCH: Clarifications, wording improvements, typo fixes
 
 **Compliance Review**: A pull request that violates a principle MUST say so and justify it. Nothing in this repository blocks a merge on constitution grounds; the check is a human one.
+
+**Discoverability**: A document that claims to supersede all other development practices has to be reachable from the documents contributors actually read. `README.md` and `CONTRIBUTING.md` MUST link to this file. Neither does today — the word "constitution" appears nowhere outside `.specify/`, so a contributor can read `CONTRIBUTING.md` end to end and never learn this exists.
 
 **Version**: 1.1.0 | **Ratified**: 2026-01-18 | **Last Amended**: 2026-09-20
