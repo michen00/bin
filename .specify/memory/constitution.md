@@ -22,12 +22,13 @@ Corrections to the previous report:
 - `Ratified` read 2025-01-18. The commit that created this document is dated 2026-01-18, so the document recorded a ratification a year before it existed. Corrected to the commit date.
 
 Open questions this amendment deliberately does NOT settle:
-- The exit code for an unrecognized option. The corpus is split — `_mnn` and `git-shed` exit 2; `mergewith`, `touchx`, `update-mine` and `venv-now` route through `usage 1`. § Bash Best Practices requires only that usage errors and operational failures be distinguishable, because legislating either number silently puts the other group in violation.
+- The exit code for an unrecognized option. The corpus is split two against five — `_mnn` and `git-shed` exit 2; `chdirx`, `mergewith`, `touchx`, `update-mine` and `venv-now` route through `usage 1`. § Bash Best Practices requires only that usage errors and operational failures be distinguishable, because legislating either number silently puts the other group in violation.
 
 Known deviations this amendment creates, to be resolved by follow-up rather than by weakening the rule:
 - § II sends help printed after a usage error to stderr. Only `git-shed` does this today; `chdirx`, `mergewith`, `touchx`, `update-mine`, `venv-now` and `.scripts/concat_gitignores.sh` call `usage 1`, whose `cat` writes to stdout.
 - § II requires both `-h` and `--help`. `update-mine` accepts only `--help` and actively rejects `-h` as an unknown option.
-- § V requires a declared and enforced minimum where a script needs a newer bash. `.github/scripts/validate-scripts.sh` already complies; no other script declares one.
+- § V requires a declared and enforced minimum where a script needs a newer bash. `.github/scripts/validate-scripts.sh` fully complies. `scripts/test-prepare-readme.sh` enforces 4.3 at runtime but declares nothing at the top of the file, and its error names neither the version found nor how to install a newer one. `.scripts/concat_gitignores.sh` needs bash 4+ for `mapfile` and neither declares nor enforces anything.
+- § II's help shape. `git-shed` lists `-h, --help` first in its `Options:` block rather than last, inlines `$(basename "$0")` instead of deriving `SCRIPT_NAME` once, and puts its `Description:` heading after `Arguments:`/`Options:` rather than leaving unlabelled prose under the synopsis. `gcfixup` opens with a name-and-tagline line rather than the `Usage:` synopsis, and lists `-h`/`--help` nowhere despite accepting both.
 - § Governance requires `README.md` and `CONTRIBUTING.md` to link here. Neither does.
 
 Version Bump Rationale: MINOR — one principle added and three materially expanded. No principle is removed or redefined in a way that invalidates an existing script, so not MAJOR; far beyond clarification, so not PATCH.
@@ -128,11 +129,13 @@ Comment blocks and help text MUST NOT duplicate each other. Whichever one a read
 
 ### Correspondence
 
-Every executable file at the project root with a shebang MUST have a matching `tests/<name>.bats` and a README entry under `## Scripts`. README entries MUST be sorted, MUST have link text identical to the link target, and MUST have a description beginning with a capital letter and ending with a period. Symlink aliases carry their own README entries.
+Every executable file at the project root with a shebang MUST have a matching `tests/<name>.bats` and a README entry under `## Scripts` — unless it is the target of a root symlink, in which case the **aliases** carry the README entries and the target carries none. `_mnn` is the case that defines the rule: `em_` and `en_` are listed, `_mnn` is not, and adding an entry for it would fail the count check.
+
+README entries MUST be sorted, MUST have link text identical to the link target, and MUST have a description beginning with a capital letter and ending with a period.
 
 Scripts and test files MUST have both a shebang and the executable bit; neither alone is sufficient.
 
-These rules are enforced on every pull request by `.github/scripts/validate-scripts.sh` and by pre-commit's `check-executables-have-shebangs` and `check-shebang-scripts-are-executable`.
+`.github/scripts/validate-scripts.sh` enforces the correspondence rules and pre-commit's `check-executables-have-shebangs` and `check-shebang-scripts-are-executable` enforce the pairing. Note what that does **not** amount to: `validate-scripts.yml` is path-filtered and then gated on a step that looks for a changed extensionless file starting with a shebang, so a README-only pull request runs the workflow and skips the check — which is exactly the pull request the sorting, capitalization and period rules exist for. The rules above hold whether or not a given pull request happens to run them.
 
 ### Continuous Integration
 
