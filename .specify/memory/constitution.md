@@ -1,39 +1,3 @@
-<!--
-Sync Impact Report:
-Version: 1.0.1 → 1.1.0
-Ratified: 2026-01-18
-Last Amended: 2026-09-20
-
-Principles Modified:
-- II. CLI Interface: expanded from "comprehensive help messages via `--help` or `-h`" to the full help contract the corpus already follows — delivery, shape, section order, trigger flags, and the stream/exit-code split between help that was asked for and help printed after a usage error.
-- III. Test-First: the heading no longer claims NON-NEGOTIABLE over a rule that the Scope paragraph immediately makes discretionary. The obligation is stated once, with its scope inline.
-- V. Portability: scoped. The distributed scripts target the oldest bash a supported platform ships (macOS's 3.2); repository tooling may require newer if it declares and enforces the requirement.
-
-Principles Added:
-- VI. Self-Documenting: a script's documentation has two homes — its help text and its README entry — and which one carries the burden depends on whether a human can reach the help.
-
-Sections Modified:
-- Development Standards / Bash Best Practices: added exit-code semantics and the stdout/stderr split; narrowed the trap rule to scripts that actually create recoverable state.
-- Quality Assurance: recorded the executable-bit + shebang pairing and the README correspondence rules that `.github/scripts/validate-scripts.sh` has been enforcing on every pull request without being written down anywhere.
-- Governance: removed the Spec-Kit machinery this repository does not run.
-
-Corrections to the previous report:
-- The "Templates Status" block listed `plan-template.md`, `spec-template.md`, `tasks-template.md` and "Command files" as verified. None of those files has ever existed in this repository — `.specify/` contains only this document, and there is no `specs/` directory. The block attested to a check that could not have happened, in both v1.0.0 and v1.0.1. Removed rather than re-checked.
-- `Ratified` read 2025-01-18. The commit that created this document is dated 2026-01-18, so the document recorded a ratification a year before it existed. Corrected to the commit date.
-
-Open questions this amendment deliberately does NOT settle:
-- The exit code for an unrecognized option. The corpus is split two against five — `_mnn` and `git-shed` exit 2; `chdirx`, `mergewith`, `touchx`, `update-mine` and `venv-now` route through `usage 1`. § Bash Best Practices requires only that usage errors and operational failures be distinguishable, because legislating either number silently puts the other group in violation.
-
-Known deviations this amendment creates, to be resolved by follow-up rather than by weakening the rule:
-- § II sends help printed after a usage error to stderr. Only `git-shed` does this today; `chdirx`, `mergewith`, `touchx`, `update-mine`, `venv-now` and `.scripts/concat_gitignores.sh` call `usage 1`, whose `cat` writes to stdout.
-- § II requires both `-h` and `--help`. `update-mine` accepts only `--help` and actively rejects `-h` as an unknown option.
-- § V requires a declared and enforced minimum where a script needs a newer bash. `.github/scripts/validate-scripts.sh` fully complies. `scripts/test-prepare-readme.sh` enforces 4.3 at runtime but declares nothing at the top of the file, and its error names neither the version found nor how to install a newer one. `.scripts/concat_gitignores.sh` needs bash 4+ for `mapfile` and neither declares nor enforces anything.
-- § II's help shape. `git-shed` lists `-h, --help` first in its `Options:` block rather than last, inlines `$(basename "$0")` instead of deriving `SCRIPT_NAME` once, and puts its `Description:` heading after `Arguments:`/`Options:` rather than leaving unlabelled prose under the synopsis. `gcfixup` opens with a name-and-tagline line rather than the `Usage:` synopsis, and lists `-h`/`--help` nowhere despite accepting both.
-- § Governance requires `README.md` and `CONTRIBUTING.md` to link here. Neither does.
-
-Version Bump Rationale: MINOR — one principle added and three materially expanded. No principle is removed or redefined in a way that invalidates an existing script, so not MAJOR; far beyond clarification, so not PATCH.
--->
-
 # bin Constitution
 
 ## Core Principles
@@ -158,5 +122,19 @@ This constitution supersedes all other development practices and guidelines. All
 **Compliance Review**: A pull request that violates a principle MUST say so and justify it. Nothing in this repository blocks a merge on constitution grounds; the check is a human one.
 
 **Discoverability**: A document that claims to supersede all other development practices has to be reachable from the documents contributors actually read. `README.md` and `CONTRIBUTING.md` MUST link to this file. Neither does today — the word "constitution" appears nowhere outside `.specify/`, so a contributor can read `CONTRIBUTING.md` end to end and never learn this exists.
+
+## Known Deviations
+
+The Amendment Process in § Governance requires an amendment to record the deviations it creates. Each entry below is open, and is to be resolved by a follow-up change rather than by weakening the rule that names it.
+
+- § II sends help printed after a usage error to stderr. Only `git-shed` does this today; `chdirx`, `mergewith`, `touchx`, `update-mine`, `venv-now` and `.scripts/concat_gitignores.sh` call `usage 1`, whose `cat` writes to stdout.
+- § II requires both `-h` and `--help`. `update-mine` accepts only `--help` and actively rejects `-h` as an unknown option.
+- § II's help shape. `git-shed` lists `-h, --help` first in its `Options:` block rather than last, inlines `$(basename "$0")` instead of deriving `SCRIPT_NAME` once, and puts its `Description:` heading after `Arguments:`/`Options:` rather than leaving unlabelled prose under the synopsis. `gcfixup` opens with a name-and-tagline line rather than the `Usage:` synopsis, and lists `-h`/`--help` nowhere despite accepting both.
+- § V requires a declared and enforced minimum where a script needs a newer bash. `.github/scripts/validate-scripts.sh` fully complies. `scripts/test-prepare-readme.sh` enforces 4.3 at runtime but declares nothing at the top of the file, and its error names neither the version found nor how to install a newer one. `.scripts/concat_gitignores.sh` needs bash 4+ for `mapfile` and neither declares nor enforces anything.
+- § Governance requires `README.md` and `CONTRIBUTING.md` to link here. Neither does.
+
+### Deliberately Unsettled
+
+**The exit code for an unrecognized option.** The corpus is split two against five — `_mnn` and `git-shed` exit 2; `chdirx`, `mergewith`, `touchx`, `update-mine` and `venv-now` route through `usage 1`. § Bash Best Practices requires only that usage errors and operational failures be distinguishable, because legislating either number silently puts the other group in violation.
 
 **Version**: 1.1.0 | **Ratified**: 2026-01-18 | **Last Amended**: 2026-09-20
