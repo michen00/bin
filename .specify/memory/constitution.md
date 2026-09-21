@@ -1,22 +1,35 @@
 <!--
 Sync Impact Report:
-Version: 1.0.0 → 1.0.1
-Ratified: 2025-01-18
-Last Amended: 2026-01-18
+Version: 1.0.1 → 1.1.0
+Ratified: 2026-01-18
+Last Amended: 2026-09-20
 
 Principles Modified:
-- III. Test-First: Clarified scope - only scripts in project root require testing
+- II. CLI Interface: expanded from "comprehensive help messages via `--help` or `-h`" to the full help contract the corpus already follows — delivery, shape, section order, trigger flags, and the stream/exit-code split between help that was asked for and help printed after a usage error.
+- III. Test-First: the heading no longer claims NON-NEGOTIABLE over a rule that the Scope paragraph immediately makes discretionary. The obligation is stated once, with its scope inline.
+- V. Portability: scoped. The distributed scripts target the oldest bash a supported platform ships (macOS's 3.2); repository tooling may require newer if it declares and enforces the requirement.
+
+Principles Added:
+- VI. Self-Documenting: a script's documentation has two homes — its help text and its README entry — and which one carries the burden depends on whether a human can reach the help.
 
 Sections Modified:
-- Quality Assurance / Testing Requirements: Clarified scope
+- Development Standards / Bash Best Practices: added exit-code semantics and the stdout/stderr split; narrowed the trap rule to scripts that actually create recoverable state.
+- Quality Assurance: recorded the executable-bit + shebang pairing and the README correspondence rules that `.github/scripts/validate-scripts.sh` has been enforcing on every pull request without being written down anywhere.
+- Governance: removed the Spec-Kit machinery this repository does not run.
 
-Templates Status:
-✅ plan-template.md - No changes needed (generic testing guidance)
-✅ spec-template.md - No changes needed (generic testing guidance)
-✅ tasks-template.md - No changes needed (tests are optional per spec)
-✅ Command files - No outdated references found
+Corrections to the previous report:
+- The "Templates Status" block listed `plan-template.md`, `spec-template.md`, `tasks-template.md` and "Command files" as verified. None of those files has ever existed in this repository — `.specify/` contains only this document, and there is no `specs/` directory. The block attested to a check that could not have happened, in both v1.0.0 and v1.0.1. Removed rather than re-checked.
+- `Ratified` read 2025-01-18. The commit that created this document is dated 2026-01-18, so the document recorded a ratification a year before it existed. Corrected to the commit date.
 
-Version Bump Rationale: PATCH - Clarification of testing scope (scripts in project root vs other scripts like dev scripts). No breaking changes, backward compatible.
+Open questions this amendment deliberately does NOT settle:
+- The exit code for an unrecognized option. The corpus is split — `_mnn` and `git-shed` exit 2; `mergewith`, `touchx`, `update-mine` and `venv-now` route through `usage 1`. § Bash Best Practices requires only that usage errors and operational failures be distinguishable, because legislating either number silently puts the other group in violation.
+
+Known deviations this amendment creates, to be resolved by follow-up rather than by weakening the rule:
+- § II sends help printed after a usage error to stderr. Only `git-shed` does this today; `chdirx`, `mergewith`, `touchx`, `update-mine`, `venv-now` and `.scripts/concat_gitignores.sh` call `usage 1`, whose `cat` writes to stdout.
+- § II requires both `-h` and `--help`. `update-mine` accepts only `--help` and actively rejects `-h` as an unknown option.
+- § V requires a declared and enforced minimum where a script needs a newer bash. `.github/scripts/validate-scripts.sh` already complies; no other script declares one.
+
+Version Bump Rationale: MINOR — one principle added and three materially expanded. No principle is removed or redefined in a way that invalidates an existing script, so not MAJOR; far beyond clarification, so not PATCH.
 -->
 
 # bin Constitution
@@ -25,70 +38,112 @@ Version Bump Rationale: PATCH - Clarification of testing scope (scripts in proje
 
 ### I. Script-First
 
-Every utility is a standalone, independently executable script. Scripts MUST be self-contained with no external runtime dependencies beyond standard Unix utilities. Each script MUST have a clear, single purpose. Scripts MUST be executable and callable directly from the command line.
+Every utility is a standalone, independently executable script with a clear, single purpose, callable directly from the command line.
+
+Scripts SHOULD depend on nothing beyond standard Unix utilities. A script MAY require an external tool where that tool is the point of the script, but it MUST then probe for it before use — `command -v <tool> >/dev/null 2>&1` — and fail with a message naming both the missing tool and how to install it. A missing dependency is a diagnosable condition, never a stack trace from the middle of a run.
 
 ### II. CLI Interface
 
-All scripts MUST follow Unix conventions: text input/output via stdin/stdout/stderr, proper exit codes (0 for success, non-zero for failure), and comprehensive help messages via `--help` or `-h`. Scripts MUST support both interactive and non-interactive usage. Error messages MUST be clear and actionable, written to stderr.
+All scripts MUST follow Unix conventions: text input and output via stdin/stdout/stderr, and exit codes that distinguish success from failure. Scripts MUST support both interactive and non-interactive usage.
 
-### III. Test-First (NON-NEGOTIABLE)
+Every script that accepts arguments MUST carry built-in help text. That help is the script's documentation of record for anyone at a terminal, so it MUST describe every argument and option the script accepts.
 
-Every script in the project root MUST have comprehensive test coverage using bats. Tests MUST be written before or alongside implementation. Tests MUST cover happy paths, error cases, edge cases, and help output. All tests MUST pass before merging. Test files MUST be located in `tests/` directory with naming convention `[script-name].bats`.
+Help text MUST be a heredoc — `cat <<EOF` inside a `usage()` function, or a `HELP=$(cat <<EOF ...)` variable — never a run of `echo` calls. It MUST follow this shape:
 
-**Scope**: This requirement applies to scripts located in the project root directory. Scripts in other locations (e.g., `.github/scripts/`, development tooling, or helper scripts) may be exempt from testing requirements at the project's discretion, but scripts in the project root that are part of the main utility suite MUST have tests.
+- The first line is the synopsis, written `Usage: $SCRIPT_NAME <synopsis>` on one line. `SCRIPT_NAME` MUST be derived once near the top of the file with `SCRIPT_NAME=$(basename "$0")` and interpolated wherever the script names itself, so that a script reachable under more than one name reports the name it was actually called by.
+- A prose description follows the synopsis directly, unlabelled. A `Description:` heading labels the obvious when there is only one prose block.
+- Then, as needed and in this order: `Arguments:`, `Options:`, `Examples:`.
+- `Options:` MUST list `-h, --help` last, described as "Show this help message and exit."
+- `Examples:` MUST show real invocations with `$SCRIPT_NAME` interpolated.
+
+Both `-h` and `--help` MUST be accepted. Arguments MUST be parsed by a `while [[ $# -gt 0 ]]; do case "$1" in ... esac done` loop rather than `getopts`, and an unrecognized dash-prefixed option MUST be rejected rather than silently treated as a positional argument. A script whose positional arguments could legitimately begin with a dash MUST support `--` as an end-of-options marker.
+
+Help and diagnostics are different streams, and which one a script writes to MUST depend on why it is printing:
+
+- Help that was **asked for** — `-h` or `--help` — is the successful output of the run. It goes to **stdout** and exits **0**.
+- Help **reprinted after a usage error**, and every error and warning message, is diagnostic. It goes to **stderr** and exits **non-zero**.
+
+The distinction is not cosmetic. A caller that redirects stdout to capture data gets help text mixed into that data if a usage error writes there; a caller that discards stderr sees nothing at all about why the run failed. Error messages MUST be prefixed `Error:` and non-fatal conditions `Warning:`, and MUST name the operation that failed and, where one exists, the remedy.
+
+A script whose only caller today is CI or a test harness is held to the same contract. A human reads it during an incident, and "only a machine calls it" is an observation about the present, not a property of the script.
+
+### III. Test-First
+
+Every script in the project root MUST have comprehensive test coverage using bats, written before or alongside the implementation. Tests MUST cover happy paths, error cases, edge cases, and help output, and MUST all pass before merging. Test files live in `tests/` and are named `[script-name].bats`; `tests/` also holds support files, which are not themselves tests and are not named for a script.
+
+This obligation applies to scripts in the project root — the utilities this repository distributes. Scripts elsewhere (`.github/scripts/`, development tooling, helper scripts) are not required to have tests, though they may have them, and `.github/scripts/validate-scripts.sh` does.
 
 ### IV. Simplicity
 
-Scripts MUST prioritize simplicity and maintainability. Follow YAGNI (You Aren't Gonna Need It) principles. Avoid unnecessary complexity, abstraction, or premature optimization. Scripts MUST be readable and understandable by developers familiar with bash. When complexity is unavoidable, it MUST be justified and documented.
+Scripts MUST prioritize simplicity and maintainability. Follow YAGNI. Avoid unnecessary complexity, abstraction, or premature optimization. Scripts MUST be readable by developers familiar with bash. When complexity is unavoidable, it MUST be justified and documented — in a comment that names the failure mode it prevents, not one that restates the next line.
 
 ### V. Portability
 
-Scripts MUST work across Unix-like systems (Linux, macOS, BSD). Use POSIX-compliant constructs where possible. When bash-specific features are required, scripts MUST use `#!/usr/bin/env bash` shebang and document the minimum bash version. Avoid system-specific paths or assumptions. Test on multiple platforms when feasible.
+Scripts distributed by this repository — those in the project root — MUST run on the oldest bash a supported platform ships. In practice that is macOS's `/bin/bash`, GPLv2-frozen at 3.2, so the root scripts MUST avoid `declare -A`, `mapfile`/`readarray`, `local -n` namerefs, and `${var^^}`/`${var,,}`. Every root script uses `#!/usr/bin/env bash`, which on a machine with a newer bash on `PATH` resolves to that one — so this constraint is invisible in normal use and breaks silently. Assume nothing tests it for you.
+
+Repository tooling that is never distributed MAY require a newer bash. Where it does, it MUST state the requirement in a comment at the top of the file and enforce it at runtime with a `BASH_VERSINFO` check naming the version found, the version required, and how to install a newer one.
+
+Avoid system-specific paths and assumptions. Prefer POSIX constructs where they cost nothing, but bash is the target language and `[[ ]]`, indexed arrays and `+=` are all fair use.
+
+### VI. Self-Documenting
+
+A script's documentation has two homes, and both are required:
+
+1. Its **help text**, per Principle II — what a person gets from the script itself.
+2. Its **README entry**, under `## Scripts`, formatted ``- [`script-name`](script-name): Description.`` — what a person gets before they run anything.
+
+Because the help text already carries the full description of arguments, options and examples, a root script does NOT need a file-level comment block repeating them. A reader who opens the file sees the shebang, strict mode, and then code; the prose lives where a user can reach it.
+
+The inverse is the rule that matters for everything else. **A script with no reachable help text MUST carry a file-level comment block instead** — its purpose, how it is invoked, and by what. A CI entry point, a git hook, a test fixture and a sourced library are all read far more often than they are run, and for them the header is the only documentation there is.
+
+Comment blocks and help text MUST NOT duplicate each other. Whichever one a reader can reach is the one that carries the burden.
 
 ## Development Standards
 
 ### Bash Best Practices
 
-- Scripts MUST use `set -euo pipefail` for strict error handling. Exceptions for `-u` may be justified when scripts need to check for unset variables using patterns like `${VAR:-default}` or explicit unset checks
-- Variables MUST be quoted to prevent word splitting and pathname expansion
-- Functions MUST be used for reusable logic
-- Scripts MUST include proper cleanup handlers (trap) for error recovery
-- Scripts MUST validate inputs and provide clear error messages
+- Scripts MUST enable strict mode — `set -euo pipefail` — before the first executable statement, immediately after the shebang and any file-level comment block. Position is free; presence is not. A script that must relax a flag MUST say why in a comment at the point of the exception. A script intended to be sourced MUST guard strict mode behind a sourcing check, since these flags persist into the caller's shell.
+- Variables MUST be quoted to prevent word splitting and pathname expansion.
+- Functions MUST be used for reusable logic. Locals MUST be `local`-declared and lower_snake_case; globals are UPPER_CASE. Where a command substitution's exit status matters, the declaration MUST be split from the assignment, since `local x=$(cmd)` masks that status from `set -e`.
+- Scripts that create recoverable state — a temp file, a stash, a partially written file, an unstaged change — MUST install a `trap` that restores it, and MUST clear the trap on success paths that no longer need it. Scripts that create no such state do not need one.
+- Scripts MUST validate inputs and provide clear error messages.
+- Exit codes MUST distinguish a usage error — the caller invoked the script wrongly — from an operational failure. Both are non-zero; a script MUST NOT report them with the same code.
 
 ### Code Quality
 
-- Scripts MUST pass shellcheck validation
-- Scripts MUST follow consistent formatting (use .editorconfig)
-- Scripts MUST include usage documentation in help output
-- Complex logic MUST be commented for clarity
+- Scripts MUST pass shellcheck. A `# shellcheck disable=` directive MUST sit on the line above the statement it excuses and MUST carry a same-line justification naming why the warning does not apply.
+- Scripts MUST follow consistent formatting, applied by `shfmt` through pre-commit. `shfmt` is deliberately given no arguments so that it reads `.editorconfig`, whose `[*.sh]` section matches only files ending in `.sh` — the root scripts, having no extension, are formatted by `shfmt`'s own defaults (tabs, unindented case arms, no space after redirection operators). The two groups are formatted by two different rule sets. This is intended; do not "fix" one to match the other.
+- Complex logic MUST be commented for clarity, explaining why rather than what.
 
 ## Quality Assurance
 
 ### Testing Requirements
 
-- All scripts in the project root MUST have corresponding test files in `tests/`
-- Scripts in other locations (e.g., `.github/scripts/`, dev tooling) may be exempt from testing at project discretion
-- Tests MUST use bats framework (minimum version 1.5.0)
-- Tests MUST be independent and idempotent
-- Tests MUST clean up after themselves
-- Integration tests MUST use isolated test environments
+- All scripts in the project root MUST have corresponding test files in `tests/`, per Principle III.
+- Tests MUST use the bats framework, minimum version 1.5.0.
+- Tests MUST be independent and idempotent, and MUST clean up after themselves.
+- Integration tests MUST use isolated test environments.
+- Every script's test file MUST assert that the script parses (`bash -n`) and that its help text works — both `-h` and `--help`, each exiting 0 and containing the `Usage:` line.
+
+### Correspondence
+
+Every executable file at the project root with a shebang MUST have a matching `tests/<name>.bats` and a README entry under `## Scripts`. README entries MUST be sorted, MUST have link text identical to the link target, and MUST have a description beginning with a capital letter and ending with a period. Symlink aliases carry their own README entries.
+
+Scripts and test files MUST have both a shebang and the executable bit; neither alone is sufficient.
+
+These rules are enforced on every pull request by `.github/scripts/validate-scripts.sh` and by pre-commit's `check-executables-have-shebangs` and `check-shebang-scripts-are-executable`.
 
 ### Continuous Integration
 
-- All tests MUST pass in CI before merging
-- Pre-commit hooks MUST validate script syntax and formatting
-- Code review MUST verify test coverage and constitution compliance
+- All tests MUST pass in CI before merging.
+- Pre-commit hooks MUST validate script syntax and formatting.
+- Code review MUST verify test coverage and constitution compliance.
 
 ## Governance
 
 This constitution supersedes all other development practices and guidelines. All pull requests and code reviews MUST verify compliance with these principles.
 
-**Amendment Process**: Amendments to this constitution require:
-
-1. Documentation of the proposed change and rationale
-2. Impact analysis on existing scripts and templates
-3. Update of dependent templates and documentation
-4. Version increment according to semantic versioning
+**Amendment Process**: Amendments require documentation of the proposed change and its rationale, an impact analysis naming every script the change puts in violation, and a version increment per the policy below. An amendment MAY create known deviations, provided it records them; a rule is written for the behavior wanted, not weakened to match the behavior present.
 
 **Versioning Policy**:
 
@@ -96,6 +151,6 @@ This constitution supersedes all other development practices and guidelines. All
 - MINOR: New principle added or materially expanded guidance
 - PATCH: Clarifications, wording improvements, typo fixes
 
-**Compliance Review**: All PRs MUST include a constitution check. Violations MUST be justified in the Complexity Tracking section of implementation plans, or the PR MUST be updated to comply.
+**Compliance Review**: A pull request that violates a principle MUST say so and justify it. Nothing in this repository blocks a merge on constitution grounds; the check is a human one.
 
-**Version**: 1.0.1 | **Ratified**: 2025-01-18 | **Last Amended**: 2026-01-18
+**Version**: 1.1.0 | **Ratified**: 2026-01-18 | **Last Amended**: 2026-09-20
