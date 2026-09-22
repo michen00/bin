@@ -53,8 +53,8 @@ Avoid system-specific paths and assumptions. Prefer POSIX constructs where they 
 
 A script's documentation is required in two places:
 
-1. Its **help text**, per Principle II — what a person gets from the script itself.
-2. Its **README entry**, under `## Scripts`, formatted ``- [`script-name`](script-name): Description.`` — what a person gets before they run anything.
+1. Its **help text**, per Principle II.
+2. Its **README entry**, under `## Scripts`, formatted ``- [`script-name`](script-name): Description.``
 
 Because the help text already carries the full description of arguments, options and examples, a root script does NOT need a file-level comment block repeating them. A reader who opens the file sees the shebang, strict mode, and then code; the prose lives where a user can reach it.
 
