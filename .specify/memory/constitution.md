@@ -75,7 +75,7 @@ Comment blocks and help text MUST NOT duplicate each other. Whichever one a read
 
 ### Code Quality
 
-- Scripts MUST pass shellcheck. A `# shellcheck disable=` directive MUST sit on the line above the statement it excuses and MUST carry a same-line justification naming why the warning does not apply.
+- Scripts MUST pass shellcheck. If a # shellcheck disable= directive is used, it MUST sit on the line immediately above the excused statement and MUST include a same-line justification detailing why the warning does not apply.
 - Scripts MUST follow consistent formatting, applied by `shfmt` through pre-commit without arguments so that it reads `.editorconfig`, whose `[*.sh]` section matches only files ending in `.sh`. The root scripts, having no extension, are formatted by `shfmt`'s own defaults (tabs, unindented case arms, no space after redirection operators). The two groups are formatted by different rule sets. This is intended; do not "fix" one to match the other.
 - Complex logic MUST be commented for clarity, explaining why rather than what.
 
