@@ -117,7 +117,7 @@ This constitution supersedes all other development practices and guidelines. All
 
 **Compliance Review**: A pull request that violates a principle MUST say so and justify it. Nothing in this repository blocks a merge on constitution grounds; the check is a human one.
 
-**Discoverability**: A document that claims to supersede all other development practices has to be reachable from the documents contributors actually read. `README.md` and `CONTRIBUTING.md` MUST link to this file. Neither does today — the word "constitution" appears nowhere outside `.specify/`, so a contributor can read `CONTRIBUTING.md` end to end and never learn this exists.
+**Discoverability**: `CONTRIBUTING.md` MUST link to this file.
 
 ## Known Deviations
 
@@ -128,7 +128,6 @@ The Amendment Process in § Governance requires an amendment to record the devia
 - § II's help shape. `git-shed` lists `-h, --help` first in its `Options:` block rather than last, inlines `$(basename "$0")` instead of deriving `SCRIPT_NAME` once, and puts its `Description:` heading after `Arguments:`/`Options:` rather than leaving unlabelled prose under the synopsis. `gcfixup` opens with a name-and-tagline line rather than the `Usage:` synopsis, and lists `-h`/`--help` nowhere despite accepting both.
 - § II requires error messages prefixed `Error:` and non-fatal conditions `Warning:`. `.github/scripts/validate-scripts.sh` follows that only in its bash-version guard and its `find` warning. Its README-not-found and missing-`## Scripts` paths use `ERROR:`, and its dominant failure style is a `❌ Validation Failed` banner over a labelled block, which carries no prefix at all.
 - § V requires a declared and enforced minimum where a script needs a newer bash. `.github/scripts/validate-scripts.sh` fully complies. `scripts/test-prepare-readme.sh` enforces 4.3 at runtime but declares nothing at the top of the file, and its error names neither the version found nor how to install a newer one. `.scripts/concat_gitignores.sh` needs bash 4+ for `mapfile` and neither declares nor enforces anything.
-- § Governance requires `README.md` and `CONTRIBUTING.md` to link here. Neither does.
 
 ### Deliberately Unsettled
 

@@ -105,6 +105,8 @@ From the project root, run `make develop` to set up the project for development.
 
 #### Development workflow
 
+Before writing or changing a script, read the [constitution](.specify/memory/constitution.md). It sets the conventions every script here follows; if your change departs from one, say so in the PR and explain why.
+
 Make your changes to the code, then verify everything works:
 
 ```sh
