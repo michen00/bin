@@ -33,6 +33,21 @@ setup_git_repo() {
 	git commit -m "Initial commit"
 }
 
+# Helper to build a PATH that contains only the named commands, so that a
+# test can run a script as if every other command were not installed
+# Parameters:
+#   $@ - commands to make available
+# Outputs: the directory to use as PATH
+restricted_path() {
+	local dir="$TEST_TEMP_DIR/restricted-bin"
+	local cmd
+	mkdir -p "$dir"
+	for cmd in "$@"; do
+		ln -sf "$(command -v "$cmd")" "$dir/$cmd"
+	done
+	echo "$dir"
+}
+
 # Helper to check if output contains a substring
 # Parameters:
 #   $1 - expected substring
