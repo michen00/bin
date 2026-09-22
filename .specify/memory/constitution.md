@@ -29,15 +29,13 @@ Help and diagnostics are different streams, and which one a script writes to MUS
 - Help that was **asked for** — `-h` or `--help` — is the successful output of the run. It goes to **stdout** and exits **0**.
 - Help **reprinted after a usage error**, and every error and warning message, is diagnostic. It goes to **stderr** and exits **non-zero**.
 
-The distinction is not cosmetic. A caller that redirects stdout to capture data gets help text mixed into that data if a usage error writes there; a caller that discards stderr sees nothing at all about why the run failed. Error messages MUST be prefixed `Error:` and non-fatal conditions `Warning:`, and MUST name the operation that failed and, where one exists, the remedy.
-
-A script whose only caller today is CI or a test harness is held to the same contract. A human reads it during an incident, and "only a machine calls it" is an observation about the present, not a property of the script.
+Error messages MUST be prefixed `Error:` and non-fatal conditions `Warning:`, and MUST name the operation that failed and, where one exists, the remedy.
 
 ### III. Test-First
 
-Every script in the project root MUST have comprehensive test coverage using bats, written before or alongside the implementation. Tests MUST cover happy paths, error cases, edge cases, and help output, and MUST all pass before merging. Test files live in `tests/` and are named `[script-name].bats`; `tests/` also holds support files, which are not themselves tests and are not named for a script.
+Every script in the project root MUST have comprehensive test coverage using bats, written before or alongside the implementation. Tests MUST cover happy paths, error cases, edge cases, and help output, and MUST all pass before merging. Test files belong in `tests/` and are named `[script-name].bats`.
 
-This obligation applies to scripts in the project root — the utilities this repository distributes. Scripts elsewhere (`.github/scripts/`, development tooling, helper scripts) are not required to have tests, though they may have them, and `.github/scripts/validate-scripts.sh` does.
+This obligation applies to scripts in the project root — the utilities this repository distributes. Scripts elsewhere (`.github/scripts/`, development tooling, helper scripts) are not required to have tests, though they MAY have them.
 
 ### IV. Simplicity
 
