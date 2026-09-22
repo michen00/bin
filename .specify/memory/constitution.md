@@ -47,7 +47,7 @@ Scripts distributed by this repository — those in the project root — MUST ru
 
 Repository tooling that is never distributed MAY require a newer bash. Where it does, it MUST state the requirement in a comment at the top of the file and enforce it at runtime with a `BASH_VERSINFO` check naming the version found, the version required, and how to install a newer one.
 
-Avoid system-specific paths and assumptions. Prefer POSIX constructs where they cost nothing, but bash is the target language and `[[ ]]`, indexed arrays and `+=` are all fair use.
+Avoid system-specific paths and assumptions. Prefer POSIX constructs where they cost nothing, but bash is the target language and `[[ ]]`, indexed arrays, and `+=` are all fair use.
 
 ### VI. Self-Documenting
 
