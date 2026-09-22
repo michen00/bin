@@ -51,7 +51,7 @@ Avoid system-specific paths and assumptions. Prefer POSIX constructs where they 
 
 ### VI. Self-Documenting
 
-A script's documentation has two homes, and both are required:
+A script's documentation is required in two places:
 
 1. Its **help text**, per Principle II — what a person gets from the script itself.
 2. Its **README entry**, under `## Scripts`, formatted ``- [`script-name`](script-name): Description.`` — what a person gets before they run anything.
