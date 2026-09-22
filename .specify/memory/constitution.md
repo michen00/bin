@@ -97,8 +97,6 @@ README entries MUST be sorted, MUST have link text identical to the link target,
 
 Scripts and test files MUST have both a shebang and the executable bit; neither alone is sufficient.
 
-`.github/scripts/validate-scripts.sh` enforces the correspondence rules and pre-commit's `check-executables-have-shebangs` and `check-shebang-scripts-are-executable` enforce the pairing. Note what that does **not** amount to: `validate-scripts.yml` is path-filtered and then gated on a step that looks for a changed extensionless file starting with a shebang, so a README-only pull request runs the workflow and skips the check — which is exactly the pull request the sorting, capitalization and period rules exist for. The rules above hold whether or not a given pull request happens to run them.
-
 ### Continuous Integration
 
 - All tests MUST pass in CI before merging.
