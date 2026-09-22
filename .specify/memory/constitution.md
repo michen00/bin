@@ -43,7 +43,7 @@ Scripts MUST prioritize simplicity and maintainability. Follow YAGNI. Avoid unne
 
 ### V. Portability
 
-Scripts distributed by this repository — those in the project root — MUST run on the oldest bash a supported platform ships. In practice that is macOS's `/bin/bash`, GPLv2-frozen at 3.2, so the root scripts MUST avoid `declare -A`, `mapfile`/`readarray`, `local -n` namerefs, and `${var^^}`/`${var,,}`. Every root script uses `#!/usr/bin/env bash`, which on a machine with a newer bash on `PATH` resolves to that one — so this constraint is invisible in normal use and breaks silently. Assume nothing tests it for you.
+Scripts distributed by this repository — those in the project root — MUST run on the oldest bash a supported platform ships. In practice, that is macOS's `/bin/bash`, GPLv2-frozen at 3.2, so the root scripts MUST avoid `declare -A`, `mapfile`/`readarray`, `local -n` namerefs, and `${var^^}`/`${var,,}`.
 
 Repository tooling that is never distributed MAY require a newer bash. Where it does, it MUST state the requirement in a comment at the top of the file and enforce it at runtime with a `BASH_VERSINFO` check naming the version found, the version required, and how to install a newer one.
 
