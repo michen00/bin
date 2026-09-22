@@ -12,7 +12,7 @@ Scripts SHOULD depend on nothing beyond standard Unix utilities. A script MAY re
 
 All scripts MUST follow Unix conventions: text input and output via stdin/stdout/stderr, and exit codes that distinguish success from failure. Scripts MUST support both interactive and non-interactive usage.
 
-Every script that accepts arguments MUST carry built-in help text. That help is the script's documentation of record for anyone at a terminal, so it MUST describe every argument and option the script accepts.
+Every script MUST have built-in help text that describes every argument and option the script accepts. A file that is only sourced is exempt; it MUST instead state its purpose in a comment at the top of the file.
 
 Help text MUST be a heredoc — `cat <<EOF` inside a `usage()` function, or a `HELP=$(cat <<EOF ...)` variable — never a run of `echo` calls. It MUST follow this shape:
 
@@ -51,16 +51,7 @@ Avoid system-specific paths and assumptions. Prefer POSIX constructs where they 
 
 ### VI. Self-Documenting
 
-A script's documentation is required in two places:
-
-1. Its **help text**, per Principle II.
-2. Its **README entry**, under `## Scripts`, formatted ``- [`script-name`](script-name): Description.``
-
-Because the help text already carries the full description of arguments, options and examples, a root script does NOT need a file-level comment block repeating them. A reader who opens the file sees the shebang, strict mode, and then code; the prose lives where a user can reach it.
-
-The inverse is the rule that matters for everything else. **A script with no reachable help text MUST carry a file-level comment block instead** — its purpose, how it is invoked, and by what. A CI entry point, a git hook, a test fixture and a sourced library are all read far more often than they are run, and for them the header is the only documentation there is.
-
-Comment blocks and help text MUST NOT duplicate each other. Whichever one a reader can reach is the one that carries the burden.
+A script documents its usage in its help text, which Principle II requires. Comments MUST NOT repeat the help text.
 
 ## Development Standards
 
@@ -93,7 +84,7 @@ Comment blocks and help text MUST NOT duplicate each other. Whichever one a read
 
 Every executable file at the project root with a shebang MUST have a matching `tests/<name>.bats` and a README entry under `## Scripts` — unless it is the target of a root symlink, in which case the **aliases** carry the README entries and the target carries none.
 
-README entries MUST be sorted, MUST have link text identical to the link target, and MUST have a description beginning with a capital letter and ending with a period.
+README entries MUST have the form ``- [`script-name`](script-name): Description.``, MUST be sorted, MUST have link text identical to the link target, and MUST have a description beginning with a capital letter and ending with a period.
 
 Scripts and test files MUST have both a shebang and the executable bit; neither alone is sufficient.
 
@@ -127,7 +118,9 @@ The Amendment Process in § Governance requires an amendment to record the devia
 - § II requires both `-h` and `--help`. `update-mine` accepts only `--help` and actively rejects `-h` as an unknown option.
 - § II's help shape. `git-shed` lists `-h, --help` first in its `Options:` block rather than last, inlines `$(basename "$0")` instead of deriving `SCRIPT_NAME` once, and puts its `Description:` heading after `Arguments:`/`Options:` rather than leaving unlabelled prose under the synopsis. `gcfixup` opens with a name-and-tagline line rather than the `Usage:` synopsis, and lists `-h`/`--help` nowhere despite accepting both.
 - § II requires error messages prefixed `Error:` and non-fatal conditions `Warning:`. `.github/scripts/validate-scripts.sh` follows that only in its bash-version guard and its `find` warning. Its README-not-found and missing-`## Scripts` paths use `ERROR:`, and its dominant failure style is a `❌ Validation Failed` banner over a labelled block, which carries no prefix at all.
+- § II requires every script to have help text. `scripts/prepare-readme.sh` and `scripts/test-prepare-readme.sh` have none.
 - § V requires a declared and enforced minimum where a script needs a newer bash. `.github/scripts/validate-scripts.sh` fully complies. `scripts/test-prepare-readme.sh` enforces 4.3 at runtime but declares nothing at the top of the file, and its error names neither the version found nor how to install a newer one. `.scripts/concat_gitignores.sh` needs bash 4+ for `mapfile` and neither declares nor enforces anything.
+- § VI forbids comments that repeat a script's help text. `tests/run-tests.sh` opens with a comment that repeats the description in its help text.
 
 ### Deliberately Unsettled
 
