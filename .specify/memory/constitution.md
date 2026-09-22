@@ -66,7 +66,7 @@ Comment blocks and help text MUST NOT duplicate each other. Whichever one a read
 
 ### Bash Best Practices
 
-- Scripts MUST enable strict mode — `set -euo pipefail` — before the first executable statement, immediately after the shebang and any file-level comment block. Position is free; presence is not. A script that relaxes a flag MUST say why in a comment at the point of the exception. A script intended to be sourced MUST guard strict mode behind a sourcing check.
+- Scripts MUST enable strict mode — `set -euo pipefail` — before the first executable statement, immediately after the shebang and any file-level comment block. A script that relaxes a flag MUST say why in a comment at the point of the exception. A script intended to be sourced MUST guard strict mode behind a sourcing check.
 - Variables MUST be quoted to prevent word splitting and pathname expansion.
 - Functions MUST be used for reusable logic. Locals MUST be `local`-declared and lower_snake_case; globals are UPPER_CASE. Where a command substitution's exit status matters, the declaration MUST be split from the assignment, since `local x=$(cmd)` masks that status from `set -e`.
 - Scripts that create recoverable state — a temp file, a stash, a partially written file, an unstaged change — MUST install a `trap` that restores it, and MUST clear the trap on success paths that no longer need it. Scripts that create no such state do not need one.
