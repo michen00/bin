@@ -760,6 +760,31 @@ EOF
 	[ "$status" -eq 0 ]
 }
 
+@test "validate-scripts: combined README entry for two symlink aliases is rejected" {
+	# Create symlink target script
+	echo '#!/usr/bin/env bash' >core-script
+	chmod +x core-script
+	echo '#!/usr/bin/env bats' >tests/core-script.bats
+	chmod +x tests/core-script.bats
+	ln -s core-script alias-a
+	ln -s core-script alias-b
+
+	# A README entry documents exactly one script or alias
+	cat >README.md <<'EOF'
+# Test Repository
+
+## Scripts
+
+- [`alias-a`](alias-a): First alias script.
+- [`alias-a`](alias-a) / [`alias-b`](alias-b): Combined entry.
+- [`alias-b`](alias-b): Second alias script.
+EOF
+
+	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	[ "$status" -ne 0 ]
+	assert_output_contains "Formatting Errors:"
+}
+
 @test "validate-scripts: README entry for dangling symlink alias is rejected" {
 	# Create script to satisfy script/test coverage
 	echo '#!/usr/bin/env bash' >script1
