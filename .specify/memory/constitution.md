@@ -17,7 +17,7 @@ Every script MUST have built-in help text that describes every argument and opti
 Help text MUST be a heredoc — `cat <<EOF` inside a `usage()` function, or a `HELP=$(cat <<EOF ...)` variable — never a run of `echo` calls. It MUST follow this shape:
 
 - The first line is the synopsis, written `Usage: $SCRIPT_NAME <synopsis>` on one line. `SCRIPT_NAME` MUST be derived once near the top of the file with `SCRIPT_NAME=$(basename "$0")` and interpolated wherever the script names itself, so that a script reachable under more than one name reports the name it was actually called by.
-- A prose description follows the synopsis directly, unlabelled. A `Description:` heading labels the obvious when there is only one prose block.
+- A prose description follows the synopsis directly, unlabeled.
 - Then, as needed and in this order: `Arguments:`, `Options:`, `Examples:`.
 - `Options:` MUST list `-h, --help` last, described as "Show this help message and exit."
 - `Examples:` MUST show real invocations with `$SCRIPT_NAME` interpolated.
