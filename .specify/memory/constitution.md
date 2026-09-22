@@ -91,7 +91,7 @@ Comment blocks and help text MUST NOT duplicate each other. Whichever one a read
 
 ### Correspondence
 
-Every executable file at the project root with a shebang MUST have a matching `tests/<name>.bats` and a README entry under `## Scripts` — unless it is the target of a root symlink, in which case the **aliases** carry the README entries and the target carries none. `_mnn` is the case that defines the rule: `em_` and `en_` are listed, `_mnn` is not, and adding an entry for it would fail the count check.
+Every executable file at the project root with a shebang MUST have a matching `tests/<name>.bats` and a README entry under `## Scripts` — unless it is the target of a root symlink, in which case the **aliases** carry the README entries and the target carries none.
 
 README entries MUST be sorted, MUST have link text identical to the link target, and MUST have a description beginning with a capital letter and ending with a period.
 
