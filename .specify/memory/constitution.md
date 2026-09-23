@@ -16,9 +16,9 @@ Every script MUST have built-in help text that describes every argument and opti
 
 Help text MUST be a heredoc — `cat <<EOF` inside a `usage()` function, or a `HELP=$(cat <<EOF ...)` variable — never a run of `echo` calls. It MUST follow this shape:
 
-- The first line is the synopsis, written `Usage: $SCRIPT_NAME <synopsis>` on one line. `SCRIPT_NAME` MUST be derived once near the top of the file with `SCRIPT_NAME=$(basename "$0")` and interpolated wherever the script names itself.
+- The first line is the synopsis, written `Usage: $SCRIPT_NAME <synopsis>` on one line. `SCRIPT_NAME` MUST be derived once near the top of the file and interpolated wherever the script names itself. A script derives it with `SCRIPT_NAME=$(basename "$0")`. A script that can be sourced derives it with `SCRIPT_NAME=$(basename -- "${BASH_SOURCE[0]:-$0}")`, because when the script is sourced, `$0` names the shell that sources it.
 - A prose description follows the synopsis directly, unlabeled.
-- Then, as needed and in this order: `Arguments:`, `Options:`, `Examples:`.
+- Then, as needed and in this order: `Arguments:`, `Options:`, `Examples:`. Other labeled sections, such as `Environment Variables:` or `Exit Codes:`, MAY follow these three and MUST NOT precede any of them.
 - `Options:` MUST list `-h, --help` last, described as "Show this help message and exit."
 - `Examples:` MUST show real invocations with `$SCRIPT_NAME` interpolated.
 
@@ -26,8 +26,9 @@ Both `-h` and `--help` MUST be accepted. Arguments MUST be parsed by a `while [[
 
 Help and diagnostics are different streams, and which one a script writes to MUST depend on why it is printing:
 
-- Help that was **asked for** — `-h` or `--help` — is the successful output of the run. It goes to **stdout** and exits **0**.
-- Help **reprinted after a usage error**, and every error and warning message, is diagnostic. It goes to **stderr** and exits **non-zero**.
+- Help that was **asked for** — `-h` or `--help` — is the successful output of the run. It goes to **stdout**, and the script exits **0**.
+- Help **reprinted after a usage error** is diagnostic. It goes to **stderr**, and the script exits **2**.
+- Every error message and every warning is diagnostic and goes to **stderr**.
 
 Error messages MUST be prefixed `Error:` and non-fatal conditions `Warning:`, and MUST name the operation that failed and, where one exists, the remedy.
 
@@ -43,7 +44,7 @@ Scripts MUST prioritize simplicity and maintainability. Follow YAGNI. Avoid unne
 
 ### V. Portability
 
-Scripts distributed by this repository — those in the project root — MUST run on the oldest bash a supported platform ships. In practice, that is macOS's `/bin/bash`, GPLv2-frozen at 3.2, so the root scripts MUST avoid `declare -A`, `mapfile`/`readarray`, `local -n` namerefs, and `${var^^}`/`${var,,}`.
+Scripts distributed by this repository — those in the project root — MUST run on the oldest bash a supported platform ships. In practice, that is macOS's `/bin/bash`, GPLv2-frozen at 3.2, so the root scripts MUST avoid `declare -A`, `mapfile`/`readarray`, `local -n` namerefs, and `${var^^}`/`${var,,}`. They MUST also expand an array that can be empty as `${arr[@]+"${arr[@]}"}`, because under `set -u`, bash before 4.4 treats the expansion of an empty array, `"${arr[@]}"`, as an unbound variable.
 
 Repository tooling that is never distributed MAY require a newer bash. Where it does, it MUST state the requirement in a comment at the top of the file and enforce it at runtime with a `BASH_VERSINFO` check naming the version found, the version required, and how to install a newer one.
 
@@ -57,12 +58,12 @@ A script documents its usage in its help text, which Principle II requires. Comm
 
 ### Bash Best Practices
 
-- Scripts MUST enable strict mode — `set -euo pipefail` — before the first executable statement, immediately after the shebang and any file-level comment block. A script that relaxes a flag MUST say why in a comment at the point of the exception. A script intended to be sourced MUST guard strict mode behind a sourcing check.
+- Scripts MUST enable strict mode — `set -euo pipefail` — before the first executable statement, immediately after the shebang and any file-level comment block. A script that relaxes a flag MUST say why in a comment at the point of the exception. A file that can be sourced MUST NOT change the options of the shell that sources it. A script that can be both executed and sourced MUST therefore enable strict mode only when executed, immediately after the check that detects sourcing, and a file that is only sourced MUST NOT enable it.
 - Variables MUST be quoted to prevent word splitting and pathname expansion.
 - Functions MUST be used for reusable logic. Locals MUST be `local`-declared and lower_snake_case; globals are UPPER_CASE. Where a command substitution's exit status matters, the declaration MUST be split from the assignment, since `local x=$(cmd)` masks that status from `set -e`.
 - Scripts that create recoverable state — a temp file, a stash, a partially written file, an unstaged change — MUST install a `trap` that restores it, and MUST clear the trap on success paths that no longer need it. Scripts that create no such state do not need one.
 - Scripts MUST validate inputs and provide clear error messages.
-- Exit codes MUST distinguish a usage error — the caller invoked the script wrongly — from an operational failure. Both are non-zero; a script MUST NOT report them with the same code.
+- A script MUST exit 2 on a usage error and 1 on an operational failure that it detects itself. A usage error is an invocation that does not match the script's synopsis, such as one with an unknown option, a missing required argument, an option without its required value or an extra argument. An invocation that matches the synopsis but has an argument that cannot be used, such as a path that does not exist, is an operational failure. A script that is sourced returns each status that this constitution requires it to exit with.
 
 ### Code Quality
 
@@ -75,10 +76,11 @@ A script documents its usage in its help text, which Principle II requires. Comm
 ### Testing Requirements
 
 - All scripts in the project root MUST have corresponding test files in `tests/`, per Principle III.
-- Tests MUST use the bats framework, minimum version 1.5.0.
+- Tests MUST use the bats framework, minimum version 1.7.0.
 - Tests MUST be independent and idempotent, and MUST clean up after themselves.
 - Integration tests MUST use isolated test environments.
-- Every script's test file MUST assert that the script parses (`bash -n`) and that its help text works — both `-h` and `--help`, each exiting 0 and containing the `Usage:` line.
+- Under bash before 4.1, bats does not fail a test on a failing `[[ ]]` that is not the test's last command. Every such check MUST therefore end with `|| false`.
+- Every script's test file MUST assert that the script parses (`bash -n`), that its help text works — both `-h` and `--help`, each exiting 0 and containing the `Usage:` line — and that an unknown option makes the script exit 2 and write an `Error:` message to stderr.
 
 ### Correspondence
 
@@ -91,6 +93,7 @@ Scripts and test files MUST have both a shebang and the executable bit; neither 
 ### Continuous Integration
 
 - All tests MUST pass in CI before merging.
+- CI MUST run the root scripts' tests on macOS with `/bin` first on `PATH`, so that `bash` and every `#!/usr/bin/env bash` shebang resolve to `/bin/bash`, the bash that Principle V names.
 - Pre-commit hooks MUST validate script syntax and formatting.
 - Code review MUST verify test coverage and constitution compliance.
 
@@ -98,7 +101,7 @@ Scripts and test files MUST have both a shebang and the executable bit; neither 
 
 This constitution supersedes all other development practices and guidelines. All pull requests and code reviews MUST verify compliance with these principles.
 
-**Amendment Process**: Amendments require documentation of the proposed change and its rationale, an impact analysis naming every script the change puts in violation, and a version increment per the policy below. An amendment MAY create known deviations, provided it records them; a rule is written for the behavior wanted, not weakened to match the behavior present.
+**Amendment Process**: Amendments require documentation of the proposed change and its rationale, an impact analysis naming every script the change puts in violation, and a version increment per the policy below. An amendment MAY create known deviations, provided it lists them in a Known Deviations section after § Governance, with one entry per rule that names each file that violates it. A rule is written for the behavior wanted, not weakened to match the behavior present, so each deviation is resolved by changing the file that violates the rule. The change that resolves a deviation removes its entry, and removes the section when no entries remain. Removing an entry needs no version increment.
 
 **Versioning Policy**:
 
@@ -110,20 +113,4 @@ This constitution supersedes all other development practices and guidelines. All
 
 **Discoverability**: `CONTRIBUTING.md` MUST link to this file.
 
-## Known Deviations
-
-The Amendment Process in § Governance requires an amendment to record the deviations it creates. Each entry below is open, and is to be resolved by a follow-up change rather than by weakening the rule that names it.
-
-- § II sends help printed after a usage error to stderr. Only `git-shed` does this today; `chdirx`, `mergewith`, `touchx`, `update-mine`, `venv-now` and `.scripts/concat_gitignores.sh` call `usage 1`, whose `cat` writes to stdout.
-- § II requires both `-h` and `--help`. `update-mine` accepts only `--help` and actively rejects `-h` as an unknown option.
-- § II's help shape. `git-shed` lists `-h, --help` first in its `Options:` block rather than last, inlines `$(basename "$0")` instead of deriving `SCRIPT_NAME` once, and puts its `Description:` heading after `Arguments:`/`Options:` rather than leaving unlabelled prose under the synopsis. `gcfixup` opens with a name-and-tagline line rather than the `Usage:` synopsis, and lists `-h`/`--help` nowhere despite accepting both.
-- § II requires error messages prefixed `Error:` and non-fatal conditions `Warning:`. `.github/scripts/validate-scripts.sh` follows that only in its bash-version guard and its `find` warning. Its README-not-found and missing-`## Scripts` paths use `ERROR:`, and its dominant failure style is a `❌ Validation Failed` banner over a labelled block, which carries no prefix at all.
-- § II requires every script to have help text. `scripts/prepare-readme.sh` and `scripts/test-prepare-readme.sh` have none.
-- § V requires a declared and enforced minimum where a script needs a newer bash. `.github/scripts/validate-scripts.sh` fully complies. `scripts/test-prepare-readme.sh` enforces 4.3 at runtime but declares nothing at the top of the file, and its error names neither the version found nor how to install a newer one. `.scripts/concat_gitignores.sh` needs bash 4+ for `mapfile` and neither declares nor enforces anything.
-- § VI forbids comments that repeat a script's help text. `tests/run-tests.sh` opens with a comment that repeats the description in its help text.
-
-### Deliberately Unsettled
-
-**The exit code for an unrecognized option.** The corpus is split two against five — `_mnn` and `git-shed` exit 2; `chdirx`, `mergewith`, `touchx`, `update-mine` and `venv-now` route through `usage 1`. § Bash Best Practices requires only that usage errors and operational failures be distinguishable, because legislating either number silently puts the other group in violation.
-
-**Version**: 1.1.0 | **Ratified**: 2026-01-18 | **Last Amended**: 2026-09-20
+**Version**: 1.2.0 | **Ratified**: 2026-01-18 | **Last Amended**: 2026-09-22
