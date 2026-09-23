@@ -1,54 +1,55 @@
 #!/usr/bin/env bash
-# Requires bash 4.3+ for associative arrays, mapfile, and namerefs
+# This script requires bash 4.4 or later. It uses associative arrays, mapfile,
+# and namerefs, and it expands arrays that can be empty under set -u, which
+# bash before 4.4 rejects as an unbound variable.
 
 set -euo pipefail
 
-# Verify bash version (requires 4.3+)
-if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3))); then
-  echo "Error: This script requires bash 4.3 or later (found: $BASH_VERSION)" >&2
+# Verify bash version (requires 4.4+)
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
+  echo "Error: This script requires bash 4.4 or later (found: $BASH_VERSION)" >&2
   echo "On macOS, install bash via: brew install bash" >&2
   exit 1
 fi
 
-# Trap SIGPIPE to handle broken pipes gracefully when script output is piped
-# SIGPIPE can occur when the script's output is piped to commands that exit early
-# (e.g., `validate-scripts.sh | head`). This trap prevents SIGPIPE from causing
-# script failure with `set -euo pipefail`. Note: This only affects SIGPIPE signals;
-# actual command failures (non-zero exit codes) are still caught by `set -e`.
-# We use explicit error handling (printf instead of echo, explicit read patterns)
-# rather than suppressing errors with || true to maintain strict error handling.
+# Ignore SIGPIPE. When the reader of this script's output exits before the
+# script finishes writing (for example, `validate-scripts.sh | true`), the next
+# write then fails with a "Broken pipe" error that set -e turns into exit
+# status 1, instead of the signal ending the script silently with status 141.
 trap '' PIPE
 
 SCRIPT_NAME=$(basename "$0")
 
 # Exempted scripts (from command-line arguments)
-declare -a exempted_scripts
+declare -a EXEMPTED_SCRIPTS
 
 usage() {
   cat << EOF
-Usage: $SCRIPT_NAME [EXEMPTED_SCRIPT...]
+Usage: $SCRIPT_NAME [OPTIONS] [--] [EXEMPTED_SCRIPT...]
 
 Validates that all scripts in the project root have corresponding test files
 and README.md entries, and that README entries are properly formatted and sorted.
 
 Arguments:
-  EXEMPTED_SCRIPT    Names of scripts to exempt from validation (optional, multiple)
+  EXEMPTED_SCRIPT    Names of scripts to exempt from validation (optional, multiple).
 
 Options:
+  --                 Treat all remaining arguments as script names, even those that begin with a dash.
   -h, --help         Show this help message and exit.
 
 Examples:
   $SCRIPT_NAME
   $SCRIPT_NAME internal-helper
   $SCRIPT_NAME old-tool deprecated-script
+  $SCRIPT_NAME -- -dash-script
 EOF
-  exit "${1:-0}"
 }
 
 # Check if a script is in the exemption list
 is_exempted() {
   local script=$1
-  for exempt in "${exempted_scripts[@]}"; do
+  local exempt
+  for exempt in "${EXEMPTED_SCRIPTS[@]}"; do
     if [[ "$script" == "$exempt" ]]; then
       return 0
     fi
@@ -61,6 +62,7 @@ discover_scripts() {
   local script
   # Pre-calculate all symlink targets for efficient lookup
   local -A symlink_targets
+  local link
   while IFS= read -r -d '' link; do
     # Only process actual symlinks (find already filtered, but double-check for safety)
     if [[ -L "$link" ]]; then
@@ -189,13 +191,13 @@ populate_map_from_array() {
 # Outputs the filtered section to stdout, or error messages to stderr and returns non-zero on failure
 extract_readme_scripts_section() {
   if [[ ! -f "README.md" ]]; then
-    echo "ERROR: README.md not found" >&2
+    echo "Error: README.md not found in the current directory; run $SCRIPT_NAME from the repository root" >&2
     return 1
   fi
 
   # Check if Scripts section exists
   if ! grep -q '^## Scripts$' README.md; then
-    echo "ERROR: README.md is missing '## Scripts' section" >&2
+    echo "Error: README.md is missing the '## Scripts' section; add one that lists each script" >&2
     return 1
   fi
 
@@ -226,13 +228,12 @@ discover_readme_entries() {
   # Use bash's built-in regex for consistency and to avoid forking external processes.
   # shellcheck disable=SC2016 # Single quotes intentional - backticks are literal regex chars, not command substitution
   local regex_pattern='^-\ \[`([^`]+)`\]'
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
+  local line
   while IFS= read -r line; do
     if [[ "$line" =~ $regex_pattern ]]; then
       printf '%s\n' "${BASH_REMATCH[1]}"
     fi
   done <<< "$filtered"
-  set -e # Re-enable -e
 }
 
 # Validate correspondence between scripts, tests, and README entries
@@ -245,10 +246,10 @@ validate_correspondence() {
 
   # Build associative arrays for O(1) lookup performance
   # Associative arrays (bash 4.0+) provide fast key-based lookups for correspondence checks
-  declare -A script_map  # Maps script names to 1 (exists)
-  declare -A test_map    # Maps test script names to 1 (test file exists)
-  declare -A readme_map  # Maps README script names to 1 (documented)
-  declare -A symlink_map # Maps root symlink names to 1
+  local -A script_map  # Maps script names to 1 (exists)
+  local -A test_map    # Maps test script names to 1 (test file exists)
+  local -A readme_map  # Maps README script names to 1 (documented)
+  local -A symlink_map # Maps root symlink names to 1
 
   # Populate script map from cached array
   local script
@@ -274,7 +275,7 @@ validate_correspondence() {
   # Check each script for missing test file (fail-fast: exit on first error)
   for script in "${!script_map[@]}"; do
     if [[ ! ${test_map[$script]+_} ]]; then
-      echo "❌ Validation Failed" >&2
+      echo "Error: Validation failed" >&2
       echo "" >&2
       echo "Missing Test Files:" >&2
       echo "  - Script '$script' has no test file tests/$script.bats" >&2
@@ -285,7 +286,7 @@ validate_correspondence() {
   # Check each script for missing README entry (scripts → README) (fail-fast: exit on first error)
   for script in "${!script_map[@]}"; do
     if [[ ! ${readme_map[$script]+_} ]]; then
-      echo "❌ Validation Failed" >&2
+      echo "Error: Validation failed" >&2
       echo "" >&2
       echo "Missing README Entries:" >&2
       echo "  - Script '$script' has no README entry" >&2
@@ -296,7 +297,7 @@ validate_correspondence() {
   # Check each README entry for missing script (README → scripts) (fail-fast: exit on first error)
   for readme_script in "${!readme_map[@]}"; do
     if [[ ! ${script_map[$readme_script]+_} ]] && [[ ! ${symlink_map[$readme_script]+_} ]]; then
-      echo "❌ Validation Failed" >&2
+      echo "Error: Validation failed" >&2
       echo "" >&2
       echo "Orphaned README Entries:" >&2
       echo "  - README entry for '$readme_script' references a non-existent script" >&2
@@ -338,7 +339,7 @@ validate_executable_permissions() {
 
     # Check shebang
     if [[ ! -r "$readme_script" ]]; then
-      echo "❌ Validation Failed" >&2
+      echo "Error: Validation failed" >&2
       echo "" >&2
       echo "Invalid Scripts:" >&2
       echo "  - README-referenced script '$readme_script' is not readable" >&2
@@ -375,16 +376,13 @@ validate_executable_permissions() {
   # Discover ALL test files (not just valid ones) to catch missing shebang/permissions
   if [[ -d "tests" ]]; then
     local test_file
-    # find should not fail since we've verified tests directory exists
-    # If it does fail (e.g., directory removed between check and find), handle gracefully
-    set +e
     while IFS= read -r -d '' test_file; do
       local has_shebang=0
       local has_executable=0
 
       # Check shebang
       if [[ ! -r "$test_file" ]]; then
-        echo "❌ Validation Failed" >&2
+        echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Invalid Test Files:" >&2
         echo "  - Test file '$test_file' is not readable" >&2
@@ -416,24 +414,18 @@ validate_executable_permissions() {
         ((++invalid_tests_count))
       fi
     done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null)
-    local find_exit_code=$?
-    set -e
-    # find returns 0 on success, 1 if no files found (expected), >1 on error (unexpected)
-    if [[ $find_exit_code -gt 1 ]]; then
-      echo "Warning: find failed unexpectedly (exit code $find_exit_code)" >&2
-    fi
   fi
 
   # Fail-fast: exit immediately on first error
   if [[ $invalid_scripts_count -gt 0 ]]; then
-    echo "❌ Validation Failed" >&2
+    echo "Error: Validation failed" >&2
     echo "" >&2
     echo "Invalid Scripts:" >&2
     echo "  - ${invalid_scripts[0]}" >&2
     exit 1
   fi
   if [[ $invalid_tests_count -gt 0 ]]; then
-    echo "❌ Validation Failed" >&2
+    echo "Error: Validation failed" >&2
     echo "" >&2
     echo "Invalid Test Files:" >&2
     echo "  - ${invalid_tests[0]}" >&2
@@ -455,7 +447,7 @@ validate_formatting() {
   local scripts_section_start_line
   scripts_section_start_line=$(grep -n '^## Scripts$' README.md | head -n 1 | cut -d: -f1)
   if ! [[ "$scripts_section_start_line" =~ ^[0-9]+$ ]]; then
-    echo "❌ Validation Failed: Could not find '## Scripts' section in README.md" >&2
+    echo "Error: README.md is missing the '## Scripts' section; add one that lists each script" >&2
     exit 1
   fi
 
@@ -467,9 +459,9 @@ validate_formatting() {
   # Process original section line by line, tracking actual line numbers
   # Skip HTML comments during processing but maintain accurate line number tracking
   local current_line_number=$scripts_section_start_line
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
+  local line
   while IFS= read -r line; do
-    ((current_line_number++))
+    ((++current_line_number))
 
     # Skip HTML comment lines (single-line and boundary lines)
     # These are filtered out but we still increment line numbers to maintain accuracy
@@ -502,7 +494,7 @@ validate_formatting() {
       # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
       local regex_pattern='^-\ \[`([^`]+)`\]\((.+)\):[[:space:]]*(.+)$'
       if ! [[ "$line" =~ $regex_pattern ]]; then
-        echo "❌ Validation Failed" >&2
+        echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
         echo "  - README entry has invalid format (line $current_line): $line" >&2
@@ -516,7 +508,7 @@ validate_formatting() {
 
       # Check if link text matches URL
       if [[ "$link_text" != "$link_url" ]]; then
-        echo "❌ Validation Failed" >&2
+        echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
         echo "  - README entry link text '$link_text' doesn't match URL '$link_url' (line $current_line)" >&2
@@ -525,7 +517,7 @@ validate_formatting() {
 
       # Check if description starts with capital letter
       if [[ ! "$description" =~ ^[A-Z] ]]; then
-        echo "❌ Validation Failed" >&2
+        echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
         echo "  - README entry for '$link_text' must start with capital letter (line $current_line)" >&2
@@ -534,7 +526,7 @@ validate_formatting() {
 
       # Check if description ends with period
       if [[ ! "$description" =~ \.$ ]]; then
-        echo "❌ Validation Failed" >&2
+        echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
         echo "  - README entry for '$link_text' must end with period (line $current_line)" >&2
@@ -542,7 +534,6 @@ validate_formatting() {
       fi
     fi
   done <<< "$original_section"
-  set -e # Re-enable -e
 
   return 0
 }
@@ -558,7 +549,7 @@ validate_sorting() {
 
   # Extract script names in order from README entries
   local names_in_order=()
-  set +e # Temporarily disable -e for while loop (read returns non-zero on EOF)
+  local line
   while IFS= read -r line; do
     # Use bash regex for efficiency and consistency with validate_formatting
     # Pattern: - [`script-name`](...)
@@ -568,7 +559,6 @@ validate_sorting() {
       names_in_order+=("${BASH_REMATCH[1]}")
     fi
   done <<< "$filtered"
-  set -e # Re-enable -e
 
   # Create sorted version (case-sensitive alphabetical order)
   local names_sorted=()
@@ -583,7 +573,7 @@ validate_sorting() {
     local i
     for ((i = 0; i < ${#names_in_order[@]}; i++)); do
       if [[ "${names_in_order[$i]}" != "${names_sorted[$i]}" ]]; then
-        echo "❌ Validation Failed" >&2
+        echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Sorting Errors:" >&2
         echo "  - README entries must be sorted alphabetically" >&2
@@ -627,7 +617,7 @@ validate_counts() {
 
   # Check if script count matches non-symlink README entry count (fail-fast: exit on first error)
   if [[ $script_count -ne $readme_script_count ]]; then
-    echo "❌ Validation Failed" >&2
+    echo "Error: Validation failed" >&2
     echo "" >&2
     echo "Count Mismatch:" >&2
     local readme_symlink_count=$((readme_count - readme_script_count))
@@ -643,14 +633,25 @@ validate_counts() {
 
 main() {
   # Parse arguments
-  exempted_scripts=()
+  EXEMPTED_SCRIPTS=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -h | --help)
-        usage 0
+        usage
+        exit 0
+        ;;
+      --)
+        shift
+        EXEMPTED_SCRIPTS+=("$@")
+        break
+        ;;
+      -*)
+        echo "Error: Unknown option '$1'" >&2
+        usage >&2
+        exit 2
         ;;
       *)
-        exempted_scripts+=("$1")
+        EXEMPTED_SCRIPTS+=("$1")
         ;;
     esac
     shift
@@ -714,7 +715,7 @@ main() {
   #    Validates alphabetical order (case-sensitive)
   validate_sorting "$cached_readme_section"
 
-  local exempted_count=${#exempted_scripts[@]}
+  local exempted_count=${#EXEMPTED_SCRIPTS[@]}
 
   echo "✓ Validation passed: All scripts are properly documented and tested"
   echo "  - Scripts: $script_count"

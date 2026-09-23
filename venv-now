@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
 SOURCED=$([[ ${BASH_SOURCE[0]} != "$0" ]] && echo true || echo false)
+# Each exit point runs "$RETURN_OR_EXIT" at the top level of this file. In a
+# sourced run, exit would close the calling shell, and return inside a helper
+# function would leave only that function, so the run would continue past a
+# failed check.
 if [[ $SOURCED == false ]]; then
 	set -euo pipefail
+	RETURN_OR_EXIT="exit"
+else
+	RETURN_OR_EXIT="return"
 fi
-return-or-exit() {
-	[[ $SOURCED == true ]] && return "$1" || exit "$1"
-}
 
 # Pure validation function - returns 0 if path is dangerous, 1 if safe
 # Can be tested safely without triggering any file operations
@@ -33,66 +37,92 @@ fi
 
 VENV_DIR=".venv"
 REMOVE_EXISTING=true
-SCRIPT_NAME=$(basename "$0")
+# When this file is sourced, $0 names the shell that sources it, and the name
+# of a login shell, such as -bash, begins with a dash.
+SCRIPT_NAME=$(basename -- "${BASH_SOURCE[0]:-$0}")
 
 usage() {
-	local exit_code=${1:-0}
 	cat <<EOF
-Usage: $SCRIPT_NAME [DIRECTORY] [OPTIONS]
+Usage: $SCRIPT_NAME [OPTIONS] [--] [DIRECTORY]
 
 Create a new Python virtual environment in ./.venv by default. If the specified
 directory already exists, it will be removed by default unless the --no-remove flag is
 used. The virtual environment will be activated if the script is sourced.
 
-Positional Arguments:
-  DIRECTORY         The virtual environment directory name (default: .venv)
+Arguments:
+  DIRECTORY         The virtual environment directory name (default: .venv).
 
 Options:
-  -n, --no-remove   Do not remove an existing virtual environment
-  -h, --help        Show this help message and exit
+  -n, --no-remove   Do not remove an existing virtual environment.
+  --                Treat the next argument as DIRECTORY, even if it begins
+                    with a dash.
+  -h, --help        Show this help message and exit.
 
 Examples:
-    . $SCRIPT_NAME
-    source $SCRIPT_NAME myenv --no-remove
-    $SCRIPT_NAME .venv -n
+  . $SCRIPT_NAME
+  source $SCRIPT_NAME --no-remove myenv
+  $SCRIPT_NAME -n .venv
 EOF
-	return-or-exit "$exit_code"
 }
 
-# Initialize empty positional argument
-positional_arg_set=false
+# Records the directory argument. A function cannot end a sourced run, so on
+# a second directory argument this reports the error and returns 1, and the
+# caller ends the run.
+set_venv_dir() {
+	local dir="$1"
+	if [[ $POSITIONAL_ARG_SET == true ]]; then
+		echo "Error: Multiple directory arguments specified: '$VENV_DIR' and '$dir'" >&2
+		usage >&2
+		return 1
+	fi
+	VENV_DIR="$dir"
+	POSITIONAL_ARG_SET=true
+}
+
+# DIRECTORY defaults to .venv, so a flag records whether it was given.
+POSITIONAL_ARG_SET=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-h | --help)
 		usage
+		"$RETURN_OR_EXIT" 0
 		;;
 	-n | --no-remove)
 		REMOVE_EXISTING=false
 		shift
 		;;
+	--)
+		shift
+		# The inner loop keeps an argument that begins with a dash from
+		# matching an option pattern.
+		while [[ $# -gt 0 ]]; do
+			set_venv_dir "$1" || "$RETURN_OR_EXIT" 2
+			shift
+		done
+		;;
 	-*)
-		echo "Unknown option: $1" >&2
-		usage 1
+		echo "Error: Unknown option '$1'" >&2
+		usage >&2
+		"$RETURN_OR_EXIT" 2
 		;;
 	*)
-		if [ "$positional_arg_set" = false ]; then
-			VENV_DIR="$1"
-			positional_arg_set=true
-		else
-			echo "Error: Multiple directory arguments specified: '$VENV_DIR' and '$1'" >&2
-			usage 1
-		fi
+		set_venv_dir "$1" || "$RETURN_OR_EXIT" 2
 		shift
 		;;
 	esac
 done
 
-# Find python executable (prefer python3 for systems without python symlink)
-PYTHON_CMD="python"
-if ! command -v python &>/dev/null && command -v python3 &>/dev/null; then
+# Prefer python, and fall back to python3 on systems that have no python command.
+if command -v python >/dev/null 2>&1; then
+	PYTHON_CMD="python"
+elif command -v python3 >/dev/null 2>&1; then
 	PYTHON_CMD="python3"
+else
+	echo "Error: Python 3 is required but not installed." >&2
+	echo "Install it from: https://www.python.org/downloads/" >&2
+	"$RETURN_OR_EXIT" 1
 fi
 
 # Global safety check: refuse obviously dangerous targets
@@ -109,7 +139,7 @@ print(Path(sys.argv[1]).resolve(strict=False))
 EOF
 )" || {
 	echo "Error: Failed to resolve path '$VENV_DIR'" >&2
-	return-or-exit 1
+	"$RETURN_OR_EXIT" 1
 }
 
 # Get current directory for comparison
@@ -117,7 +147,7 @@ CURRENT_DIR="$(pwd -P)"
 
 if is_dangerous_venv_path "$VENV_DIR" "$RESOLVED_VENV_DIR" "$CURRENT_DIR"; then
 	echo "Error: Refusing to use dangerous path: '$VENV_DIR' (resolves to '$RESOLVED_VENV_DIR')" >&2
-	return-or-exit 1
+	"$RETURN_OR_EXIT" 1
 fi
 
 if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
@@ -126,18 +156,18 @@ if $REMOVE_EXISTING && [ -d "$VENV_DIR" ]; then
 fi
 
 echo "Creating virtual environment in: $VENV_DIR"
-"$PYTHON_CMD" -m venv "$VENV_DIR"
+"$PYTHON_CMD" -m venv -- "$VENV_DIR"
 
 if [ -f "$VENV_DIR/bin/activate" ]; then
 	echo "Virtual environment created: $VENV_DIR"
 else
 	echo "Error: Virtual environment creation failed!" >&2
-	return-or-exit 1
+	"$RETURN_OR_EXIT" 1
 fi
 
 if [[ $SOURCED == true ]]; then
-	# shellcheck disable=SC1091
-	{ . "$VENV_DIR/bin/activate" && echo "Virtual environment activated: $VENV_DIR"; } ||
+	# shellcheck disable=SC1091 # The activate script does not exist until this run creates it.
+	{ . -- "$VENV_DIR/bin/activate" && echo "Virtual environment activated: $VENV_DIR"; } ||
 		{
 			echo "Error: Virtual environment activation failed!" >&2
 			return 1

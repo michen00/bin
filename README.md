@@ -40,15 +40,15 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 
 ## Scripts
 
-- [`ach`](ach): Add the last commit hash to a given file (`.git-blame-ignore-revs` file by default).
+- [`ach`](ach): Add a commit hash (the last commit's by default) to a file (`.git-blame-ignore-revs` by default) and commit the file.
 - [`chdirx`](chdirx): Add `+x` permission to all executable files (that start with `#!`) in the given directory.
 - [`em_`](em_): Copy em dash (—, Unicode U+2014) to the system clipboard.
 - [`en_`](en_): Copy en dash (–, Unicode U+2013) to the system clipboard.
 - [`gcfixup`](gcfixup): Create a fixup commit and automatically rebase with autosquash.
 - [`git-shed`](git-shed): Identify and remove merged & stale branches with respect to a target branch.
-- [`how-big`](how-big): Show the size of the given directory.
-- [`mergewith`](mergewith): Merge the latest changes from a reference branch into the current branch (updating both).
-- [`touchx`](touchx): Create (or update) a file and add `+x` permission to it.
+- [`how-big`](how-big): Show the sizes of the files and subdirectories in the given directory, largest first.
+- [`mergewith`](mergewith): Merge the latest changes from a reference branch on `origin` into the current branch, after pulling the current branch.
+- [`touchx`](touchx): Create or update files and add `+x` permission to them.
 - [`update-mine`](update-mine): Update all branches with open pull requests authored by you.
 - [`venv-now`](venv-now): Create a new Python virtual environment in ./.venv (or the given directory), activating it if sourced.
 

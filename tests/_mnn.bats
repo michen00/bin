@@ -1,7 +1,5 @@
 #!/usr/bin/env bats
 
-bats_require_minimum_version 1.5.0
-
 load 'test_helper'
 
 # Helper function to get clipboard content (platform-specific)
@@ -49,13 +47,44 @@ has_clipboard_tool() {
 	esac
 }
 
-# The clipboard tests in this file share one resource that no temp directory can
-# isolate: the system clipboard. Under `bats --jobs N` (CI uses 4) the tests in a
-# file run concurrently, so a sibling's copy can land between this test's copy and
-# its read-back, and the reader sees the other test's dash. Serialise this file;
-# it still runs in parallel with every other file in the suite.
+# Helper to write a stub command into a PATH directory, so that a test can make
+# the script see a platform or a clipboard tool other than the host's without
+# touching the system clipboard.
+# Parameters:
+#   $1 - directory to write the stub into
+#   $2 - command name
+#   $3 - shell code for the stub to run
+stub_command() {
+	printf '#!/bin/sh\n%s\n' "$3" >"$1/$2"
+	chmod +x "$1/$2"
+}
+
+# Helper to put stubs for pbcopy and pbpaste first on PATH. On macOS, pbcopy
+# then writes to a file in the test's temporary directory and pbpaste reads that
+# file, so a test run leaves the developer's clipboard unchanged. On other
+# platforms, neither the script nor these tests call pbcopy or pbpaste, so the
+# stubs have no effect.
+stub_macos_clipboard() {
+	local bin_dir="$TEST_TEMP_DIR/clipboard-bin"
+	mkdir -p "$bin_dir"
+	# shellcheck disable=SC2016  # The stub expands $0 when it runs, not this helper.
+	stub_command "$bin_dir" pbcopy 'cat >"${0%/*}/clipboard"'
+	# shellcheck disable=SC2016  # The stub expands $0 when it runs, not this helper.
+	stub_command "$bin_dir" pbpaste 'cat "${0%/*}/clipboard"'
+	PATH="$bin_dir:$PATH"
+}
+
+# On platforms other than macOS, the clipboard tests share one resource that no
+# temporary directory can isolate: the system clipboard. Under `bats --jobs N`
+# (CI uses 4), the tests in a file run concurrently, so a sibling test can copy
+# between this test's copy and its read-back, and the read-back returns the
+# other test's dash. Serialize this file on those platforms; it still runs in
+# parallel with every other file in the suite. On macOS, stub_macos_clipboard
+# gives each test its own clipboard file, so the tests need no serialization.
 setup_file() {
-	export BATS_NO_PARALLELIZE_WITHIN_FILE=true
+	if [[ "$(uname -s)" != Darwin* ]]; then
+		export BATS_NO_PARALLELIZE_WITHIN_FILE=true
+	fi
 }
 
 @test "_mnn: script has valid bash syntax" {
@@ -63,15 +92,18 @@ setup_file() {
 }
 
 # Phase 2: Foundational tests
-@test "_mnn: script name detection works" {
-	# Test that script detects its own name
-	run "$SCRIPTS_DIR/_mnn"
-	[ "$status" -ne 0 ]
-	assert_output_contains "must be invoked as 'en_' or 'em_'"
+@test "_mnn: shows error when invoked through an unrecognized name" {
+	ln -s "$SCRIPTS_DIR/_mnn" "$TEST_TEMP_DIR/dash"
+
+	run --separate-stderr "$TEST_TEMP_DIR/dash"
+	[ "$status" -eq 1 ]
+	[[ "$stderr" == *"Error: This script must be invoked as 'en_' or 'em_'"* ]] || false
+	[ -z "$output" ]
 }
 
 # Phase 3: User Story 1 - En Dash tests
 @test "en_: copies en dash to clipboard" {
+	stub_macos_clipboard
 	skip_if_no_clipboard_tool
 	run "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 0 ]
@@ -82,6 +114,7 @@ setup_file() {
 }
 
 @test "en_: overwrites previous clipboard content" {
+	stub_macos_clipboard
 	skip_if_no_clipboard_tool
 
 	# Put something in clipboard first
@@ -112,6 +145,7 @@ setup_file() {
 }
 
 @test "en_: exits with code 0 on success" {
+	stub_macos_clipboard
 	skip_if_no_clipboard_tool
 	run "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 0 ]
@@ -119,6 +153,7 @@ setup_file() {
 
 # Phase 4: User Story 2 - Em Dash tests
 @test "em_: copies em dash to clipboard" {
+	stub_macos_clipboard
 	skip_if_no_clipboard_tool
 	run "$SCRIPTS_DIR/em_"
 	[ "$status" -eq 0 ]
@@ -129,6 +164,7 @@ setup_file() {
 }
 
 @test "em_: overwrites previous clipboard content" {
+	stub_macos_clipboard
 	skip_if_no_clipboard_tool
 
 	# Put something in clipboard first
@@ -159,6 +195,7 @@ setup_file() {
 }
 
 @test "em_: exits with code 0 on success" {
+	stub_macos_clipboard
 	skip_if_no_clipboard_tool
 	run "$SCRIPTS_DIR/em_"
 	[ "$status" -eq 0 ]
@@ -167,10 +204,25 @@ setup_file() {
 # Phase 5: User Story 3 - Cross-platform tests
 @test "en_: works on macOS with pbcopy" {
 	[[ "$(uname -s)" == "Darwin" ]] || skip "Not macOS"
-	command -v pbcopy >/dev/null 2>&1 || skip "pbcopy not available"
+	stub_macos_clipboard
 
 	run "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 0 ]
+	# A command substitution would remove a newline that the script copied
+	# after the dash. The test reads the clipboard with --keep-empty-lines,
+	# which keeps that newline in $output, so the comparison detects it.
+	run --keep-empty-lines pbpaste
+	[ "$output" = "–" ]
+}
+
+@test "em_: works on macOS with pbcopy" {
+	[[ "$(uname -s)" == "Darwin" ]] || skip "Not macOS"
+	stub_macos_clipboard
+
+	run "$SCRIPTS_DIR/em_"
+	[ "$status" -eq 0 ]
+	run --keep-empty-lines pbpaste
+	[ "$output" = "—" ]
 }
 
 @test "en_: works on Linux X11 with xclip" {
@@ -210,18 +262,84 @@ setup_file() {
 	[ "$status" -eq 0 ]
 }
 
-@test "_mnn: shows error for unsupported platform" {
-	# This is hard to test without mocking uname, but we can test the error message format
-	run "$SCRIPTS_DIR/_mnn"
-	[ "$status" -ne 0 ]
-	assert_output_contains "must be invoked as 'en_' or 'em_'"
+@test "en_: shows error for unsupported platform" {
+	local bin_dir
+	bin_dir=$(restricted_path bash basename)
+	stub_command "$bin_dir" uname 'echo Plan9'
+
+	run --separate-stderr env PATH="$bin_dir" "$SCRIPTS_DIR/en_"
+	[ "$status" -eq 1 ]
+	[[ "$stderr" == *"Error: Unsupported platform: Plan9."* ]] || false
+	[ -z "$output" ]
 }
 
-@test "_mnn: shows error when clipboard tool missing" {
-	# This would require mocking command -v, which is complex
-	# For now, we test that the script handles missing tools gracefully
-	# by checking it doesn't crash
-	skip "Requires mocking command availability"
+@test "en_: shows error when pbcopy is missing on macOS" {
+	local bin_dir
+	bin_dir=$(restricted_path bash basename)
+	stub_command "$bin_dir" uname 'echo Darwin'
+
+	run --separate-stderr env PATH="$bin_dir" "$SCRIPTS_DIR/en_"
+	[ "$status" -eq 1 ]
+	[[ "$stderr" == *"Error: Clipboard tool 'pbcopy' not found. macOS installs it in /usr/bin; add /usr/bin to PATH."* ]] || false
+	[ -z "$output" ]
+}
+
+@test "en_: shows error when xclip and xsel are missing on X11" {
+	local bin_dir
+	bin_dir=$(restricted_path bash basename)
+	stub_command "$bin_dir" uname 'echo Linux'
+
+	run --separate-stderr env -u WAYLAND_DISPLAY PATH="$bin_dir" "$SCRIPTS_DIR/en_"
+	[ "$status" -eq 1 ]
+	[[ "$stderr" == *"Error: Clipboard tool 'xclip' or 'xsel' not found."* ]] || false
+	[ -z "$output" ]
+}
+
+@test "en_: shows error when wl-copy is missing on Wayland" {
+	local bin_dir
+	bin_dir=$(restricted_path bash basename)
+	stub_command "$bin_dir" uname 'echo Linux'
+
+	run --separate-stderr env WAYLAND_DISPLAY=wayland-0 PATH="$bin_dir" "$SCRIPTS_DIR/en_"
+	[ "$status" -eq 1 ]
+	[[ "$stderr" == *"Error: Clipboard tool 'wl-copy' not found."* ]] || false
+	[ -z "$output" ]
+}
+
+@test "en_: shows error when clip.exe is missing on Windows" {
+	local bin_dir
+	bin_dir=$(restricted_path bash basename)
+	stub_command "$bin_dir" uname 'echo MINGW64_NT-10.0'
+
+	run --separate-stderr env PATH="$bin_dir" "$SCRIPTS_DIR/en_"
+	[ "$status" -eq 1 ]
+	[[ "$stderr" == *"Error: Clipboard tool 'clip.exe' not found. Windows installs it in its System32 directory; add that directory to PATH."* ]] || false
+	[ -z "$output" ]
+}
+
+@test "en_: passes the clipboard command's arguments as separate words" {
+	local bin_dir
+	bin_dir=$(restricted_path bash basename cat)
+	stub_command "$bin_dir" uname 'echo Linux'
+	# shellcheck disable=SC2016  # The stub expands these when it runs, not this test.
+	stub_command "$bin_dir" xclip 'printf "%s\n" "$@" >"${0%/*}/xclip-args"; cat >"${0%/*}/xclip-input"'
+
+	run --separate-stderr env -u WAYLAND_DISPLAY PATH="$bin_dir" "$SCRIPTS_DIR/en_"
+	[ "$status" -eq 0 ]
+	[ "$(cat "$bin_dir/xclip-args")" = $'-selection\nclipboard' ]
+	[ "$(cat "$bin_dir/xclip-input")" = "–" ]
+}
+
+@test "en_: shows error when the clipboard command fails" {
+	local bin_dir
+	bin_dir=$(restricted_path bash basename cat)
+	stub_command "$bin_dir" uname 'echo Linux'
+	stub_command "$bin_dir" xclip 'cat >/dev/null; exit 3'
+
+	run --separate-stderr env -u WAYLAND_DISPLAY PATH="$bin_dir" "$SCRIPTS_DIR/en_"
+	[ "$status" -eq 1 ]
+	[ "$stderr" = "Error: Failed to copy to clipboard with 'xclip' (exit status 3)." ]
+	[ -z "$output" ]
 }
 
 # Phase 6: User Story 4 - Help tests
@@ -255,6 +373,13 @@ setup_file() {
 	assert_output_contains "em dash"
 }
 
+@test "en_: help goes to stdout with nothing on stderr" {
+	run --separate-stderr "$SCRIPTS_DIR/en_" -h
+	[ "$status" -eq 0 ]
+	[[ "$output" == "Usage: en_ [OPTIONS]"* ]] || false
+	[ -z "$stderr" ]
+}
+
 @test "en_: help option exits with code 0" {
 	run "$SCRIPTS_DIR/en_" --help
 	[ "$status" -eq 0 ]
@@ -262,22 +387,64 @@ setup_file() {
 
 # Phase 7: Polish - Error handling tests
 @test "_mnn: shows error when invoked directly" {
-	run "$SCRIPTS_DIR/_mnn"
+	run --separate-stderr "$SCRIPTS_DIR/_mnn"
 	[ "$status" -eq 1 ]
+	[[ "$stderr" == *"Error: This script must be invoked as 'en_' or 'em_'"* ]] || false
+	[ -z "$output" ]
+}
+
+@test "_mnn: --help works when invoked directly" {
+	run --separate-stderr "$SCRIPTS_DIR/_mnn" --help
+	[ "$status" -eq 0 ]
+	[[ "$output" == "Usage: _mnn [OPTIONS]"* ]] || false
 	assert_output_contains "must be invoked as 'en_' or 'em_'"
+	[ -z "$stderr" ]
+}
+
+@test "_mnn: -h works when invoked directly" {
+	run --separate-stderr "$SCRIPTS_DIR/_mnn" -h
+	[ "$status" -eq 0 ]
+	[[ "$output" == "Usage: _mnn [OPTIONS]"* ]] || false
+	assert_output_contains "must be invoked as 'en_' or 'em_'"
+	[ -z "$stderr" ]
+}
+
+@test "_mnn: unknown option exits 2 when invoked directly" {
+	run --separate-stderr "$SCRIPTS_DIR/_mnn" --invalid
+	[ "$status" -eq 2 ]
+	[[ "$stderr" == *"Error: Unknown option '--invalid'"* ]] || false
+	[[ "$stderr" == *"Run '_mnn --help' for usage information."* ]] || false
+	[ -z "$output" ]
 }
 
 @test "en_: shows error for invalid option" {
-	run "$SCRIPTS_DIR/en_" --invalid
+	run --separate-stderr "$SCRIPTS_DIR/en_" --invalid
 	[ "$status" -eq 2 ]
-	assert_output_contains "Unknown option"
+	[[ "$stderr" == *"Error: Unknown option '--invalid'"* ]] || false
+	[ -z "$output" ]
 }
 
 @test "en_: error messages go to stderr" {
-	run "$SCRIPTS_DIR/en_" --invalid
+	run --separate-stderr "$SCRIPTS_DIR/en_" --invalid
 	[ "$status" -eq 2 ]
-	# stderr should contain error, stdout should be empty or minimal
-	[ -n "$output" ]
+	[[ "$stderr" == *"Run 'en_ --help' for usage information."* ]] || false
+	[ -z "$output" ]
+}
+
+@test "en_: shows error for unexpected argument" {
+	run --separate-stderr "$SCRIPTS_DIR/en_" foo
+	[ "$status" -eq 2 ]
+	[[ "$stderr" == *"Error: Unexpected argument 'foo'; en_ accepts no arguments."* ]] || false
+	[[ "$stderr" == *"Run 'en_ --help' for usage information."* ]] || false
+	[[ "$stderr" != *"Unknown option"* ]] || false
+	[ -z "$output" ]
+}
+
+@test "em_: shows error for unexpected argument before -h" {
+	run --separate-stderr "$SCRIPTS_DIR/em_" foo -h
+	[ "$status" -eq 2 ]
+	[[ "$stderr" == *"Error: Unexpected argument 'foo'"* ]] || false
+	[ -z "$output" ]
 }
 
 @test "_mnn: follows set -euo pipefail pattern" {
@@ -286,6 +453,7 @@ setup_file() {
 }
 
 @test "en_: multiple sequential invocations overwrite clipboard" {
+	stub_macos_clipboard
 	skip_if_no_clipboard_tool
 
 	# Run en_ first

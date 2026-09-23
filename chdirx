@@ -5,10 +5,11 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 RECURSIVE=false
 TARGET_DIR=""
+TARGET_DIR_SET=false
 
 usage() {
 	cat <<EOF
-Usage: $SCRIPT_NAME [OPTIONS] <directory>
+Usage: $SCRIPT_NAME [OPTIONS] [--] <directory>
 
 Adds executable permission to scripts in the specified directory. If a file starts with
 a shebang (#!), it will be made executable.
@@ -18,44 +19,67 @@ Arguments:
 
 Options:
   -r                Recursively process subdirectories, including hidden ones.
+  --                Treat the remaining argument as the directory, even if it begins with a dash.
   -h, --help        Show this help message and exit.
 
 Examples:
   $SCRIPT_NAME mydir
   $SCRIPT_NAME -r mydir   # Process subdirectories as well
   $SCRIPT_NAME mydir -r
+  $SCRIPT_NAME -- -mydir
 EOF
-	exit "$1"
 }
 
-# Parse arguments manually to allow flexible order
+# The synopsis accepts exactly one directory, so a second one is a usage error.
+# A separate flag records that a directory was given, because an empty
+# argument leaves TARGET_DIR empty. The flag lets the parser reject a second
+# directory after an empty one, and it tells a missing directory, which is a
+# usage error, from an empty one, which cannot be used.
+set_target_dir() {
+	if [[ $TARGET_DIR_SET == true ]]; then
+		echo "Error: Multiple directories specified: '$TARGET_DIR' and '$1'" >&2
+		usage >&2
+		exit 2
+	fi
+	TARGET_DIR="$1"
+	TARGET_DIR_SET=true
+}
+
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-h | --help)
-		usage 0
+		usage
+		exit 0
 		;;
 	-r)
 		RECURSIVE=true
 		;;
+	--)
+		# Each remaining argument goes through set_target_dir, so that an extra
+		# argument after "--" is rejected instead of ignored.
+		shift
+		while [[ $# -gt 0 ]]; do
+			set_target_dir "$1"
+			shift
+		done
+		break
+		;;
 	-*)
 		echo "Error: Unknown option '$1'" >&2
-		usage 1
+		usage >&2
+		exit 2
 		;;
 	*)
-		if [[ -n $TARGET_DIR ]]; then
-			echo "Error: Multiple directories specified: '$TARGET_DIR' and '$1'" >&2
-			usage 1
-		fi
-		TARGET_DIR="$1"
+		set_target_dir "$1"
 		;;
 	esac
 	shift
 done
 
-# Ensure exactly one directory is provided
-if [[ -z $TARGET_DIR ]]; then
+if [[ $TARGET_DIR_SET == false ]]; then
 	echo "Error: No directory specified." >&2
-	usage 1
+	usage >&2
+	exit 2
 fi
 
 if [[ ! -d $TARGET_DIR ]]; then
@@ -65,20 +89,31 @@ fi
 
 process_directory() {
 	local dir="$1"
-	# Iterate over both normal and hidden files/directories
+	local file
+	# The * pattern does not match names that begin with a dot, so the .*
+	# pattern is needed for hidden files and directories.
 	for file in "$dir"/.* "$dir"/*; do
 		# Skip if file doesn't exist (handles empty dirs) or if it's `.` or `..`
 		[[ -e $file && $file != "$dir/." && $file != "$dir/.." ]] || continue
 		# Skip symlinks to prevent loops and operating outside target tree
 		[[ -L $file ]] && continue
 		if [[ -f $file ]]; then
-			# Check if the first line starts with #!
-			if head -n 1 "$file" | grep -q '^#!'; then
-				chmod +x "$file"
+			# Without this check, head reports the failure in its own unprefixed
+			# message and the file is skipped as if it had no shebang.
+			if [[ ! -r $file ]]; then
+				echo "Warning: Skipping '$file' because it is not readable." >&2
+				continue
+			fi
+			if head -n 1 -- "$file" | grep -q '^#!'; then
+				# BSD chmod stops parsing options at the mode operand, so a "--"
+				# placed after the mode would be read as a file name.
+				if ! chmod -- +x "$file"; then
+					echo "Error: Failed to add executable permission to '$file'." >&2
+					exit 1
+				fi
 				echo "Added executable permission to: $file"
 			fi
 		elif [[ -d $file && $RECURSIVE == true ]]; then
-			# Recursively process subdirectories
 			process_directory "$file"
 		fi
 	done
