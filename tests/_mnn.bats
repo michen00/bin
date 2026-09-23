@@ -80,8 +80,10 @@ stub_macos_clipboard() {
 # dash without naming its command says that the invoked name copies that dash.
 assert_dashes_attributed_to_commands() {
 	local stray
-	stray=$(grep -E '–|U\+2013' <<<"$output" | grep -v 'en_' || true)
-	stray+=$(grep -E '—|U\+2014' <<<"$output" | grep -v 'em_' || true)
+	stray=$(
+		grep -E '–|U\+2013' <<<"$output" | grep -v 'en_' || true
+		grep -E '—|U\+2014' <<<"$output" | grep -v 'em_' || true
+	)
 	if [[ -n "$stray" ]]; then
 		echo "Expected every dash to be attributed to en_ or em_; found: $stray"
 		return 1
