@@ -105,6 +105,8 @@ From the project root, run `make develop` to set up the project for development.
 
 #### Development workflow
 
+Before writing or changing a script, read the [constitution](.specify/memory/constitution.md). It sets the conventions every script here follows; if your change departs from one, say so in the PR and explain why.
+
 Make your changes to the code, then verify everything works:
 
 ```sh
@@ -163,8 +165,8 @@ git push origin <branch name>
 
 And finally, when you are satisfied with your changes, open a new PR.
 
-[issues]: https://github.com/michen00/invisible-squiggles/issues
-[issues_new]: https://github.com/michen00/invisible-squiggles/issues/new
-[issues_bugs]: https://github.com/michen00/invisible-squiggles/issues?q=label%3Abug
-[discussions]: https://github.com/michen00/invisible-squiggles/discussions
-[discussions_new]: https://github.com/michen00/invisible-squiggles/discussions/new/choose
+[issues]: https://github.com/michen00/bin/issues
+[issues_new]: https://github.com/michen00/bin/issues/new
+[issues_bugs]: https://github.com/michen00/bin/issues?q=label%3Abug
+[discussions]: https://github.com/michen00/bin/discussions
+[discussions_new]: https://github.com/michen00/bin/discussions/new/choose

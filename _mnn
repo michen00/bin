@@ -4,21 +4,6 @@ set -euo pipefail
 
 SCRIPT_NAME=$(basename "$0")
 
-# Trap handlers for error recovery
-trap 'cleanup_on_error' ERR
-trap 'cleanup_on_exit' EXIT
-
-cleanup_on_error() {
-	local exit_code=$?
-	echo "Error: Script failed with exit code $exit_code" >&2
-	exit $exit_code
-}
-
-cleanup_on_exit() {
-	# Cleanup logic if needed
-	:
-}
-
 # Detect platform
 detect_platform() {
 	case "$(uname -s)" in
@@ -112,24 +97,29 @@ Examples:
 Note: This script must be invoked as 'en_' or 'em_'. The dash character
 copied is determined by the command name used.
 EOF
-	exit 0
 }
 
 # Main execution
 main() {
 	# Parse command-line arguments
-	if [[ $# -gt 0 ]]; then
+	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		-h | --help)
 			usage
+			exit 0
 			;;
-		*)
+		-*)
 			echo "Error: Unknown option '$1'" >&2
 			echo "Run '$SCRIPT_NAME --help' for usage information." >&2
 			exit 2
 			;;
+		*)
+			echo "Error: Unexpected argument '$1'; $SCRIPT_NAME accepts no arguments." >&2
+			echo "Run '$SCRIPT_NAME --help' for usage information." >&2
+			exit 2
+			;;
 		esac
-	fi
+	done
 
 	# Validate script name
 	if [[ "$SCRIPT_NAME" == "_mnn" ]]; then
@@ -161,7 +151,7 @@ main() {
 	if [[ "$clipboard_cmd" == ERROR:* ]]; then
 		case "$platform" in
 		macos)
-			echo "Error: Clipboard tool 'pbcopy' not found. This should be available on macOS." >&2
+			echo "Error: Clipboard tool 'pbcopy' not found. macOS installs it in /usr/bin; add /usr/bin to PATH." >&2
 			;;
 		x11)
 			echo "Error: Clipboard tool 'xclip' or 'xsel' not found. Please install xclip (preferred) or xsel." >&2
@@ -170,15 +160,20 @@ main() {
 			echo "Error: Clipboard tool 'wl-copy' not found. Please install wl-clipboard package." >&2
 			;;
 		windows)
-			echo "Error: Clipboard tool 'clip.exe' not found. This should be available on Windows." >&2
+			echo "Error: Clipboard tool 'clip.exe' not found. Windows installs it in its System32 directory; add that directory to PATH." >&2
 			;;
 		esac
 		exit 1
 	fi
 
+	# The command string can include arguments, as "xclip -selection clipboard"
+	# does. Split it into an array so that the call below can quote its expansion.
+	local -a clipboard_argv
+	read -r -a clipboard_argv <<<"$clipboard_cmd"
+
 	# Copy to clipboard
-	printf "%s" "$dash" | $clipboard_cmd || {
-		echo "Error: Failed to copy to clipboard: $?" >&2
+	printf "%s" "$dash" | "${clipboard_argv[@]}" || {
+		echo "Error: Failed to copy to clipboard with '${clipboard_argv[0]}' (exit status $?)." >&2
 		exit 1
 	}
 }

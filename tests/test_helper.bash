@@ -5,46 +5,14 @@
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export SCRIPTS_DIR
 
-# Ensure a "python" executable is available on PATH for tests that expect it.
-# If python3 exists but python does not, create a persistent shim directory
-# containing a python -> python3 symlink and prepend it to PATH if needed.
-# Tests that modify PATH should either preserve $PYTHON_SHIM_DIR on PATH or
-# call this helper again after changing PATH.
-ensure_python_symlink() {
-	# If "python" is already available, nothing to do.
-	if command -v python &>/dev/null; then
-		return 0
-	fi
-
-	# If python3 is not available either, we cannot provide a shim.
-	if ! command -v python3 &>/dev/null; then
-		return 0
-	fi
-
-	# Lazily create a persistent shim directory once per test run.
-	if [[ -z "${PYTHON_SHIM_DIR:-}" ]]; then
-		PYTHON_SHIM_DIR="$(mktemp -d)"
-		export PYTHON_SHIM_DIR
-	fi
-
-	mkdir -p "$PYTHON_SHIM_DIR"
-	ln -sf "$(command -v python3)" "$PYTHON_SHIM_DIR/python"
-
-	# Prepend the shim directory to PATH if it's not already present.
-	case ":$PATH:" in
-	*":$PYTHON_SHIM_DIR:"*) ;;
-	*) export PATH="$PYTHON_SHIM_DIR:$PATH" ;;
-	esac
-}
+# bats_require_minimum_version first appeared in bats 1.7.0.
+bats_require_minimum_version 1.7.0
 
 # Setup function - runs before each test
 setup() {
 	# Create a temporary directory for test files
 	TEST_TEMP_DIR="$(mktemp -d)"
 	cd "$TEST_TEMP_DIR" || return 1
-
-	# Ensure a "python" command is available on PATH for tests that expect it.
-	ensure_python_symlink
 }
 
 # Teardown function - runs after each test
@@ -52,14 +20,6 @@ teardown() {
 	# Clean up temporary directory
 	if [[ -n "$TEST_TEMP_DIR" && -d "$TEST_TEMP_DIR" ]]; then
 		rm -rf "$TEST_TEMP_DIR"
-	fi
-}
-
-# Teardown function - runs once after all tests in a file
-teardown_file() {
-	# Clean up python shim directory if it was created
-	if [[ -n "${PYTHON_SHIM_DIR:-}" && -d "$PYTHON_SHIM_DIR" ]]; then
-		rm -rf "$PYTHON_SHIM_DIR"
 	fi
 }
 
@@ -71,6 +31,21 @@ setup_git_repo() {
 	echo "initial" >README.md
 	git add README.md
 	git commit -m "Initial commit"
+}
+
+# Helper to build a PATH that contains only the named commands, so that a
+# test can run a script as if every other command were not installed
+# Parameters:
+#   $@ - commands to make available
+# Outputs: the directory to use as PATH
+restricted_path() {
+	local dir="$TEST_TEMP_DIR/restricted-bin"
+	local cmd
+	mkdir -p "$dir"
+	for cmd in "$@"; do
+		ln -sf "$(command -v "$cmd")" "$dir/$cmd"
+	done
+	echo "$dir"
 }
 
 # Helper to check if output contains a substring
@@ -97,6 +72,33 @@ assert_output_not_contains() {
 	if [[ "$output" == *"$unexpected"* ]]; then
 		echo "Expected output NOT to contain: $unexpected"
 		echo "Actual output: $output"
+		return 1
+	fi
+}
+
+# Helper to check if stderr contains a substring
+# Parameters:
+#   $1 - expected substring
+# Note: $stderr is set by BATS 'run --separate-stderr'
+assert_stderr_contains() {
+	local expected="$1"
+	# shellcheck disable=SC2154  # $stderr is set by BATS
+	if [[ "$stderr" != *"$expected"* ]]; then
+		echo "Expected stderr to contain: $expected"
+		echo "Actual stderr: $stderr"
+		return 1
+	fi
+}
+
+# Helper to check if stderr does NOT contain a substring
+# Parameters:
+#   $1 - unexpected substring
+# Note: $stderr is set by BATS 'run --separate-stderr'
+assert_stderr_not_contains() {
+	local unexpected="$1"
+	if [[ "$stderr" == *"$unexpected"* ]]; then
+		echo "Expected stderr NOT to contain: $unexpected"
+		echo "Actual stderr: $stderr"
 		return 1
 	fi
 }

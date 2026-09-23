@@ -1,10 +1,17 @@
 #!/usr/bin/env bats
 
-bats_require_minimum_version 1.5.0
-
 load 'test_helper'
 
 VALIDATION_SCRIPT="$SCRIPTS_DIR/.github/scripts/validate-scripts.sh"
+
+# Helper to check that a run failed validation: exit status 1, nothing on
+# stdout, and a diagnostic on stderr whose first line is the Error banner
+# Note: $status, $output and $stderr are set by BATS 'run --separate-stderr'
+assert_validation_failed() {
+	[ "$status" -eq 1 ]
+	[ -z "$output" ]
+	[ "${stderr%%$'\n'*}" = "Error: Validation failed" ]
+}
 
 # Setup function - runs before each test
 setup() {
@@ -43,17 +50,76 @@ teardown() {
 	/usr/bin/env bash -n "$VALIDATION_SCRIPT"
 }
 
+@test "validate-scripts: refuses to run on bash older than 4.4" {
+	# macOS /bin/bash is 3.2, so this test runs on macOS and is skipped on a
+	# system whose /bin/bash is 4.4 or later.
+	if [[ ! -x /bin/bash ]] || ! /bin/bash -c '((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4)))'; then
+		skip "requires a /bin/bash older than 4.4"
+	fi
+	run --separate-stderr /bin/bash "$VALIDATION_SCRIPT"
+	[ "$status" -eq 1 ]
+	[ -z "$output" ]
+	assert_stderr_contains "Error: This script requires bash 4.4 or later (found: "
+	assert_stderr_contains "brew install bash"
+}
+
 @test "validate-scripts: --help displays usage information" {
-	run "$VALIDATION_SCRIPT" --help
+	run --separate-stderr "$VALIDATION_SCRIPT" --help
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
 	assert_output_contains "EXEMPTED_SCRIPT"
+	[ -z "$stderr" ]
 }
 
 @test "validate-scripts: -h displays usage information" {
-	run "$VALIDATION_SCRIPT" -h
+	run --separate-stderr "$VALIDATION_SCRIPT" -h
 	[ "$status" -eq 0 ]
 	assert_output_contains "Usage:"
+	[ -z "$stderr" ]
+}
+
+@test "validate-scripts: unknown long option exits 2 with an error on stderr" {
+	run --separate-stderr "$VALIDATION_SCRIPT" --bogus
+	[ "$status" -eq 2 ]
+	assert_stderr_contains "Error: Unknown option '--bogus'"
+	assert_stderr_contains "Usage:"
+	[ -z "$output" ]
+}
+
+@test "validate-scripts: unknown short option exits 2 with an error on stderr" {
+	run --separate-stderr "$VALIDATION_SCRIPT" -x
+	[ "$status" -eq 2 ]
+	assert_stderr_contains "Error: Unknown option '-x'"
+	[ -z "$output" ]
+}
+
+@test "validate-scripts: -- allows exempting a script whose name begins with a dash" {
+	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' >-dash-script # No test file or README entry
+	chmod +x script1 script2 ./-dash-script
+	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' >tests/script2.bats
+	chmod +x tests/script1.bats tests/script2.bats
+
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh -- -dash-script
+	[ "$status" -eq 0 ]
+	assert_output_contains "Exempted: 1"
+}
+
+@test "validate-scripts: arguments after -- are not parsed as options" {
+	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' >script2
+	chmod +x script1 script2
+	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' >tests/script2.bats
+	chmod +x tests/script1.bats tests/script2.bats
+
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh -- --help
+	[ "$status" -eq 0 ]
+	assert_output_contains "Validation passed"
+	assert_output_contains "Exempted: 1"
+	assert_output_not_contains "Usage:"
 }
 
 @test "validate-scripts: validation passes when all scripts have README entries and test files" {
@@ -84,12 +150,12 @@ teardown() {
 	echo '#!/usr/bin/env bats' >tests/script3.bats
 	chmod +x tests/script1.bats tests/script2.bats tests/script3.bats
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -eq 1 ]
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
 	# With new validation order: correspondence check runs before count check
 	# So specific error is reported (missing README entry for script3)
-	assert_output_contains "Missing README Entries"
-	assert_output_contains "script3"
+	assert_stderr_contains "Missing README Entries"
+	assert_stderr_contains "script3"
 }
 
 @test "validate-scripts: validation fails when README entry references non-existent script" {
@@ -111,12 +177,12 @@ teardown() {
 - [`nonexistent`](nonexistent): This script doesn't exist.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -eq 1 ]
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
 	# With new validation order: correspondence check runs before count check
 	# So specific error is reported (orphaned README entry for nonexistent)
-	assert_output_contains "Orphaned README Entries"
-	assert_output_contains "nonexistent"
+	assert_stderr_contains "Orphaned README Entries"
+	assert_stderr_contains "nonexistent"
 }
 
 @test "validate-scripts: validation fails when script missing test file" {
@@ -130,10 +196,10 @@ EOF
 	chmod +x tests/script1.bats
 	# script2.bats is missing
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -eq 1 ]
-	assert_output_contains "Missing Test Files"
-	assert_output_contains "script2"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Missing Test Files"
+	assert_stderr_contains "script2"
 }
 
 @test "validate-scripts: exempted scripts are excluded from validation" {
@@ -201,9 +267,10 @@ EOF
 - [script1](script1): First test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -eq 1 ]
-	assert_output_contains "Formatting Errors"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Formatting Errors"
+	assert_stderr_contains "Expected format:"
 }
 
 @test "validate-scripts: validation fails when description doesn't start with capital letter" {
@@ -222,9 +289,10 @@ EOF
 - [`script1`](script1): first test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -eq 1 ]
-	assert_output_contains "Formatting Errors"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Formatting Errors"
+	assert_stderr_contains "must start with capital letter"
 }
 
 @test "validate-scripts: validation fails when description doesn't end with period" {
@@ -243,9 +311,10 @@ EOF
 - [`script1`](script1): First test script
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -eq 1 ]
-	assert_output_contains "Formatting Errors"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Formatting Errors"
+	assert_stderr_contains "must end with period"
 }
 
 @test "validate-scripts: validation fails when link text doesn't match link URL" {
@@ -264,9 +333,10 @@ EOF
 - [`script1`](script2): First test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -eq 1 ]
-	assert_output_contains "Formatting Errors"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Formatting Errors"
+	assert_stderr_contains "doesn't match URL"
 }
 
 @test "validate-scripts: validation passes when all entries properly formatted" {
@@ -353,9 +423,9 @@ EOF
 - [`script1`](script1): First test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -eq 1 ]
-	assert_output_contains "Sorting Errors"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Sorting Errors"
 }
 
 @test "validate-scripts: validation passes when entries are alphabetically sorted" {
@@ -402,14 +472,36 @@ EOF
 - [`script2`](script2): Second test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -eq 1 ]
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
 	# With new validation order: correspondence check runs before count check
 	# So specific error is reported (missing README entry for script3)
 	# Note: Count check still exists as a fallback but won't be triggered
 	# when correspondence check catches the specific issue first
-	assert_output_contains "Missing README Entries"
-	assert_output_contains "script3"
+	assert_stderr_contains "Missing README Entries"
+	assert_stderr_contains "script3"
+}
+
+@test "validate-scripts: validation fails with a count mismatch when a README entry is duplicated" {
+	echo '#!/usr/bin/env bash' >script1
+	chmod +x script1
+	echo '#!/usr/bin/env bats' >tests/script1.bats
+	chmod +x tests/script1.bats
+
+	# Each entry is well formed and names an existing script, so only the
+	# count check detects the duplicate
+	cat >README.md <<'EOF'
+# Test Repository
+
+## Scripts
+
+- [`script1`](script1): First test script.
+- [`script1`](script1): First test script.
+EOF
+
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Count Mismatch:"
 }
 
 @test "validate-scripts: validation passes when counts match (allows extra test files)" {
@@ -480,9 +572,9 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -ne 0 ]
-	assert_output_contains "README-referenced script 'script1' lacks shebang"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "README-referenced script 'script1' lacks shebang"
 }
 
 @test "validate-scripts: validation fails when script lacks executable permissions" {
@@ -499,9 +591,9 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -ne 0 ]
-	assert_output_contains "README-referenced script 'script1' lacks executable permissions"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "README-referenced script 'script1' lacks executable permissions"
 }
 
 @test "validate-scripts: validation fails when test file lacks shebang" {
@@ -522,9 +614,9 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -ne 0 ]
-	assert_output_contains "Test file 'tests/script1.bats' lacks shebang"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Test file 'tests/script1.bats' lacks shebang"
 }
 
 @test "validate-scripts: validation fails when test file lacks executable permissions" {
@@ -546,9 +638,9 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -ne 0 ]
-	assert_output_contains "Test file 'tests/script1.bats' lacks executable permissions"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Test file 'tests/script1.bats' lacks executable permissions"
 }
 
 @test "validate-scripts: validation fails when README-referenced script lacks shebang or executable permissions" {
@@ -565,9 +657,9 @@ EOF
 - [`script1`](script1): Test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -ne 0 ]
-	assert_output_contains "README-referenced script 'script1' lacks executable permissions"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "README-referenced script 'script1' lacks executable permissions"
 }
 
 @test "validate-scripts: validation stops immediately on first error (fail-fast behavior)" {
@@ -592,16 +684,16 @@ EOF
 - [`script2`](script2): first test script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -ne 0 ]
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
 	# With new validation order: formatting check runs first
 	# Should only report the first error (formatting error for script2: lowercase 'first')
-	assert_output_contains "Formatting Errors"
-	assert_output_contains "script2"
-	assert_output_contains "must start with capital letter"
+	assert_stderr_contains "Formatting Errors"
+	assert_stderr_contains "script2"
+	assert_stderr_contains "must start with capital letter"
 	# Should NOT report the count mismatch or missing README entry (fail-fast stops at first error)
-	assert_output_not_contains "Missing README Entries"
-	assert_output_not_contains "Count Mismatch"
+	assert_stderr_not_contains "Missing README Entries"
+	assert_stderr_not_contains "Count Mismatch"
 }
 
 @test "validate-scripts: HTML comments in README Scripts section are ignored" {
@@ -760,6 +852,31 @@ EOF
 	[ "$status" -eq 0 ]
 }
 
+@test "validate-scripts: combined README entry for two symlink aliases is rejected" {
+	# Create symlink target script
+	echo '#!/usr/bin/env bash' >core-script
+	chmod +x core-script
+	echo '#!/usr/bin/env bats' >tests/core-script.bats
+	chmod +x tests/core-script.bats
+	ln -s core-script alias-a
+	ln -s core-script alias-b
+
+	# A README entry documents exactly one script or alias
+	cat >README.md <<'EOF'
+# Test Repository
+
+## Scripts
+
+- [`alias-a`](alias-a): First alias script.
+- [`alias-a`](alias-a) / [`alias-b`](alias-b): Combined entry.
+- [`alias-b`](alias-b): Second alias script.
+EOF
+
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Formatting Errors:"
+}
+
 @test "validate-scripts: README entry for dangling symlink alias is rejected" {
 	# Create script to satisfy script/test coverage
 	echo '#!/usr/bin/env bash' >script1
@@ -779,10 +896,10 @@ EOF
 - [`script1`](script1): Valid script.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -ne 0 ]
-	assert_output_contains "Orphaned README Entries:"
-	assert_output_contains "README entry for 'alias-a' references a non-existent script"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Orphaned README Entries:"
+	assert_stderr_contains "README entry for 'alias-a' references a non-existent script"
 }
 
 @test "validate-scripts: validation fails when README is malformed (missing Scripts section)" {
@@ -801,9 +918,65 @@ EOF
 Some content here.
 EOF
 
-	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
-	[ "$status" -ne 0 ]
-	assert_output_contains "README.md is missing '## Scripts' section"
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	[ "$status" -eq 1 ]
+	[ -z "$output" ]
+	assert_stderr_contains "Error: README.md is missing the '## Scripts' section; add one that lists each script"
+}
+
+@test "validate-scripts: validation fails when README.md does not exist" {
+	echo '#!/usr/bin/env bash' >script1
+	chmod +x script1
+	echo '#!/usr/bin/env bats' >tests/script1.bats
+	chmod +x tests/script1.bats
+	rm README.md
+
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	[ "$status" -eq 1 ]
+	[ -z "$output" ]
+	assert_stderr_contains "Error: README.md not found"
+}
+
+@test "validate-scripts: validation fails when a README-referenced script is not readable" {
+	if [[ $EUID -eq 0 ]]; then
+		skip "root can read a file whatever its permissions"
+	fi
+	echo '#!/usr/bin/env bash' >script1
+	chmod 000 script1
+
+	cat >README.md <<'EOF'
+# Test Repository
+
+## Scripts
+
+- [`script1`](script1): Test script.
+EOF
+
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "README-referenced script 'script1' is not readable"
+}
+
+@test "validate-scripts: validation fails when a test file is not readable" {
+	if [[ $EUID -eq 0 ]]; then
+		skip "root can read a file whatever its permissions"
+	fi
+	echo '#!/usr/bin/env bash' >script1
+	chmod +x script1
+	echo '#!/usr/bin/env bats' >tests/script1.bats
+	chmod 000 tests/script1.bats
+
+	cat >README.md <<'EOF'
+# Test Repository
+
+## Scripts
+
+- [`script1`](script1): Test script.
+EOF
+
+	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
+	assert_validation_failed
+	assert_stderr_contains "Test file 'tests/script1.bats' is not readable"
 }
 
 @test "validate-scripts: validation handles empty repository gracefully" {

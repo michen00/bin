@@ -8,15 +8,18 @@ INCLUDE_SUMMARY=true
 
 HELP=$(
 	cat <<EOF
-Usage: $SCRIPT_NAME [HASH] [FILE]
+Usage: $SCRIPT_NAME [OPTIONS] [--] [HASH] [FILE]
 
 Adds the given Git commit hash to a specified file (default: $DEFAULT_FILE).
 If HASH is not provided, the last commit hash is used.
 
-Options:
+Arguments:
   HASH          Git commit hash to add. If omitted, uses the last commit.
   FILE          File to update. Defaults to "$DEFAULT_FILE".
+
+Options:
   --no-summary  Do not include the commit summary in the file.
+  --            Read every later argument as HASH or FILE, not as an option.
   -h, --help    Show this help message and exit.
 
 Examples:
@@ -39,16 +42,56 @@ while [[ $# -gt 0 ]]; do
 		INCLUDE_SUMMARY=false
 		shift
 		;;
+	--)
+		shift
+		POSITIONAL+=("$@")
+		break
+		;;
+	-*)
+		echo "Error: Unknown option '$1'" >&2
+		echo "$HELP" >&2
+		exit 2
+		;;
 	*)
 		POSITIONAL+=("$1")
 		shift
 		;;
 	esac
 done
-set -- "${POSITIONAL[@]}"
+# bash < 4.4 treats "${POSITIONAL[@]}" as unbound under `set -u` when the
+# array is empty, so expand it only when it has elements.
+set -- ${POSITIONAL[@]+"${POSITIONAL[@]}"}
+
+if [[ $# -gt 2 ]]; then
+	echo "Error: Unexpected argument '$3'; $SCRIPT_NAME accepts at most HASH and FILE." >&2
+	echo "$HELP" >&2
+	exit 2
+fi
 
 HASH_ARG=${1:-}
 FILE=${2:-$DEFAULT_FILE}
+
+# ach compares FILE with the names that git gives staged paths. git names a
+# path from the repository root without . or .. components or extra slashes,
+# so a FILE written another way, such as ./FILE, would not match its own
+# staged entry, and ach would unstage and stash it as a different file.
+case "/$FILE/" in
+*/./* | */../* | *//*)
+	echo "Error: Cannot use '$FILE' as FILE, because it is not in the form that git uses for staged paths." >&2
+	echo "Give FILE relative to the repository root, without a leading or trailing slash, repeated slashes, or . or .. components." >&2
+	exit 1
+	;;
+esac
+
+if ! command -v git >/dev/null 2>&1; then
+	echo "Error: 'git' is required but not installed." >&2
+	echo "Install it from: https://git-scm.com/downloads" >&2
+	exit 1
+fi
+
+# FILE and the staged paths are file names, not patterns. Without this, git
+# reads a name such as [id].tsx as a glob that also matches d.tsx.
+export GIT_LITERAL_PATHSPECS=1
 
 # Check we're at the root of a git repository (including linked worktrees).
 # Guard `git rev-parse --show-prefix` so a failure under `set -euo pipefail`
@@ -56,51 +99,65 @@ FILE=${2:-$DEFAULT_FILE}
 # `--show-prefix` returns the empty string only at the top of the working tree,
 # avoiding absolute-path comparisons that can mismatch under symlinks (e.g. on
 # macOS where `/tmp` resolves to `/private/tmp`).
-if ! prefix=$(git rev-parse --show-prefix 2>/dev/null) || [[ -n "$prefix" ]]; then
+if ! PREFIX=$(git rev-parse --show-prefix 2>/dev/null) || [[ -n "$PREFIX" ]]; then
 	echo "Error: Must be run from the root of a git repository." >&2
 	exit 1
 fi
 
 # State tracking for cleanup
 STASHED=false
-STASH_MSG="ach: auto-stash $FILE"
+STASH_MSG="$SCRIPT_NAME: auto-stash $FILE"
 OTHER_STAGED_FILES=""
+OTHER_INDEX_INFO=""
 FILE_MODIFIED=false
 ORIGINAL_CONTENT=""
 
-# Helper to re-stage files, skipping any that no longer exist
+# Helper to put back the index entries of the other staged files
 restage_other_files() {
-	if [[ -z $OTHER_STAGED_FILES ]]; then
+	if [[ -z $OTHER_INDEX_INFO ]]; then
 		return 0
 	fi
 	echo "Re-staging other files..."
-	while IFS= read -r f; do
-		if [[ -n "$f" && -e "$f" ]]; then
-			# Capture stderr to get actual error message if git add fails
-			local add_error
-			if ! add_error=$(git add -- "$f" 2>&1); then
-				echo "Warning: Failed to re-stage '$f': $add_error" >&2
-			fi
-		elif [[ -n "$f" ]]; then
-			echo "Warning: '$f' no longer exists (was it a new file?)" >&2
-		fi
-	done <<<"$OTHER_STAGED_FILES"
+	# Capture stderr to get the actual error message if git update-index fails
+	local update_error
+	if ! update_error=$(git update-index --index-info 2>&1 <<<"$OTHER_INDEX_INFO"); then
+		echo "Warning: Failed to re-stage the other files: $update_error" >&2
+		echo "Re-stage them by passing these lines to: git update-index --index-info" >&2
+		echo "$OTHER_INDEX_INFO" >&2
+	fi
 	return 0
 }
 
 # Cleanup function to restore state on error
-# shellcheck disable=SC2329
+# shellcheck disable=SC2329  # The EXIT trap invokes cleanup, and shellcheck does not follow trap handlers.
 cleanup() {
 	local exit_code=$?
 	# Restore file if we modified it but didn't commit
-	if [[ $FILE_MODIFIED == true && -n $ORIGINAL_CONTENT ]]; then
-		echo "Restoring original $FILE..." >&2
-		printf '%s' "$ORIGINAL_CONTENT" >"$FILE"
+	if [[ $FILE_MODIFIED == true ]]; then
+		# git add staged the added line in an index entry that matched HEAD.
+		# Reset the entry, so that the line does not stay staged and the stash
+		# pop below can apply. If git add failed, the entry is unchanged, and
+		# git restore can fail too, for the same reason or because a file that
+		# ach created is in neither HEAD nor the index. That failure is
+		# expected, so its message is discarded and the cleanup continues.
+		git restore --staged -- "$FILE" 2>/dev/null || true
+		if [[ $CREATE_MODE == true ]]; then
+			echo "Removing $FILE..."
+			rm -f -- "$FILE"
+		else
+			echo "Restoring original $FILE..."
+			printf '%s' "$ORIGINAL_CONTENT" >"$FILE"
+		fi
 	fi
-	# Restore stashed changes
-	if [[ $STASHED == true ]] && git stash list | head -1 | grep -qF "$STASH_MSG"; then
-		echo "Restoring stashed changes to $FILE..." >&2
-		git stash pop --quiet
+	# Restore stashed changes. The check reads only the newest entry, because
+	# a pipe to head would end git stash list with SIGPIPE when the list is
+	# long, and under pipefail the check would then fail without a message.
+	if [[ $STASHED == true ]] && [[ $(git stash list -1) == *"$STASH_MSG"* ]]; then
+		echo "Restoring stashed changes to $FILE..."
+		if ! git stash pop --quiet; then
+			echo "Error: Could not restore your uncommitted changes to $FILE." >&2
+			echo "Your changes are in stash@{0}. Restore them with: git stash pop" >&2
+		fi
 	fi
 	# Re-stage other files
 	restage_other_files
@@ -120,7 +177,9 @@ else
 	HASH_ENTRY="$HASH_ARG"
 fi
 
-if ! git cat-file -e "$HASH_ENTRY" 2>/dev/null; then
+# A HASH given after -- can begin with a dash. Without --end-of-options, git
+# reads it as an option, and -h then prints git's own usage text to stdout.
+if ! git cat-file -e --end-of-options "$HASH_ENTRY" 2>/dev/null; then
 	echo "Error: Invalid commit hash: $HASH_ENTRY" >&2
 	exit 1
 fi
@@ -130,41 +189,114 @@ SHORT_HASH=$(echo "$HASH_ENTRY" | cut -c 1-7)
 # Check if hash already exists (idempotency)
 CREATE_MODE=false
 if [ -f "$FILE" ]; then
-	if grep -qE "^\s*$SHORT_HASH" "$FILE"; then
+	if [ ! -r "$FILE" ]; then
+		echo "Error: Cannot read $FILE." >&2
+		echo "Make it readable, then run $SCRIPT_NAME again." >&2
+		exit 1
+	fi
+	if grep -qE -- "^\s*$SHORT_HASH" "$FILE"; then
 		echo "Hash $SHORT_HASH already exists in $FILE. Skipping."
 		trap - EXIT
 		exit 0
 	fi
-	# Save original content for recovery
-	ORIGINAL_CONTENT=$(cat "$FILE")
+	# Save original content for recovery. Unlike $(cat), read keeps trailing
+	# newlines, so cleanup can restore the file exactly. read returns 1 when it
+	# reaches the end of the file without finding its NUL delimiter, which is
+	# expected here.
+	IFS= read -r -d '' ORIGINAL_CONTENT <"$FILE" || true
+elif [ -e "$FILE" ] || [ -L "$FILE" ]; then
+	# Cleanup removes a FILE that ach created, so ach must not treat a path
+	# that already exists, such as a symbolic link to a missing file, as new.
+	echo "Error: Cannot add the hash to $FILE, because it exists and is not a regular file." >&2
+	echo "Give a FILE that is a regular file or that does not exist yet." >&2
+	exit 1
 else
 	echo "Creating $FILE with commit hash."
 	CREATE_MODE=true
 fi
 
+# --no-renames lists both paths of a staged rename. Without it, git names a
+# rename by its new path only, so the loop below would leave the deletion of
+# the old path staged, and git stash push would record it.
+# --ignore-submodules=none lists a staged submodule commit that the
+# diff.ignoreSubmodules or submodule.<name>.ignore setting would hide. Without
+# it, the loop below would leave that change staged, and the commit of a staged
+# FILE would include it.
+STAGED_FILES=$(git diff --cached --name-only --no-renames --ignore-submodules=none)
+
 # Check if target file has staged changes
 FILE_ALREADY_STAGED=false
-if git diff --cached --name-only | grep -q "^${FILE}$"; then
+if grep -qFx -- "$FILE" <<<"$STAGED_FILES"; then
 	FILE_ALREADY_STAGED=true
 fi
 
-# Temporarily unstage other files so they don't get included in our commit
-OTHER_STAGED_FILES=$(git diff --cached --name-only | grep -v "^${FILE}$" || true)
+# Temporarily unstage other files so they don't get included in our commit.
+# git add would re-stage a file from the working tree and lose any staged
+# content that differs from it, so each path's index entries are recorded
+# first, for restage_other_files to put back. Each record begins with a line
+# that removes the path, so that a staged deletion is restored and an unmerged
+# path does not keep the entry that git restore gives it.
+OTHER_STAGED_FILES=$(grep -vFx -- "$FILE" <<<"$STAGED_FILES" || true)
 if [[ -n $OTHER_STAGED_FILES ]]; then
 	echo "Temporarily unstaging other files..."
-	while IFS= read -r f; do
-		git restore --staged -- "$f"
+	# git update-index reads mode 0 as a removal, but it still needs an object
+	# name of the repository's hash length, which is the length of HASH_ENTRY.
+	NULL_OID=${HASH_ENTRY//?/0}
+	while IFS= read -r STAGED_FILE; do
+		STAGED_ENTRIES=$(git ls-files -s -- "$STAGED_FILE")
+		git restore --staged -- "$STAGED_FILE"
+		# Record the path only after git restore accepts it. git diff quotes a
+		# path that has unusual characters, and git restore rejects the quoted
+		# form, but git update-index would unquote it and remove the real path.
+		if [[ -n $OTHER_INDEX_INFO ]]; then
+			OTHER_INDEX_INFO+=$'\n'
+		fi
+		OTHER_INDEX_INFO+="0 $NULL_OID"$'\t'"$STAGED_FILE"
+		if [[ -n $STAGED_ENTRIES ]]; then
+			OTHER_INDEX_INFO+=$'\n'"$STAGED_ENTRIES"
+		fi
 	done <<<"$OTHER_STAGED_FILES"
 fi
 
+# If file is already staged, verify the staged content is what we expect and
+# commit it. This must happen before the stash, because git stash push also
+# resets the staged content of the file to HEAD.
+if [[ $FILE_ALREADY_STAGED == true ]]; then
+	STAGED_CONTENT=$(git show ":${FILE}" 2>/dev/null || echo "")
+	# A pipe from echo would fail when the content is larger than the pipe
+	# holds, because grep -q stops reading at the first match, and echo then
+	# ends with SIGPIPE, which pipefail reports as a failure.
+	if ! grep -qE "^\s*$SHORT_HASH" <<<"$STAGED_CONTENT"; then
+		echo "Error: $FILE has staged changes that don't include $SHORT_HASH." >&2
+		echo "Unstage with: git restore --staged -- $FILE" >&2
+		# The EXIT trap stays set, so cleanup re-stages the other files.
+		exit 1
+	fi
+	echo "Hash $SHORT_HASH already in staged $FILE."
+	# The commit below has no pathspec, because with one, git commit takes the
+	# file from the working tree, which lacks the hash, instead of from the
+	# index. The loop above has unstaged every other staged path, so the commit
+	# contains only FILE.
+	# Build commit message
+	COMMIT_MSG="docs(blame): ignore $SHORT_HASH"
+	if [[ $CREATE_MODE == true ]]; then
+		COMMIT_MSG="docs(blame): create $FILE"
+	fi
+	git commit --no-verify -m "$COMMIT_MSG"
+	echo "Committed $FILE."
+	restage_other_files
+	trap - EXIT
+	exit 0
+fi
+
 # Stash uncommitted changes to target file if any
-if [ -f "$FILE" ] && ! git diff --quiet "$FILE" 2>/dev/null; then
+if [ -f "$FILE" ] && ! git diff --quiet -- "$FILE" 2>/dev/null; then
 	echo "Stashing uncommitted changes to $FILE..."
 	git stash push -m "$STASH_MSG" -- "$FILE"
 	STASHED=true
 	# Re-read original content after stashing (now matches HEAD)
 	if [ -f "$FILE" ]; then
-		ORIGINAL_CONTENT=$(cat "$FILE")
+		IFS= read -r -d '' ORIGINAL_CONTENT <"$FILE" || true
 	fi
 fi
 
@@ -175,32 +307,11 @@ if [[ $INCLUDE_SUMMARY == true ]]; then
 	LINE_TO_ADD="$HASH_ENTRY  # $SUMMARY"
 fi
 
-# If file is already staged, verify the staged content is what we expect
-if [[ $FILE_ALREADY_STAGED == true ]]; then
-	STAGED_CONTENT=$(git show ":${FILE}" 2>/dev/null || echo "")
-	# Check if the hash is already in the staged content
-	if echo "$STAGED_CONTENT" | grep -qE "^\s*$SHORT_HASH"; then
-		echo "Hash $SHORT_HASH already in staged $FILE."
-		# Build commit message
-		COMMIT_MSG="docs(blame): ignore $SHORT_HASH"
-		if [[ $CREATE_MODE == true ]]; then
-			COMMIT_MSG="docs(blame): create $FILE"
-		fi
-		git commit --no-verify -m "$COMMIT_MSG" -- "$FILE"
-		echo "Committed $FILE."
-		restage_other_files
-		trap - EXIT
-		exit 0
-	else
-		echo "Error: $FILE has staged changes that don't include $SHORT_HASH." >&2
-		echo "Unstage with: git restore --staged $FILE" >&2
-		restage_other_files
-		trap - EXIT
-		exit 1
-	fi
+# Add the hash to the file. When the last line of FILE has no newline, the
+# added line would join it, and git blame would reject the joined line.
+if [[ -n $ORIGINAL_CONTENT && $ORIGINAL_CONTENT != *$'\n' ]]; then
+	LINE_TO_ADD=$'\n'"$LINE_TO_ADD"
 fi
-
-# Add the hash to the file
 echo "$LINE_TO_ADD" >>"$FILE"
 FILE_MODIFIED=true
 
@@ -218,7 +329,7 @@ if [[ $CREATE_MODE == true && ${#FILE} -lt 38 ]]; then
 fi
 
 # Stage and commit
-git add "$FILE"
+git add -- "$FILE"
 git commit --no-verify -m "$COMMIT_MSG" -- "$FILE"
 FILE_MODIFIED=false # Successfully committed, no need to restore
 echo "Successfully updated and committed $FILE."
@@ -235,7 +346,10 @@ if [[ $STASHED == true ]]; then
 		echo "Restored your uncommitted changes to $FILE."
 	else
 		# Conflict applying stash
-		echo "Warning: Could not cleanly restore your uncommitted changes." >&2
+		echo "Warning: Could not cleanly restore your uncommitted changes to $FILE." >&2
+		if [[ -n $(git ls-files -u -- "$FILE") ]]; then
+			echo "$FILE now has conflict markers. Resolve them, run 'git restore --staged -- $FILE', and then run 'git stash drop'." >&2
+		fi
 		echo "Your changes are in: git stash show -p stash@{0}" >&2
 	fi
 fi
