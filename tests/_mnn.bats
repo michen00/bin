@@ -393,6 +393,30 @@ setup_file() {
 	[ -z "$output" ]
 }
 
+@test "_mnn: --help works when invoked directly" {
+	run --separate-stderr "$SCRIPTS_DIR/_mnn" --help
+	[ "$status" -eq 0 ]
+	[[ "$output" == "Usage: _mnn [OPTIONS]"* ]] || false
+	assert_output_contains "must be invoked as 'en_' or 'em_'"
+	[ -z "$stderr" ]
+}
+
+@test "_mnn: -h works when invoked directly" {
+	run --separate-stderr "$SCRIPTS_DIR/_mnn" -h
+	[ "$status" -eq 0 ]
+	[[ "$output" == "Usage: _mnn [OPTIONS]"* ]] || false
+	assert_output_contains "must be invoked as 'en_' or 'em_'"
+	[ -z "$stderr" ]
+}
+
+@test "_mnn: unknown option exits 2 when invoked directly" {
+	run --separate-stderr "$SCRIPTS_DIR/_mnn" --invalid
+	[ "$status" -eq 2 ]
+	[[ "$stderr" == *"Error: Unknown option '--invalid'"* ]] || false
+	[[ "$stderr" == *"Run '_mnn --help' for usage information."* ]] || false
+	[ -z "$output" ]
+}
+
 @test "en_: shows error for invalid option" {
 	run --separate-stderr "$SCRIPTS_DIR/en_" --invalid
 	[ "$status" -eq 2 ]
