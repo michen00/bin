@@ -5,8 +5,8 @@
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export SCRIPTS_DIR
 
-# `run --separate-stderr` requires bats 1.5.0.
-bats_require_minimum_version 1.5.0
+# bats_require_minimum_version first appeared in bats 1.7.0.
+bats_require_minimum_version 1.7.0
 
 # Setup function - runs before each test
 setup() {
@@ -72,6 +72,33 @@ assert_output_not_contains() {
 	if [[ "$output" == *"$unexpected"* ]]; then
 		echo "Expected output NOT to contain: $unexpected"
 		echo "Actual output: $output"
+		return 1
+	fi
+}
+
+# Helper to check if stderr contains a substring
+# Parameters:
+#   $1 - expected substring
+# Note: $stderr is set by BATS 'run --separate-stderr'
+assert_stderr_contains() {
+	local expected="$1"
+	# shellcheck disable=SC2154  # $stderr is set by BATS
+	if [[ "$stderr" != *"$expected"* ]]; then
+		echo "Expected stderr to contain: $expected"
+		echo "Actual stderr: $stderr"
+		return 1
+	fi
+}
+
+# Helper to check if stderr does NOT contain a substring
+# Parameters:
+#   $1 - unexpected substring
+# Note: $stderr is set by BATS 'run --separate-stderr'
+assert_stderr_not_contains() {
+	local unexpected="$1"
+	if [[ "$stderr" == *"$unexpected"* ]]; then
+		echo "Expected stderr NOT to contain: $unexpected"
+		echo "Actual stderr: $stderr"
 		return 1
 	fi
 }
