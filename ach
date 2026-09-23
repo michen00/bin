@@ -45,7 +45,9 @@ while [[ $# -gt 0 ]]; do
 		;;
 	esac
 done
-set -- "${POSITIONAL[@]}"
+# bash < 4.4 treats "${POSITIONAL[@]}" as unbound under `set -u` when the
+# array is empty, so expand it only when it has elements.
+set -- ${POSITIONAL[@]+"${POSITIONAL[@]}"}
 
 HASH_ARG=${1:-}
 FILE=${2:-$DEFAULT_FILE}
