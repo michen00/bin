@@ -5,107 +5,126 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
-	local exit_code=${1:-0}
 	cat <<EOF
 Usage: $SCRIPT_NAME [OPTIONS] <reference_branch>
 
 Merges the latest changes from a reference branch into the current branch.
 
+This script performs the following steps:
+  1. Ensures you are inside a Git repository with a branch checked out.
+  2. Pulls the latest changes for the current branch, if it has an upstream.
+  3. Fetches the reference branch from origin.
+  4. Merges origin/<reference_branch> into the current branch.
+
+If the current branch is the reference branch, the script stops after step 2.
+
 Arguments:
-  <reference_branch>  The branch to merge into the current branch.
+  <reference_branch>  The branch on origin to merge into the current branch.
 
 Options:
   -h, --help          Show this help message and exit.
-
-This script performs the following steps:
-  1. Ensures you are inside a Git repository.
-  2. Pulls the latest changes for the current branch.
-  3. Fetches updates for the reference branch.
-  4. Merges the reference branch into the current branch.
 
 Examples:
   $SCRIPT_NAME main
   $SCRIPT_NAME feature-branch
 EOF
-	exit "$exit_code"
 }
 
-reference_branch=""
+REFERENCE_BRANCH=""
+# An empty argument leaves REFERENCE_BRANCH empty, so this flag records that a
+# positional argument was given. It lets the loop reject a second one, and it
+# tells a missing reference branch, which is a usage error, from an empty one,
+# which cannot be used.
+REFERENCE_BRANCH_GIVEN=false
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-h | --help)
 		usage
+		exit 0
 		;;
 	-*)
 		echo "Error: Unknown option '$1'" >&2
-		usage 1
+		usage >&2
+		exit 2
 		;;
 	*)
-		if [[ -n $reference_branch ]]; then
-			echo "Error: Multiple reference branches provided: '$reference_branch' and '$1'" >&2
-			usage 1
+		if [[ $REFERENCE_BRANCH_GIVEN == true ]]; then
+			echo "Error: Multiple reference branches provided: '$REFERENCE_BRANCH' and '$1'" >&2
+			usage >&2
+			exit 2
 		fi
-		reference_branch="$1"
+		REFERENCE_BRANCH="$1"
+		REFERENCE_BRANCH_GIVEN=true
 		;;
 	esac
 	shift
 done
 
-# Ensure exactly one reference branch is provided
-if [[ -z $reference_branch ]]; then
+if [[ $REFERENCE_BRANCH_GIVEN == false ]]; then
 	echo "Error: No reference branch specified." >&2
-	usage 1
+	usage >&2
+	exit 2
 fi
 
-# Ensure this is a git repository
+if [[ -z $REFERENCE_BRANCH ]]; then
+	echo "Error: The reference branch name is empty." >&2
+	exit 1
+fi
+
+# The repository check below discards git's stderr, so without this probe a
+# missing git would be reported as "Not inside a Git repository".
+if ! command -v git >/dev/null 2>&1; then
+	echo "Error: 'git' is required but not installed." >&2
+	echo "Install it from: https://git-scm.com/downloads" >&2
+	exit 1
+fi
+
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-	echo "Error: Not inside a git repository."
+	echo "Error: Not inside a Git repository." >&2
 	exit 1
 fi
 
-# Capture the current branch name
-if ! current_branch=$(git branch --show-current); then
-	echo "Error: Failed to determine the current git branch."
+if ! CURRENT_BRANCH=$(git branch --show-current); then
+	echo "Error: Failed to determine the current branch." >&2
 	exit 1
 fi
 
-# Abort if in detached HEAD state
-# Note: git branch --show-current returns empty string only for detached HEAD
-if [[ -z "$current_branch" ]]; then
-	echo "Error: You are in detached HEAD state. Please checkout a branch first."
+# git branch --show-current prints an empty string only for a detached HEAD.
+if [[ -z "$CURRENT_BRANCH" ]]; then
+	echo "Error: You are in detached HEAD state. Please check out a branch first." >&2
 	exit 1
 fi
 
-echo "Current branch is $current_branch"
+echo "Current branch is $CURRENT_BRANCH"
 
-# Only pull if an upstream is configured
+# git pull fails on a branch that has no upstream, so pulling unconditionally
+# would stop the script before the merge for every such branch.
 if git rev-parse --abbrev-ref "@{upstream}" &>/dev/null; then
-	echo "Pulling latest changes for $current_branch"
+	echo "Pulling latest changes for $CURRENT_BRANCH"
 	if ! git pull; then
-		echo "Error: Failed to pull the latest changes for branch '$current_branch'."
+		echo "Error: Failed to pull the latest changes for branch '$CURRENT_BRANCH'." >&2
 		exit 1
 	fi
 else
-	echo "No upstream configured for $current_branch, skipping pull."
+	echo "No upstream configured for $CURRENT_BRANCH, skipping pull."
 fi
 
-if [[ $current_branch == "$reference_branch" ]]; then
-	echo "Warning: The current branch and reference branch are the same: '$current_branch'" >&2
+if [[ $CURRENT_BRANCH == "$REFERENCE_BRANCH" ]]; then
+	echo "Warning: The current branch and reference branch are the same: '$CURRENT_BRANCH'. Skipping the merge." >&2
 	exit 0
 fi
 
-# Ensure the reference branch is up to date
-echo "Fetching latest changes for $reference_branch"
-if ! git fetch origin "$reference_branch"; then
-	echo "Error: Failed to fetch latest changes for '$reference_branch'."
+echo "Fetching latest changes for $REFERENCE_BRANCH"
+if ! git fetch origin "$REFERENCE_BRANCH"; then
+	echo "Error: Failed to fetch latest changes for '$REFERENCE_BRANCH'." >&2
 	exit 1
 fi
 
-# Merge the reference branch into the current branch
-echo "Merging $reference_branch into $current_branch"
-if ! git merge origin/"$reference_branch"; then
-	echo "Error: Failed to merge branch '$reference_branch' into '$current_branch'."
+echo "Merging $REFERENCE_BRANCH into $CURRENT_BRANCH"
+if ! git merge origin/"$REFERENCE_BRANCH"; then
+	echo "Error: Failed to merge branch '$REFERENCE_BRANCH' into '$CURRENT_BRANCH'." >&2
+	echo "If the merge stopped with conflicts, resolve them and commit, or run 'git merge --abort' to cancel it." >&2
 	exit 1
 fi
 
-echo "Successfully updated $current_branch with changes from $reference_branch."
+echo "Successfully updated $CURRENT_BRANCH with changes from $REFERENCE_BRANCH."
