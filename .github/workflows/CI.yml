@@ -41,6 +41,20 @@ jobs:
           bash -c 'echo "BASH_VERSION=$BASH_VERSION"'
       - name: Run BATS tests
         run: bats --jobs 4 --timing tests/*.bats
+      - name: Run root-script tests under /bin/bash (macOS only)
+        # Principle V requires the root scripts to run on macOS's bash 3.2.
+        # With /bin first on PATH, `#!/usr/bin/env bash` resolves to
+        # /bin/bash. validate-scripts.bats is excluded because the script
+        # that it tests requires bash 4.4.
+        if: matrix.os == 'macos-latest'
+        run: |
+          PATH="/bin:$PATH" bash -c 'echo "BASH_VERSION=$BASH_VERSION"'
+          tests=()
+          for test_file in tests/*.bats; do
+            [[ $test_file == tests/validate-scripts.bats ]] ||
+              tests+=("$test_file")
+          done
+          PATH="/bin:$PATH" bats --timing "${tests[@]}"
 
   run-ci:
     name: Run CI (${{ matrix.os }})
