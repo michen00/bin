@@ -83,19 +83,43 @@ select_dash() {
 
 # Display help message
 usage() {
+	local dash sibling
+	case "$SCRIPT_NAME" in
+	en_)
+		dash="an en dash (–, U+2013)"
+		sibling="em_ for an em dash"
+		;;
+	em_)
+		dash="an em dash (—, U+2014)"
+		sibling="en_ for an en dash"
+		;;
+	*)
+		cat <<EOF
+Usage: $SCRIPT_NAME [OPTIONS]
+
+Shared implementation of en_ and em_; run it through one of those names.
+The name decides which dash is copied to the system clipboard:
+
+  en_   en dash (–, U+2013)
+  em_   em dash (—, U+2014)
+
+Options:
+  -h, --help    Show this help message and exit.
+EOF
+		return
+		;;
+	esac
+
 	cat <<EOF
 Usage: $SCRIPT_NAME [OPTIONS]
 
-Copies $(if [[ "$SCRIPT_NAME" == "en_" ]]; then echo "en dash"; else echo "em dash"; fi) (Unicode U+$(if [[ "$SCRIPT_NAME" == "en_" ]]; then echo "2013"; else echo "2014"; fi)) to the system clipboard.
+Copies $dash to the system clipboard. Use $sibling.
 
 Options:
   -h, --help    Show this help message and exit.
 
 Examples:
-  $SCRIPT_NAME           # Copy $(if [[ "$SCRIPT_NAME" == "en_" ]]; then echo "en dash (–)"; else echo "em dash (—)"; fi) to clipboard
-
-Note: This script must be invoked as 'en_' or 'em_'. The dash character
-copied is determined by the command name used.
+  $SCRIPT_NAME
 EOF
 }
 
