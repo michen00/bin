@@ -74,6 +74,20 @@ stub_macos_clipboard() {
 	PATH="$bin_dir:$PATH"
 }
 
+# Helper to check that help text in $output attributes each dash to the command
+# that copies it: every line that shows the en dash or U+2013 names en_, and
+# every line that shows the em dash or U+2014 names em_. A line that shows a
+# dash without naming its command says that the invoked name copies that dash.
+assert_dashes_attributed_to_commands() {
+	local stray
+	stray=$(grep -E '–|U\+2013' <<<"$output" | grep -v 'en_' || true)
+	stray+=$(grep -E '—|U\+2014' <<<"$output" | grep -v 'em_' || true)
+	if [[ -n "$stray" ]]; then
+		echo "Expected every dash to be attributed to en_ or em_; found: $stray"
+		return 1
+	fi
+}
+
 # On platforms other than macOS, the clipboard tests share one resource that no
 # temporary directory can isolate: the system clipboard. Under `bats --jobs N`
 # (CI uses 4), the tests in a file run concurrently, so a sibling test can copy
@@ -385,6 +399,47 @@ setup_file() {
 	[ "$status" -eq 0 ]
 }
 
+@test "en_: help points to em_ for an em dash" {
+	run "$SCRIPTS_DIR/en_" --help
+	[ "$status" -eq 0 ]
+	grep -q 'em_.*em dash' <<<"$output"
+}
+
+@test "em_: help points to en_ for an en dash" {
+	run "$SCRIPTS_DIR/em_" --help
+	[ "$status" -eq 0 ]
+	grep -q 'en_.*en dash' <<<"$output"
+}
+
+@test "en_: help omits the note about invoking the script by another name" {
+	run "$SCRIPTS_DIR/en_" --help
+	[ "$status" -eq 0 ]
+	assert_output_not_contains "must be invoked as"
+}
+
+@test "_mnn: help lists the dash that each command copies" {
+	run "$SCRIPTS_DIR/_mnn" --help
+	[ "$status" -eq 0 ]
+	grep -Eq '^ *en_ .*U\+2013' <<<"$output"
+	grep -Eq '^ *em_ .*U\+2014' <<<"$output"
+}
+
+@test "_mnn: help does not say that _mnn copies a dash" {
+	run "$SCRIPTS_DIR/_mnn" --help
+	[ "$status" -eq 0 ]
+	assert_dashes_attributed_to_commands
+}
+
+@test "_mnn: help under an unrecognized name does not say that name copies a dash" {
+	ln -s "$SCRIPTS_DIR/_mnn" "$TEST_TEMP_DIR/dash"
+
+	run "$TEST_TEMP_DIR/dash" --help
+	[ "$status" -eq 0 ]
+	grep -Eq '^ *en_ .*U\+2013' <<<"$output"
+	grep -Eq '^ *em_ .*U\+2014' <<<"$output"
+	assert_dashes_attributed_to_commands
+}
+
 # Phase 7: Polish - Error handling tests
 @test "_mnn: shows error when invoked directly" {
 	run --separate-stderr "$SCRIPTS_DIR/_mnn"
@@ -397,7 +452,6 @@ setup_file() {
 	run --separate-stderr "$SCRIPTS_DIR/_mnn" --help
 	[ "$status" -eq 0 ]
 	[[ "$output" == "Usage: _mnn [OPTIONS]"* ]] || false
-	assert_output_contains "must be invoked as 'en_' or 'em_'"
 	[ -z "$stderr" ]
 }
 
@@ -405,7 +459,6 @@ setup_file() {
 	run --separate-stderr "$SCRIPTS_DIR/_mnn" -h
 	[ "$status" -eq 0 ]
 	[[ "$output" == "Usage: _mnn [OPTIONS]"* ]] || false
-	assert_output_contains "must be invoked as 'en_' or 'em_'"
 	[ -z "$stderr" ]
 }
 
