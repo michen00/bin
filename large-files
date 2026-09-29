@@ -1,0 +1,61 @@
+#!/bin/bash
+
+set -e
+
+# Function to display help message
+usage() {
+	cat <<EOF
+Usage: large-files [N]
+
+Find the top N largest files in a Git repository.
+
+Arguments:
+  N    Number of large files to display (default: 20)
+
+Description:
+  This script scans the entire Git history and identifies the largest files that
+  have ever existed in the repository. It uses 'git rev-list' to extract object
+  sizes and sorts them to display the largest files.
+
+Requirements:
+  - Ensure you're inside a Git repository.
+  - Install 'numfmt' (available in GNU coreutils) for better size formatting.
+
+Examples:
+  large-files        # Show top 20 largest files
+  large-files 50     # Show top 50 largest files
+EOF
+	exit 0
+}
+
+# Default number of files to display
+NUM_FILES=20
+
+# Parse command-line argument
+if [[ $# -gt 1 ]]; then
+	usage
+elif [[ $# -eq 1 ]]; then
+	NUM_FILES="$1"
+	if ! [[ "$NUM_FILES" =~ ^[0-9]+$ ]]; then
+		echo "Error: N must be a valid integer."
+		usage
+	fi
+fi
+
+# Ensure we are inside a Git repository
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+	echo "Error: Not inside a Git repository."
+	exit 1
+fi
+
+echo "🔍 Finding the $NUM_FILES largest files in the repository..."
+
+# Extract large files from Git history
+git rev-list --objects --all |
+	git cat-file --batch-check='%(objectsize:disk) %(rest)' |
+	sort -rh |
+	head -n "$NUM_FILES" |
+	awk '{ printf "%10s %s\n", $1, $2 }' |
+	numfmt --to=iec-i --suffix=B --padding=7 --field=1
+
+echo "✅ Done!"
