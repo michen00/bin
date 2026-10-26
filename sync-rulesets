@@ -1,0 +1,382 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_NAME=$(basename "$0")
+
+# The review settings that every pull_request rule in every branch ruleset
+# must have. This is the only definition: --help prints it, a dry run
+# compares each rule with it, and --apply writes it.
+BASELINE='{
+  "required_approving_review_count": 1,
+  "dismiss_stale_reviews_on_push": true,
+  "require_last_push_approval": true,
+  "required_review_thread_resolution": true
+}'
+
+# A dry run that finds a ruleset to change exits with this status rather than
+# 1, so that a caller using the dry run as a check can tell a ruleset that
+# differs from a run that failed.
+EXIT_DIFFERS=3
+
+# A stream gets colour codes only when it is a terminal, so that a line
+# written to a file or a pipe begins with its text, such as "Error:".
+BOLD=""
+GREEN=""
+YELLOW=""
+OUT_RESET=""
+if [[ -t 1 ]]; then
+	BOLD=$(tput bold 2>/dev/null || printf '\033[1m')
+	GREEN=$(tput setaf 2 2>/dev/null || printf '\033[0;32m')
+	YELLOW=$(tput setaf 3 2>/dev/null || printf '\033[0;33m')
+	OUT_RESET=$(tput sgr0 2>/dev/null || printf '\033[0m')
+fi
+RED=""
+ERR_RESET=""
+if [[ -t 2 ]]; then
+	RED=$(tput setaf 1 2>/dev/null || printf '\033[0;31m')
+	ERR_RESET=$(tput sgr0 2>/dev/null || printf '\033[0m')
+fi
+
+usage() {
+	local baseline_help="  ${BASELINE//$'\n'/$'\n  '}"
+	cat <<EOF
+Usage: $SCRIPT_NAME [--apply] [--owner OWNER] [--] [REPO ...]
+
+Checks the review settings of the branch rulesets in your GitHub repositories
+against one baseline, printed below, and with --apply makes them match it. It
+also reports the other settings that differ between those rulesets, without
+changing them.
+
+For each repository, it reads every ruleset whose target is a branch. It
+reports each ruleset that has a pull_request rule as matching the baseline, or
+lists each baseline parameter that differs (old → new). It reports a
+repository with no such ruleset as having no review rule. It never creates or
+deletes a ruleset, and it never changes a rule other than pull_request or a
+parameter outside the baseline. After the rulesets, it prints the
+pull_request parameters outside the baseline whose values differ between
+rulesets, and the rule types that some rulesets have and others do not.
+
+By default it only reads (a dry run). With --apply, it updates each ruleset
+that differs: it sends the ruleset back as it read it, with only the baseline
+parameters changed, then reads it again and checks that nothing else changed.
+It stops at the first update that fails or that the read-back does not
+confirm.
+
+Arguments:
+  REPO           The name of a repository of OWNER. Defaults to every
+                 repository of OWNER that is not a fork and not archived.
+
+Options:
+  --apply        Update the rulesets that differ from the baseline.
+  --owner OWNER  The user or organization that owns the repositories.
+                 Defaults to the user that gh is authenticated as.
+  --             End of options; treat the remaining arguments as REPOs.
+  -h, --help     Show this help message and exit.
+
+Examples:
+  $SCRIPT_NAME                       # Report on every repository you own
+  $SCRIPT_NAME bin freeze-pr-links   # Report on two repositories
+  $SCRIPT_NAME --apply               # Update every ruleset that differs
+  $SCRIPT_NAME --owner my-org --apply my-repo
+
+Baseline (parameters of every pull_request rule in a branch ruleset):
+$baseline_help
+
+Requirements:
+  gh, authenticated with 'gh auth login' (https://cli.github.com/), and jq
+  (https://jqlang.org/download/). --apply needs admin access to each
+  repository.
+
+Exit Codes:
+  0  Every pull_request rule matches the baseline, or --apply updated and
+     confirmed each one that did not.
+  1  A requirement is missing, a GitHub API call failed, or an update was
+     not confirmed by its read-back.
+  2  Unknown option or missing option value.
+  3  A dry run found rulesets that differ from the baseline.
+EOF
+}
+
+die() {
+	echo "${RED}Error: $*${ERR_RESET}" >&2
+	exit 1
+}
+
+APPLY=false
+OWNER=""
+# An empty --owner value leaves OWNER empty, so this flag tells an owner that
+# was not given, which defaults to the authenticated user, from an empty one,
+# which cannot be used.
+OWNER_GIVEN=false
+REPOS=()
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--apply)
+		APPLY=true
+		shift
+		;;
+	--owner)
+		if [[ $# -lt 2 ]]; then
+			echo "Error: Option '--owner' requires a value." >&2
+			usage >&2
+			exit 2
+		fi
+		OWNER=$2
+		OWNER_GIVEN=true
+		shift 2
+		;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--)
+		shift
+		REPOS+=("$@")
+		break
+		;;
+	-*)
+		echo "Error: Unknown option '$1'" >&2
+		usage >&2
+		exit 2
+		;;
+	*)
+		REPOS+=("$1")
+		shift
+		;;
+	esac
+done
+
+if [[ $OWNER_GIVEN == true && -z $OWNER ]]; then
+	die "The owner is empty."
+fi
+for repo in ${REPOS[@]+"${REPOS[@]}"}; do
+	if [[ -z $repo || $repo == */* ]]; then
+		die "Invalid repository '$repo'; give the name alone and set its owner with --owner."
+	fi
+done
+
+if ! command -v gh >/dev/null 2>&1; then
+	die "'gh' (GitHub CLI) is required but not installed. Install it from: https://cli.github.com/"
+fi
+if ! command -v jq >/dev/null 2>&1; then
+	die "'jq' is required but not installed. Install it from: https://jqlang.org/download/"
+fi
+if ! auth_output=$(gh auth status 2>&1); then
+	echo "$auth_output" >&2
+	die "gh is not authenticated. Run 'gh auth login' first."
+fi
+
+# jq functions shared by the dry run, the update and its read-back. body is
+# the request body that the update endpoint takes, built from a ruleset as
+# read; merged sets the baseline parameters on each pull_request rule and
+# leaves every other key and every other rule as it is.
+# shellcheck disable=SC2016 # $baseline is a jq variable, which jq expands
+JQ_DEFS='
+def body:
+  {name, target, enforcement, conditions, bypass_actors, rules}
+  | with_entries(select(.value != null));
+def merged:
+  .rules |= map(
+    if .type == "pull_request"
+    then .parameters = ((.parameters // {}) + $baseline)
+    else . end);
+'
+
+# Prints one line for each baseline parameter of a pull_request rule that
+# differs from the baseline.
+# shellcheck disable=SC2016 # $p, $e and $baseline are jq variables, which jq expands
+JQ_CHANGES='
+.rules[]? | select(.type == "pull_request") | (.parameters // {}) as $p
+| $baseline | to_entries[] as $e
+| select($p[$e.key] != $e.value)
+| "\($e.key): \(if $p | has($e.key) then $p[$e.key] | tojson else "unset" end) → \($e.value | tojson)"
+'
+
+# Reads every branch ruleset collected, each with its repository in ._repo,
+# and prints the settings that differ between them and that this script does
+# not change. A ruleset is labelled by its repository alone, or by
+# repository/ruleset when the repository has more than one.
+# shellcheck disable=SC2016 # The $ names are jq variables, which jq expands
+JQ_REPORT='
+[inputs]
+| (group_by(._repo) | map({key: .[0]._repo, value: length}) | from_entries) as $per_repo
+| map(. + {_label: (if $per_repo[._repo] == 1 then ._repo else "\(._repo)/\(.name)" end)})
+| length as $total
+| [.[] | ._label as $label | .rules[]? | select(.type == "pull_request")
+   | {label: $label, p: (.parameters // {})}] as $prs
+| [([$prs[].p | keys[]] | unique - ($baseline | keys))[] as $k
+   | [$prs[] | {label, v: (if .p | has($k) then .p[$k] | tojson else "unset" end)}]
+   | group_by(.v) | select(length > 1)
+   | "  pull_request \($k):", (.[] | "    \(.[0].v): \(map(.label) | join(", "))")] as $param_lines
+| [.[] | {label: ._label, types: [.rules[]?.type]}] as $sets
+| [([$sets[].types[]] | unique)[] as $t
+   | [$sets[] | select(any(.types[]; . == $t)) | .label] as $in
+   | select(($in | length) < $total)
+   | ([$sets[].label] - $in) as $out
+   | if ($in | length) <= ($out | length)
+     then "    \($t): in \($in | length) of \($total): \($in | join(", "))"
+     else "    \($t): in \($in | length) of \($total); not in \($out | join(", "))" end] as $type_lines
+| "\($bold)Settings that differ between the \($total) branch rulesets read (not changed):\($reset)",
+  if ($param_lines + $type_lines) == [] then "  none"
+  else $param_lines[],
+    if $type_lines == [] then empty else "  rule types not in every ruleset:", $type_lines[] end
+  end
+'
+
+# Updates one ruleset to the baseline, reads it back and checks that the only
+# change is the baseline. Any failure ends the run, so that a problem that
+# would recur, such as GitHub rewriting a key on every update, stops at the
+# first ruleset instead of spreading to the rest.
+apply_baseline() {
+	local repo=$1 id=$2 ruleset=$3 label=$4
+	local url="https://github.com/$OWNER/$repo/rules/$id"
+	local body after_raw after same
+	body=$(jq -c --argjson baseline "$BASELINE" "$JQ_DEFS merged | body" <<<"$ruleset") ||
+		die "Failed to build the update for $label."
+	if ! gh api --method PUT "repos/$OWNER/$repo/rulesets/$id" --input - <<<"$body" >/dev/null; then
+		die "Failed to update $label. Check it at $url."
+	fi
+	if ! after_raw=$(gh api "repos/$OWNER/$repo/rulesets/$id"); then
+		die "Updated $label but failed to read it back. Check it at $url."
+	fi
+	after=$(jq -c "$JQ_DEFS body" <<<"$after_raw") ||
+		die "Updated $label but failed to parse its read-back. Check it at $url."
+	same=$(jq -n --argjson a "$body" --argjson b "$after" '$a == $b') ||
+		die "Updated $label but failed to compare its read-back. Check it at $url."
+	if [[ $same != true ]]; then
+		echo "${RED}Error: The read-back of $label differs from the update sent, beyond the baseline. Lines marked < were sent; lines marked > were read back. Check it at $url.${ERR_RESET}" >&2
+		diff <(jq -S . <<<"$body") <(jq -S . <<<"$after") >&2 || true
+		exit 1
+	fi
+}
+
+if [[ $OWNER_GIVEN == false ]]; then
+	if ! user_json=$(gh api user); then
+		die "Failed to read the authenticated user from GitHub. Pass --owner OWNER."
+	fi
+	OWNER=$(jq -r '.login // empty' <<<"$user_json") ||
+		die "Failed to parse the authenticated user from GitHub. Pass --owner OWNER."
+	[[ -n $OWNER ]] || die "GitHub returned no login for the authenticated user. Pass --owner OWNER."
+fi
+
+if [[ ${#REPOS[@]} -eq 0 ]]; then
+	# ownerAffiliations: [OWNER] leaves out repositories that OWNER only
+	# collaborates on. --paginate follows endCursor through every page.
+	# shellcheck disable=SC2016 # $owner and $endCursor are GraphQL variables, which GitHub expands
+	REPOS_QUERY='query($owner: String!, $endCursor: String) {
+  repositoryOwner(login: $owner) {
+    repositories(first: 100, after: $endCursor, isFork: false, isArchived: false, ownerAffiliations: [OWNER]) {
+      nodes { name }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}'
+	if ! pages=$(gh api graphql --paginate -f owner="$OWNER" -f query="$REPOS_QUERY"); then
+		die "Failed to list the repositories of '$OWNER'."
+	fi
+	# GitHub answers a login that does not exist with a null owner and a
+	# successful status, which would otherwise read as an owner with no
+	# repositories.
+	owner_missing=$(jq -rn '[inputs | select(.data.repositoryOwner == null)] | length' <<<"$pages") ||
+		die "Failed to parse the repositories of '$OWNER'."
+	[[ $owner_missing -eq 0 ]] || die "GitHub has no user or organization named '$OWNER'."
+	names=$(jq -rn '[inputs | .data.repositoryOwner.repositories.nodes[].name] | sort[]' <<<"$pages") ||
+		die "Failed to parse the repositories of '$OWNER'."
+	while IFS= read -r name; do
+		[[ -n $name ]] && REPOS+=("$name")
+	done <<<"$names"
+fi
+
+if [[ ${#REPOS[@]} -eq 0 ]]; then
+	echo "No repositories of '$OWNER' to check."
+	exit 0
+fi
+
+if $APPLY; then
+	echo "${BOLD}Applying the baseline to the rulesets of '$OWNER' (repositories: ${#REPOS[@]})${OUT_RESET}"
+else
+	echo "${BOLD}Dry run over the rulesets of '$OWNER' (repositories: ${#REPOS[@]}); nothing is changed${OUT_RESET}"
+fi
+
+# Every branch ruleset read, one JSON object per line, for the report.
+ALL_RULESETS=""
+REVIEW_RULESETS=0
+MATCHED=0
+DIFFERED=0
+NO_REVIEW_REPOS=0
+
+for repo in "${REPOS[@]}"; do
+	if ! pages=$(gh api --paginate "repos/$OWNER/$repo/rulesets?includes_parents=false&per_page=100"); then
+		die "Failed to list the rulesets of '$OWNER/$repo'."
+	fi
+	ids=$(jq -rn '[inputs[] | select(.target == "branch") | .id] | .[]' <<<"$pages") ||
+		die "Failed to parse the rulesets of '$OWNER/$repo'."
+	# The IDs are collected first so that no command in the loop below can
+	# read them from its standard input.
+	ruleset_ids=()
+	while IFS= read -r id; do
+		[[ -n $id ]] && ruleset_ids+=("$id")
+	done <<<"$ids"
+
+	has_review_rule=false
+	for id in ${ruleset_ids[@]+"${ruleset_ids[@]}"}; do
+		if ! ruleset=$(gh api "repos/$OWNER/$repo/rulesets/$id"); then
+			die "Failed to read ruleset $id of '$OWNER/$repo'."
+		fi
+		summary=$(jq -r '[.target, .name, .enforcement, any(.rules[]?; .type == "pull_request")] | @tsv' <<<"$ruleset") ||
+			die "Failed to parse ruleset $id of '$OWNER/$repo'."
+		IFS=$'\t' read -r target name enforcement has_pr <<<"$summary"
+		[[ $target == branch ]] || continue
+		tagged=$(jq -c --arg repo "$repo" '. + {_repo: $repo}' <<<"$ruleset") ||
+			die "Failed to parse ruleset $id of '$OWNER/$repo'."
+		ALL_RULESETS+="$tagged"$'\n'
+		[[ $has_pr == true ]] || continue
+
+		has_review_rule=true
+		REVIEW_RULESETS=$((REVIEW_RULESETS + 1))
+		label="$repo/$name ($id)"
+		# A ruleset that is not active does not enforce its rules, so
+		# matching the baseline would not mean that the baseline applies.
+		if [[ $enforcement != active ]]; then
+			label+=" [enforcement: $enforcement]"
+		fi
+		changes=$(jq -r --argjson baseline "$BASELINE" "$JQ_CHANGES" <<<"$ruleset") ||
+			die "Failed to compare $label with the baseline."
+		if [[ -z $changes ]]; then
+			MATCHED=$((MATCHED + 1))
+			echo "$label: ${GREEN}matches baseline${OUT_RESET}"
+			continue
+		fi
+
+		DIFFERED=$((DIFFERED + 1))
+		if $APPLY; then
+			apply_baseline "$repo" "$id" "$ruleset" "$label"
+			echo "$label: ${GREEN}updated and confirmed${OUT_RESET}"
+		else
+			echo "$label: ${YELLOW}would change${OUT_RESET}"
+		fi
+		echo "  ${changes//$'\n'/$'\n  '}"
+	done
+
+	if [[ $has_review_rule == false ]]; then
+		NO_REVIEW_REPOS=$((NO_REVIEW_REPOS + 1))
+		echo "$repo: no review rule (not created; required checks are per-repo)"
+	fi
+done
+
+echo
+if $APPLY; then
+	verb="updated"
+else
+	verb="would change"
+fi
+echo "${BOLD}Summary:${OUT_RESET} rulesets with a pull_request rule: $REVIEW_RULESETS (matching the baseline: $MATCHED; $verb: $DIFFERED). Repositories with no review rule: $NO_REVIEW_REPOS."
+echo
+printf '%s' "$ALL_RULESETS" |
+	jq -rn --argjson baseline "$BASELINE" --arg bold "$BOLD" --arg reset "$OUT_RESET" "$JQ_REPORT" ||
+	die "Failed to build the report of settings that differ."
+
+if ! $APPLY && [[ $DIFFERED -gt 0 ]]; then
+	exit "$EXIT_DIFFERS"
+fi

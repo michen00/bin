@@ -48,6 +48,7 @@ Add the above line to your favorite shell configuration file (e.g. `~/.bashrc`, 
 - [`git-shed`](git-shed): Identify and remove merged & stale branches with respect to a target branch.
 - [`how-big`](how-big): Show the sizes of the files and subdirectories in the given directory, largest first.
 - [`mergewith`](mergewith): Merge the latest changes from a reference branch on `origin` into the current branch, after pulling the current branch.
+- [`sync-rulesets`](sync-rulesets): Check the review settings of the branch rulesets in your GitHub repositories against one baseline, apply it with `--apply`, and report the other settings that differ between rulesets.
 - [`touchx`](touchx): Create or update files and add `+x` permission to them.
 - [`update-mine`](update-mine): Update all branches with open pull requests authored by you.
 - [`venv-now`](venv-now): Create a new Python virtual environment in ./.venv (or the given directory), activating it if sourced.
