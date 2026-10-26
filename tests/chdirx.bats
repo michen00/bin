@@ -28,40 +28,40 @@ load 'test_helper'
 @test "chdirx: rejects an unknown option" {
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" --bogus
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unknown option '--bogus'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Unknown option '--bogus'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "chdirx: fails when no directory specified" {
 	run --separate-stderr "$SCRIPTS_DIR/chdirx"
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: No directory specified."* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: No directory specified."* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "chdirx: fails when more than one directory is specified" {
 	mkdir dir1 dir2
-	echo '#!/usr/bin/env bash' >dir1/script.sh
+	echo '#!/usr/bin/env bash' > dir1/script.sh
 	chmod -x dir1/script.sh
 
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" dir1 dir2
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple directories specified: 'dir1' and 'dir2'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Multiple directories specified: 'dir1' and 'dir2'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 	[ ! -x dir1/script.sh ]
 }
 
 @test "chdirx: rejects a directory given after an empty one" {
 	mkdir testdir
-	echo '#!/usr/bin/env bash' >testdir/script.sh
+	echo '#!/usr/bin/env bash' > testdir/script.sh
 	chmod -x testdir/script.sh
 
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" '' testdir
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple directories specified: '' and 'testdir'"* ]] || false
+	[[ $stderr == *"Error: Multiple directories specified: '' and 'testdir'"* ]] || false
 	[ -z "$output" ]
 	[ ! -x testdir/script.sh ]
 }
@@ -71,7 +71,7 @@ load 'test_helper'
 
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" testdir ''
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple directories specified: 'testdir' and ''"* ]] || false
+	[[ $stderr == *"Error: Multiple directories specified: 'testdir' and ''"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -85,14 +85,14 @@ load 'test_helper'
 @test "chdirx: fails when directory does not exist" {
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" "nonexistent_dir"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: 'nonexistent_dir' is not a directory."* ]] || false
+	[[ $stderr == *"Error: 'nonexistent_dir' is not a directory."* ]] || false
 	[ -z "$output" ]
 }
 
 @test "chdirx: makes shebang files executable" {
 	mkdir testdir
-	echo '#!/usr/bin/env bash' >testdir/script.sh
-	echo 'echo hello' >>testdir/script.sh
+	echo '#!/usr/bin/env bash' > testdir/script.sh
+	echo 'echo hello' >> testdir/script.sh
 	chmod -x testdir/script.sh
 
 	run "$SCRIPTS_DIR/chdirx" testdir
@@ -102,7 +102,7 @@ load 'test_helper'
 
 @test "chdirx: ignores files without shebang" {
 	mkdir testdir
-	echo 'just text' >testdir/readme.txt
+	echo 'just text' > testdir/readme.txt
 	chmod -x testdir/readme.txt
 
 	run "$SCRIPTS_DIR/chdirx" testdir
@@ -112,8 +112,8 @@ load 'test_helper'
 
 @test "chdirx: -r processes subdirectories recursively" {
 	mkdir -p testdir/subdir
-	echo '#!/usr/bin/env bash' >testdir/script1.sh
-	echo '#!/usr/bin/env bash' >testdir/subdir/script2.sh
+	echo '#!/usr/bin/env bash' > testdir/script1.sh
+	echo '#!/usr/bin/env bash' > testdir/subdir/script2.sh
 	chmod -x testdir/script1.sh testdir/subdir/script2.sh
 
 	run "$SCRIPTS_DIR/chdirx" -r testdir
@@ -124,7 +124,7 @@ load 'test_helper'
 
 @test "chdirx: without -r does not process subdirectories" {
 	mkdir -p testdir/subdir
-	echo '#!/usr/bin/env bash' >testdir/subdir/script.sh
+	echo '#!/usr/bin/env bash' > testdir/subdir/script.sh
 	chmod -x testdir/subdir/script.sh
 
 	run "$SCRIPTS_DIR/chdirx" testdir
@@ -134,7 +134,7 @@ load 'test_helper'
 
 @test "chdirx: -- accepts a directory whose name begins with a dash" {
 	mkdir -- -testdir
-	echo '#!/usr/bin/env bash' >-testdir/script.sh
+	echo '#!/usr/bin/env bash' > -testdir/script.sh
 	chmod -- -x -testdir/script.sh
 
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" -- -testdir
@@ -146,7 +146,7 @@ load 'test_helper'
 
 @test "chdirx: -r -- processes subdirectories of a dash-prefixed directory" {
 	mkdir -p -- -testdir/subdir
-	echo '#!/usr/bin/env bash' >-testdir/subdir/script.sh
+	echo '#!/usr/bin/env bash' > -testdir/subdir/script.sh
 	chmod -- -x -testdir/subdir/script.sh
 
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" -r -- -testdir
@@ -158,7 +158,7 @@ load 'test_helper'
 @test "chdirx: -- without a directory is a usage error" {
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" --
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: No directory specified."* ]] || false
+	[[ $stderr == *"Error: No directory specified."* ]] || false
 	[ -z "$output" ]
 }
 
@@ -167,7 +167,7 @@ load 'test_helper'
 
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" -- testdir -r
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple directories specified: 'testdir' and '-r'"* ]] || false
+	[[ $stderr == *"Error: Multiple directories specified: 'testdir' and '-r'"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -176,25 +176,25 @@ load 'test_helper'
 		skip "root can read every file"
 	fi
 	mkdir testdir
-	echo '#!/usr/bin/env bash' >testdir/a-unreadable.sh
-	echo '#!/usr/bin/env bash' >testdir/b-readable.sh
+	echo '#!/usr/bin/env bash' > testdir/a-unreadable.sh
+	echo '#!/usr/bin/env bash' > testdir/b-readable.sh
 	chmod 000 testdir/a-unreadable.sh
 	chmod -x testdir/b-readable.sh
 
 	run --separate-stderr "$SCRIPTS_DIR/chdirx" testdir
 	[ "$status" -eq 0 ]
-	[[ "$stderr" == *"Warning: Skipping 'testdir/a-unreadable.sh' because it is not readable."* ]] || false
+	[[ $stderr == *"Warning: Skipping 'testdir/a-unreadable.sh' because it is not readable."* ]] || false
 	[ ! -x testdir/a-unreadable.sh ]
 	assert_executable testdir/b-readable.sh
 }
 
 @test "chdirx: fails with an error when chmod fails" {
 	mkdir testdir
-	echo '#!/usr/bin/env bash' >testdir/script.sh
+	echo '#!/usr/bin/env bash' > testdir/script.sh
 
 	# Leaving chmod out of PATH makes the chmod call fail.
 	run --separate-stderr env PATH="$(restricted_path bash basename head grep)" "$SCRIPTS_DIR/chdirx" testdir
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Failed to add executable permission to 'testdir/script.sh'."* ]] || false
+	[[ $stderr == *"Error: Failed to add executable permission to 'testdir/script.sh'."* ]] || false
 	[ -z "$output" ]
 }

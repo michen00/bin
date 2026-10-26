@@ -28,16 +28,16 @@ load 'test_helper'
 @test "touchx: fails with usage error when no arguments provided" {
 	run --separate-stderr "$SCRIPTS_DIR/touchx"
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: No files specified."* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: No files specified."* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "touchx: fails with usage error when only -- is provided" {
 	run --separate-stderr "$SCRIPTS_DIR/touchx" --
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: No files specified."* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: No files specified."* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -49,7 +49,7 @@ load 'test_helper'
 }
 
 @test "touchx: makes existing file executable" {
-	echo "existing content" >existing.sh
+	echo "existing content" > existing.sh
 	chmod -x existing.sh
 
 	run "$SCRIPTS_DIR/touchx" existing.sh
@@ -73,8 +73,8 @@ load 'test_helper'
 @test "touchx: fails with unknown option" {
 	run --separate-stderr "$SCRIPTS_DIR/touchx" --unknown
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unknown option '--unknown'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Unknown option '--unknown'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -97,20 +97,20 @@ load 'test_helper'
 @test "touchx: fails on an empty file name" {
 	run --separate-stderr "$SCRIPTS_DIR/touchx" ""
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Invalid filename ''."* ]] || false
+	[[ $stderr == *"Error: Invalid filename ''."* ]] || false
 	[ -z "$output" ]
 }
 
 @test "touchx: fails when the file cannot be created" {
 	run --separate-stderr "$SCRIPTS_DIR/touchx" missing-dir/file.sh
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Failed to create or update 'missing-dir/file.sh'."* ]] || false
+	[[ $stderr == *"Error: Failed to create or update 'missing-dir/file.sh'."* ]] || false
 	[ -z "$output" ]
 }
 
 @test "touchx: fails when the execute permission cannot be set" {
 	run --separate-stderr env PATH="$(restricted_path bash basename touch)" "$SCRIPTS_DIR/touchx" file.sh
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Failed to set execute permission for 'file.sh'."* ]] || false
+	[[ $stderr == *"Error: Failed to set execute permission for 'file.sh'."* ]] || false
 	[ -z "$output" ]
 }

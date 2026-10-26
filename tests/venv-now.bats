@@ -13,7 +13,7 @@ load 'test_helper'
 fake_python() {
 	local dir="$1"
 	local name="$2"
-	printf '#!/bin/sh\necho %s >>"%s/calls"\nexit 1\n' "$name" "$TEST_TEMP_DIR" >"$dir/$name"
+	printf '#!/bin/sh\necho %s >>"%s/calls"\nexit 1\n' "$name" "$TEST_TEMP_DIR" > "$dir/$name"
 	chmod +x "$dir/$name"
 }
 
@@ -46,7 +46,7 @@ fake_python() {
 
 @test "venv-now: creates .venv directory by default" {
 	# Skip if python3 is not available
-	if ! command -v python3 &>/dev/null; then
+	if ! command -v python3 &> /dev/null; then
 		skip "python3 not available"
 	fi
 
@@ -58,7 +58,7 @@ fake_python() {
 
 @test "venv-now: creates custom-named venv directory" {
 	# Skip if python3 is not available
-	if ! command -v python3 &>/dev/null; then
+	if ! command -v python3 &> /dev/null; then
 		skip "python3 not available"
 	fi
 
@@ -70,13 +70,13 @@ fake_python() {
 
 @test "venv-now: --no-remove preserves existing venv" {
 	# Skip if python3 is not available
-	if ! command -v python3 &>/dev/null; then
+	if ! command -v python3 &> /dev/null; then
 		skip "python3 not available"
 	fi
 
 	# Create initial venv with a marker file
 	python3 -m venv .venv
-	echo "marker" >.venv/marker.txt
+	echo "marker" > .venv/marker.txt
 
 	run "$SCRIPTS_DIR/venv-now" --no-remove
 	[ "$status" -eq 0 ]
@@ -86,13 +86,13 @@ fake_python() {
 
 @test "venv-now: removes existing venv by default" {
 	# Skip if python3 is not available
-	if ! command -v python3 &>/dev/null; then
+	if ! command -v python3 &> /dev/null; then
 		skip "python3 not available"
 	fi
 
 	# Create initial venv with a marker file
 	python3 -m venv .venv
-	echo "marker" >.venv/marker.txt
+	echo "marker" > .venv/marker.txt
 
 	run "$SCRIPTS_DIR/venv-now"
 	[ "$status" -eq 0 ]
@@ -102,12 +102,12 @@ fake_python() {
 
 @test "venv-now: -n is alias for --no-remove" {
 	# Skip if python3 is not available
-	if ! command -v python3 &>/dev/null; then
+	if ! command -v python3 &> /dev/null; then
 		skip "python3 not available"
 	fi
 
 	python3 -m venv .venv
-	echo "marker" >.venv/marker.txt
+	echo "marker" > .venv/marker.txt
 
 	run "$SCRIPTS_DIR/venv-now" -n
 	[ "$status" -eq 0 ]
@@ -116,12 +116,12 @@ fake_python() {
 
 @test "venv-now: accepts an option after DIRECTORY" {
 	# Skip if python3 is not available
-	if ! command -v python3 &>/dev/null; then
+	if ! command -v python3 &> /dev/null; then
 		skip "python3 not available"
 	fi
 
 	python3 -m venv myenv
-	echo "marker" >myenv/marker.txt
+	echo "marker" > myenv/marker.txt
 
 	run "$SCRIPTS_DIR/venv-now" myenv -n
 	[ "$status" -eq 0 ]
@@ -131,7 +131,7 @@ fake_python() {
 
 @test "venv-now: -- treats a dash-prefixed argument as the directory" {
 	# Skip if python3 is not available
-	if ! command -v python3 &>/dev/null; then
+	if ! command -v python3 &> /dev/null; then
 		skip "python3 not available"
 	fi
 
@@ -144,16 +144,16 @@ fake_python() {
 @test "venv-now: fails with unknown option" {
 	run --separate-stderr "$SCRIPTS_DIR/venv-now" --unknown
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unknown option '--unknown'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Unknown option '--unknown'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "venv-now: fails with two directory arguments" {
 	run --separate-stderr "$SCRIPTS_DIR/venv-now" one two
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple directory arguments specified: 'one' and 'two'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Multiple directory arguments specified: 'one' and 'two'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 	[ ! -e one ]
 	[ ! -e two ]
@@ -162,7 +162,7 @@ fake_python() {
 @test "venv-now: fails with a second directory argument after --" {
 	run --separate-stderr "$SCRIPTS_DIR/venv-now" one -- -two
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple directory arguments specified: 'one' and '-two'"* ]] || false
+	[[ $stderr == *"Error: Multiple directory arguments specified: 'one' and '-two'"* ]] || false
 	[ -z "$output" ]
 	[ ! -e one ]
 }
@@ -170,8 +170,8 @@ fake_python() {
 @test "venv-now: fails when Python is not installed" {
 	run --separate-stderr env PATH="$(restricted_path bash basename)" "$SCRIPTS_DIR/venv-now"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Python 3 is required but not installed."* ]] || false
-	[[ "$stderr" == *"https://www.python.org/downloads/"* ]] || false
+	[[ $stderr == *"Error: Python 3 is required but not installed."* ]] || false
+	[[ $stderr == *"https://www.python.org/downloads/"* ]] || false
 	[ -z "$output" ]
 	[ ! -e .venv ]
 }
@@ -244,7 +244,7 @@ if shopt -qo pipefail; then echo "options changed: pipefail"; fi
 	[ "$status" -eq 0 ]
 	assert_output_contains "status=2"
 	assert_output_not_contains "Usage:"
-	[[ "$stderr" == *"Error: Unknown option '--unknown'"* ]] || false
+	[[ $stderr == *"Error: Unknown option '--unknown'"* ]] || false
 	assert_stderr_contains "Usage: venv-now [OPTIONS] [--] [DIRECTORY]"
 	[ ! -e .venv ]
 }
@@ -259,7 +259,7 @@ if shopt -qo pipefail; then echo "options changed: pipefail"; fi
 	[ "$status" -eq 0 ]
 	assert_output_contains "status=1"
 	assert_output_not_contains "Removing existing virtual environment"
-	[[ "$stderr" == *"Error: Refusing to use dangerous path"* ]] || false
+	[[ $stderr == *"Error: Refusing to use dangerous path"* ]] || false
 	assert_file_exists home/keep
 	[ ! -e home/bin ]
 }
@@ -269,7 +269,7 @@ if shopt -qo pipefail; then echo "options changed: pipefail"; fi
 		bash -c "$SOURCE_VENV_NOW" _ "$SCRIPTS_DIR/venv-now"
 	[ "$status" -eq 0 ]
 	assert_output_contains "status=1"
-	[[ "$stderr" == *"Error: Python 3 is required but not installed."* ]] || false
+	[[ $stderr == *"Error: Python 3 is required but not installed."* ]] || false
 }
 
 @test "venv-now: a sourced run does not change the calling shell's options" {
@@ -281,7 +281,7 @@ if shopt -qo pipefail; then echo "options changed: pipefail"; fi
 
 @test "venv-now: a sourced run activates the venv given after --" {
 	# Skip if python3 is not available
-	if ! command -v python3 &>/dev/null; then
+	if ! command -v python3 &> /dev/null; then
 		skip "python3 not available"
 	fi
 
@@ -289,7 +289,7 @@ if shopt -qo pipefail; then echo "options changed: pipefail"; fi
 	[ "$status" -eq 0 ]
 	assert_output_contains "Virtual environment activated: -myenv"
 	assert_output_contains "status=0"
-	[[ "$output" == *"VIRTUAL_ENV="*"/-myenv"* ]] || false
+	[[ $output == *"VIRTUAL_ENV="*"/-myenv"* ]] || false
 	assert_output_not_contains "options changed"
 }
 
@@ -362,6 +362,6 @@ if shopt -qo pipefail; then echo "options changed: pipefail"; fi
 	# testdir/.. resolves to TEST_TEMP_DIR (current dir) - safe to test
 	run --separate-stderr "$SCRIPTS_DIR/venv-now" "testdir/.."
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"dangerous path"* ]] || false
+	[[ $stderr == *"dangerous path"* ]] || false
 	[ -z "$output" ]
 }

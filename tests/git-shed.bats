@@ -43,11 +43,11 @@ setup_gone_branch() {
 	run --separate-stderr "$SCRIPTS_DIR/git-shed" --help
 	[ "$status" -eq 0 ]
 	[ "${lines[0]}" = "Usage: git-shed [-y] [--dry-run] [--gone-only] [--] [TARGET_BRANCH]" ]
-	[[ "$output" == *$'\nArguments:\n'*$'\nOptions:\n'*$'\nExamples:\n'* ]] || false
-	[[ "$output" != *"Description:"* ]] || false
+	[[ $output == *$'\nArguments:\n'*$'\nOptions:\n'*$'\nExamples:\n'* ]] || false
+	[[ $output != *"Description:"* ]] || false
 	# -h, --help is the last entry under Options:.
-	[[ "$output" == *$'\n  -h, --help '*$'Show this help message and exit.\n\nExamples:\n'* ]] || false
-	[[ "$output" == *$'\n  git-shed -- -wip '* ]] || false
+	[[ $output == *$'\n  -h, --help '*$'Show this help message and exit.\n\nExamples:\n'* ]] || false
+	[[ $output == *$'\n  git-shed -- -wip '* ]] || false
 }
 
 @test "git-shed: --help mentions --gone-only" {
@@ -61,8 +61,8 @@ setup_gone_branch() {
 
 	run --separate-stderr "$SCRIPTS_DIR/git-shed" --dry-run -y -wip
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unknown option '-wip'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Unknown option '-wip'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -72,8 +72,8 @@ setup_gone_branch() {
 
 	run --separate-stderr "$SCRIPTS_DIR/git-shed" --dry-run -y main develop
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple target branches specified: 'main' and 'develop'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Multiple target branches specified: 'main' and 'develop'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -83,8 +83,8 @@ setup_gone_branch() {
 
 	run --separate-stderr "$SCRIPTS_DIR/git-shed" --dry-run -y -- main develop
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple target branches specified: 'main' and 'develop'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Multiple target branches specified: 'main' and 'develop'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -94,7 +94,7 @@ setup_gone_branch() {
 
 	run --separate-stderr "$SCRIPTS_DIR/git-shed" --dry-run -y main -- develop
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple target branches specified: 'main' and 'develop'"* ]] || false
+	[[ $stderr == *"Error: Multiple target branches specified: 'main' and 'develop'"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -108,8 +108,8 @@ setup_gone_branch() {
 @test "git-shed: fails with an install hint when git is not installed" {
 	run --separate-stderr env PATH="$(restricted_path bash basename cat)" "$SCRIPTS_DIR/git-shed" --dry-run -y
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"'git' is required"* ]] || false
-	[[ "$stderr" == *"https://git-scm.com/downloads"* ]] || false
+	[[ $stderr == *"'git' is required"* ]] || false
+	[[ $stderr == *"https://git-scm.com/downloads"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -125,7 +125,7 @@ setup_gone_branch() {
 
 	run --separate-stderr "$SCRIPTS_DIR/git-shed" nonexistent-branch
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Branch 'nonexistent-branch' does not exist."* ]] || false
+	[[ $stderr == *"Error: Branch 'nonexistent-branch' does not exist."* ]] || false
 	[ -z "$output" ]
 }
 
@@ -138,8 +138,8 @@ setup_gone_branch() {
 
 	run --separate-stderr env GIT_CEILING_DIRECTORIES="$TEST_TEMP_DIR" "$SCRIPTS_DIR/git-shed" -y --dry-run
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Not inside a git repository."* ]] || false
-	[[ "$stderr" != *"does not exist"* ]] || false
+	[[ $stderr == *"Error: Not inside a git repository."* ]] || false
+	[[ $stderr != *"does not exist"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -149,8 +149,8 @@ setup_gone_branch() {
 
 	run --separate-stderr env GIT_CEILING_DIRECTORIES="$TEST_TEMP_DIR" "$SCRIPTS_DIR/git-shed" -y --dry-run --gone-only
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Not inside a git repository."* ]] || false
-	[[ "$stderr" != *"Warning:"* ]] || false
+	[[ $stderr == *"Error: Not inside a git repository."* ]] || false
+	[[ $stderr != *"Warning:"* ]] || false
 	assert_output_not_contains "Local branches:"
 }
 
@@ -160,15 +160,15 @@ setup_gone_branch() {
 
 	run --separate-stderr "$SCRIPTS_DIR/git-shed" -y --dry-run
 	[ "$status" -eq 0 ]
-	[[ "$stderr" == *"Warning: git fetch --prune failed"* ]] || false
-	[[ "$stderr" != *"Error:"* ]] || false
+	[[ $stderr == *"Warning: git fetch --prune failed"* ]] || false
+	[[ $stderr != *"Error:"* ]] || false
 	assert_output_contains "Done."
 }
 
 @test "git-shed: --dry-run shows what would be deleted without deleting" {
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
@@ -200,7 +200,7 @@ setup_gone_branch() {
 @test "git-shed: --gone-only skips merged branch pass" {
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
@@ -227,13 +227,13 @@ setup_gone_branch() {
 @test "git-shed: answering no at the merged-branch prompt keeps the branch" {
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
 	git merge feature-branch
 
-	run "$SCRIPTS_DIR/git-shed" main <<<"n"
+	run "$SCRIPTS_DIR/git-shed" main <<< "n"
 	[ "$status" -eq 0 ]
 	assert_output_contains "Skipping deletion of merged branches."
 	git show-ref --verify --quiet refs/heads/feature-branch
@@ -242,13 +242,13 @@ setup_gone_branch() {
 @test "git-shed: answering yes at the merged-branch prompt deletes the branch" {
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
 	git merge feature-branch
 
-	run "$SCRIPTS_DIR/git-shed" main <<<"y"
+	run "$SCRIPTS_DIR/git-shed" main <<< "y"
 	[ "$status" -eq 0 ]
 	assert_output_contains "Deleted branch feature-branch"
 	run ! git show-ref --verify --quiet refs/heads/feature-branch
@@ -257,7 +257,7 @@ setup_gone_branch() {
 @test "git-shed: a yes without a trailing newline at the merged-branch prompt deletes the branch" {
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
@@ -276,7 +276,7 @@ setup_gone_branch() {
 	setup_git_repo
 	setup_gone_branch
 
-	run "$SCRIPTS_DIR/git-shed" main <<<"n"
+	run "$SCRIPTS_DIR/git-shed" main <<< "n"
 	[ "$status" -eq 0 ]
 	assert_output_contains "stale-branch"
 	assert_output_contains "Skipping deletion of stale branches."
@@ -289,7 +289,7 @@ setup_gone_branch() {
 	setup_git_repo
 	setup_gone_branch
 
-	run "$SCRIPTS_DIR/git-shed" main <<<"y"
+	run "$SCRIPTS_DIR/git-shed" main <<< "y"
 	[ "$status" -eq 0 ]
 	assert_output_contains "Deleted branch stale-branch"
 	run ! git show-ref --verify --quiet refs/heads/stale-branch
@@ -311,13 +311,13 @@ setup_gone_branch() {
 @test "git-shed: fails when stdin ends before the merged-branch prompt is answered" {
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
 	git merge feature-branch
 
-	run --separate-stderr "$SCRIPTS_DIR/git-shed" main </dev/null
+	run --separate-stderr "$SCRIPTS_DIR/git-shed" main < /dev/null
 	[ "$status" -eq 1 ]
 	assert_stderr_contains "Error: Cannot read confirmation from stdin; rerun with -y to delete without prompting."
 	assert_output_contains "Branches fully merged into 'main':"
@@ -328,7 +328,7 @@ setup_gone_branch() {
 @test "git-shed: fails when stdin is closed at the merged-branch prompt" {
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
@@ -358,7 +358,7 @@ setup_gone_branch() {
 	setup_git_repo
 	setup_gone_branch
 
-	run --separate-stderr "$SCRIPTS_DIR/git-shed" main </dev/null
+	run --separate-stderr "$SCRIPTS_DIR/git-shed" main < /dev/null
 	[ "$status" -eq 1 ]
 	assert_stderr_contains "Error: Cannot read confirmation from stdin; rerun with -y to delete without prompting."
 	assert_output_contains "Branches with deleted upstream ([gone]):"
@@ -371,18 +371,18 @@ setup_gone_branch() {
 	cd repo
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
 	git merge feature-branch
 	git worktree add "$TEST_TEMP_DIR/feature-worktree" feature-branch
-	echo "uncommitted" >>"$TEST_TEMP_DIR/feature-worktree/feature.txt"
+	echo "uncommitted" >> "$TEST_TEMP_DIR/feature-worktree/feature.txt"
 
 	run --separate-stderr "$SCRIPTS_DIR/git-shed" -y main
 	[ "$status" -eq 0 ]
-	[[ "$stderr" == *"Warning: could not remove worktree '"*"feature-worktree' (it may be dirty or locked); retrying with --force..."* ]] || false
-	[[ "$output" != *"Warning:"* ]] || false
+	[[ $stderr == *"Warning: could not remove worktree '"*"feature-worktree' (it may be dirty or locked); retrying with --force..."* ]] || false
+	[[ $output != *"Warning:"* ]] || false
 	[ ! -d "$TEST_TEMP_DIR/feature-worktree" ]
 	run ! git show-ref --verify --quiet refs/heads/feature-branch
 }
@@ -392,7 +392,7 @@ setup_gone_branch() {
 	cd repo
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
@@ -403,8 +403,8 @@ setup_gone_branch() {
 
 	run --separate-stderr "$SCRIPTS_DIR/git-shed" -y main
 	[ "$status" -eq 0 ]
-	[[ "$stderr" == *"Warning: could not remove worktree '"*"feature-worktree' with --force; retrying with --force --force..."* ]] || false
-	[[ "$output" != *"Warning:"* ]] || false
+	[[ $stderr == *"Warning: could not remove worktree '"*"feature-worktree' with --force; retrying with --force --force..."* ]] || false
+	[[ $output != *"Warning:"* ]] || false
 	[ ! -d "$TEST_TEMP_DIR/feature-worktree" ]
 	run ! git show-ref --verify --quiet refs/heads/feature-branch
 }
@@ -455,7 +455,7 @@ setup_gone_branch() {
 	cd repo
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
@@ -496,7 +496,7 @@ setup_gone_branch() {
 	# silently disabling merged-branch cleanup.
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main
@@ -517,7 +517,7 @@ setup_gone_branch() {
 	local source_dir
 	setup_git_repo
 	git switch -c feature-branch
-	echo "feature" >feature.txt
+	echo "feature" > feature.txt
 	git add feature.txt
 	git commit -m "Add feature"
 	git switch main

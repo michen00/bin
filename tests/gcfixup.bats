@@ -8,7 +8,7 @@ load 'test_helper'
 # This helper adds a second commit and prints its hash. Unlike the root
 # commit, the second commit has a parent for gcfixup to rebase onto.
 make_second_commit() {
-	echo "second content" >second.txt
+	echo "second content" > second.txt
 	git add second.txt
 	git commit -q -m "Second commit"
 	git rev-parse HEAD
@@ -44,32 +44,32 @@ make_second_commit() {
 @test "gcfixup: no arguments is a usage error" {
 	run --separate-stderr "$SCRIPTS_DIR/gcfixup"
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: No commit specified."* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: No commit specified."* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "gcfixup: -- without a commit is a usage error" {
 	run --separate-stderr "$SCRIPTS_DIR/gcfixup" --
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: No commit specified."* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: No commit specified."* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "gcfixup: rejects an unknown option" {
 	run --separate-stderr "$SCRIPTS_DIR/gcfixup" --bogus abc123
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unknown option '--bogus'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Unknown option '--bogus'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "gcfixup: fails when git is not installed" {
 	run --separate-stderr env PATH="$(restricted_path bash basename)" "$SCRIPTS_DIR/gcfixup" abc123
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"'git' is required"* ]] || false
-	[[ "$stderr" == *"https://git-scm.com/downloads"* ]] || false
+	[[ $stderr == *"'git' is required"* ]] || false
+	[[ $stderr == *"https://git-scm.com/downloads"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -77,8 +77,8 @@ make_second_commit() {
 	# The test runs in TEST_TEMP_DIR, which is not inside a git repository.
 	run --separate-stderr "$SCRIPTS_DIR/gcfixup" HEAD
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Not inside a git repository."* ]] || false
-	[[ "$stderr" != *"Invalid commit"* ]] || false
+	[[ $stderr == *"Error: Not inside a git repository."* ]] || false
+	[[ $stderr != *"Invalid commit"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -87,7 +87,7 @@ make_second_commit() {
 
 	run --separate-stderr "$SCRIPTS_DIR/gcfixup" invalidhash123
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Invalid commit 'invalidhash123'."* ]] || false
+	[[ $stderr == *"Error: Invalid commit 'invalidhash123'."* ]] || false
 	[ -z "$output" ]
 }
 
@@ -96,8 +96,8 @@ make_second_commit() {
 
 	run --separate-stderr "$SCRIPTS_DIR/gcfixup" -- --bogus
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Invalid commit '--bogus'."* ]] || false
-	[[ "$stderr" != *"Unknown option"* ]] || false
+	[[ $stderr == *"Error: Invalid commit '--bogus'."* ]] || false
+	[[ $stderr != *"Unknown option"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -110,9 +110,9 @@ make_second_commit() {
 
 	run --separate-stderr "$SCRIPTS_DIR/gcfixup" "$root_hash"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Cannot fix up the root commit"* ]] || false
-	[[ "$stderr" == *"Workaround"* ]] || false
-	[[ "$stderr" == *"--root"* ]] || false
+	[[ $stderr == *"Error: Cannot fix up the root commit"* ]] || false
+	[[ $stderr == *"Workaround"* ]] || false
+	[[ $stderr == *"--root"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -124,7 +124,7 @@ make_second_commit() {
 	# Nothing is staged, so git commit has nothing to commit.
 	run --separate-stderr "$SCRIPTS_DIR/gcfixup" "$second_hash"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Failed to create a fixup commit for '$second_hash'."* ]] || false
+	[[ $stderr == *"Error: Failed to create a fixup commit for '$second_hash'."* ]] || false
 
 	local commit_count
 	commit_count=$(git rev-list --count HEAD)
@@ -137,7 +137,7 @@ make_second_commit() {
 	second_hash=$(make_second_commit)
 
 	# Make a new change to fixup
-	echo "fixup content" >>second.txt
+	echo "fixup content" >> second.txt
 	git add second.txt
 
 	# Run gcfixup.
@@ -165,7 +165,7 @@ make_second_commit() {
 	local second_hash
 	second_hash=$(make_second_commit)
 
-	echo "fixup content" >>second.txt
+	echo "fixup content" >> second.txt
 	git add second.txt
 
 	GIT_SEQUENCE_EDITOR=true GIT_EDITOR=true run "$SCRIPTS_DIR/gcfixup" -- "$second_hash"
@@ -184,7 +184,7 @@ make_second_commit() {
 
 	# The change is not staged; only the -a passed through to git commit
 	# includes it in the fixup commit.
-	echo "fixup content" >>second.txt
+	echo "fixup content" >> second.txt
 
 	GIT_SEQUENCE_EDITOR=true GIT_EDITOR=true run "$SCRIPTS_DIR/gcfixup" "$second_hash" -a
 	[ "$status" -eq 0 ]
@@ -198,12 +198,12 @@ make_second_commit() {
 
 @test "gcfixup: fixes up a commit named relative to HEAD" {
 	setup_git_repo
-	make_second_commit >/dev/null
-	echo "third content" >third.txt
+	make_second_commit > /dev/null
+	echo "third content" > third.txt
 	git add third.txt
 	git commit -q -m "Third commit"
 
-	echo "fixup content" >>second.txt
+	echo "fixup content" >> second.txt
 	git add second.txt
 
 	# The fixup commit moves HEAD, so the rebase must not resolve HEAD~1 again.

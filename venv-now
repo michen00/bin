@@ -23,15 +23,15 @@ is_dangerous_venv_path() {
 	local resolved_dir="$2"
 	local current_dir="$3"
 
-	[[ -z "$venv_dir" || "$venv_dir" == "." || "$venv_dir" == ".." ||
-		"$venv_dir" == "/" || "$venv_dir" == "~" ||
-		"$resolved_dir" == "$HOME" || "$resolved_dir" == "/" ||
-		"$resolved_dir" == "$current_dir" ]]
+	[[ -z $venv_dir || $venv_dir == "." || $venv_dir == ".." ||
+		$venv_dir == "/" || $venv_dir == "~" ||
+		$resolved_dir == "$HOME" || $resolved_dir == "/" ||
+		$resolved_dir == "$current_dir" ]]
 }
 
 # When sourced with VENV_NOW_SOURCE_ONLY=1, only export functions (for testing)
 # This allows tests to call is_dangerous_venv_path() without triggering file ops
-if [[ "${VENV_NOW_SOURCE_ONLY:-}" == "1" ]]; then
+if [[ ${VENV_NOW_SOURCE_ONLY:-} == "1" ]]; then
 	return 0
 fi
 
@@ -42,7 +42,7 @@ REMOVE_EXISTING=true
 SCRIPT_NAME=$(basename -- "${BASH_SOURCE[0]:-$0}")
 
 usage() {
-	cat <<EOF
+	cat << EOF
 Usage: $SCRIPT_NAME [OPTIONS] [--] [DIRECTORY]
 
 Create a new Python virtual environment in ./.venv by default. If the specified
@@ -85,39 +85,39 @@ POSITIONAL_ARG_SET=false
 # Parse arguments
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-	-h | --help)
-		usage
-		"$RETURN_OR_EXIT" 0
-		;;
-	-n | --no-remove)
-		REMOVE_EXISTING=false
-		shift
-		;;
-	--)
-		shift
-		# The inner loop keeps an argument that begins with a dash from
-		# matching an option pattern.
-		while [[ $# -gt 0 ]]; do
+		-h | --help)
+			usage
+			"$RETURN_OR_EXIT" 0
+			;;
+		-n | --no-remove)
+			REMOVE_EXISTING=false
+			shift
+			;;
+		--)
+			shift
+			# The inner loop keeps an argument that begins with a dash from
+			# matching an option pattern.
+			while [[ $# -gt 0 ]]; do
+				set_venv_dir "$1" || "$RETURN_OR_EXIT" 2
+				shift
+			done
+			;;
+		-*)
+			echo "Error: Unknown option '$1'" >&2
+			usage >&2
+			"$RETURN_OR_EXIT" 2
+			;;
+		*)
 			set_venv_dir "$1" || "$RETURN_OR_EXIT" 2
 			shift
-		done
-		;;
-	-*)
-		echo "Error: Unknown option '$1'" >&2
-		usage >&2
-		"$RETURN_OR_EXIT" 2
-		;;
-	*)
-		set_venv_dir "$1" || "$RETURN_OR_EXIT" 2
-		shift
-		;;
+			;;
 	esac
 done
 
 # Prefer python, and fall back to python3 on systems that have no python command.
-if command -v python >/dev/null 2>&1; then
+if command -v python > /dev/null 2>&1; then
 	PYTHON_CMD="python"
-elif command -v python3 >/dev/null 2>&1; then
+elif command -v python3 > /dev/null 2>&1; then
 	PYTHON_CMD="python3"
 else
 	echo "Error: Python 3 is required but not installed." >&2
@@ -129,7 +129,7 @@ fi
 # Resolve and normalize the target virtual environment path safely,
 # even if the directory does not exist yet.
 RESOLVED_VENV_DIR="$(
-	"$PYTHON_CMD" - "$VENV_DIR" <<'EOF'
+	"$PYTHON_CMD" - "$VENV_DIR" << 'EOF'
 from pathlib import Path
 import sys
 

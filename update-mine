@@ -10,7 +10,7 @@ SCRIPT_NAME=$(basename "$0")
 
 # Function to display usage information
 usage() {
-	cat <<EOF
+	cat << EOF
 Usage: $SCRIPT_NAME [--debug] [--all] <reference_branch>
 
 By default, updates branches with open pull requests authored by you by:
@@ -50,33 +50,33 @@ REFERENCE_BRANCH=""
 REFERENCE_BRANCH_GIVEN=false
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-	--debug)
-		DEBUG=true
-		shift
-		;;
-	--all)
-		ALL_BRANCHES=true
-		shift
-		;;
-	-h | --help)
-		usage
-		exit 0
-		;;
-	-*)
-		echo "Error: Unknown option '$1'" >&2
-		usage >&2
-		exit 2
-		;;
-	*)
-		if [ "$REFERENCE_BRANCH_GIVEN" = true ]; then
-			echo "Error: Multiple reference branches specified: '$REFERENCE_BRANCH' and '$1'" >&2
+		--debug)
+			DEBUG=true
+			shift
+			;;
+		--all)
+			ALL_BRANCHES=true
+			shift
+			;;
+		-h | --help)
+			usage
+			exit 0
+			;;
+		-*)
+			echo "Error: Unknown option '$1'" >&2
 			usage >&2
 			exit 2
-		fi
-		REFERENCE_BRANCH="$1"
-		REFERENCE_BRANCH_GIVEN=true
-		shift
-		;;
+			;;
+		*)
+			if [ "$REFERENCE_BRANCH_GIVEN" = true ]; then
+				echo "Error: Multiple reference branches specified: '$REFERENCE_BRANCH' and '$1'" >&2
+				usage >&2
+				exit 2
+			fi
+			REFERENCE_BRANCH="$1"
+			REFERENCE_BRANCH_GIVEN=true
+			shift
+			;;
 	esac
 done
 
@@ -97,20 +97,20 @@ fi
 
 # The repository check below discards git's stderr, so without this probe a
 # missing git would be reported as "Not inside a Git repository".
-if ! command -v git >/dev/null 2>&1; then
+if ! command -v git > /dev/null 2>&1; then
 	echo "Error: 'git' is required but not installed." >&2
 	echo "Install it from: https://git-scm.com/downloads" >&2
 	exit 1
 fi
 
 # Ensure we are inside a Git repository
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
 	echo "Error: Not inside a Git repository." >&2
 	exit 1
 fi
 
 # Ensure gh CLI is installed
-if ! command -v gh >/dev/null 2>&1; then
+if ! command -v gh > /dev/null 2>&1; then
 	echo "Error: 'gh' (GitHub CLI) is required but not installed." >&2
 	echo "Install it from: https://cli.github.com/" >&2
 	exit 1
@@ -118,7 +118,7 @@ fi
 
 # Ensure mergewith, a sibling script from this repository, is on PATH. Without
 # this probe, every branch would be checked out and then fail to merge.
-if ! command -v mergewith >/dev/null 2>&1; then
+if ! command -v mergewith > /dev/null 2>&1; then
 	echo "Error: 'mergewith' is required but not installed." >&2
 	echo "Install it from: https://github.com/michen00/bin" >&2
 	exit 1
@@ -137,11 +137,11 @@ CURRENT_WORKTREE=$(git rev-parse --show-toplevel)
 restore_starting_branch() {
 	if [ "$STARTING_DETACHED" = true ]; then
 		[ "$(git rev-parse HEAD)" = "$STARTING_REF" ] && return
-		git checkout --detach "$STARTING_REF" >/dev/null 2>&1 ||
+		git checkout --detach "$STARTING_REF" > /dev/null 2>&1 ||
 			echo "Warning: Could not restore the detached HEAD at '$STARTING_REF'. Run 'git checkout --detach $STARTING_REF' to return to it." >&2
 	else
 		[ "$(git branch --show-current)" = "$STARTING_REF" ] && return
-		git checkout "$STARTING_REF" >/dev/null 2>&1 ||
+		git checkout "$STARTING_REF" > /dev/null 2>&1 ||
 			echo "Warning: Could not restore the starting branch '$STARTING_REF'. Run 'git checkout $STARTING_REF' to return to it." >&2
 	fi
 }
@@ -159,7 +159,7 @@ OTHER_WORKTREE_BRANCHES=$(
 )
 
 # Fetch latest remote branches to avoid using stale references
-if ! git remote update >/dev/null 2>&1; then
+if ! git remote update > /dev/null 2>&1; then
 	echo "Error: Failed to update the remote-tracking branches. Run 'git remote update' to see why." >&2
 	exit 1
 fi
@@ -204,8 +204,8 @@ while read -r BRANCH; do
 	fi
 
 	# Checkout the branch (create tracking branch if it only exists on remote)
-	if ! git checkout "$BRANCH" 2>/dev/null; then
-		if ! git switch --track "origin/$BRANCH" 2>/dev/null; then
+	if ! git checkout "$BRANCH" 2> /dev/null; then
+		if ! git switch --track "origin/$BRANCH" 2> /dev/null; then
 			echo "Warning: Failed to check out branch $BRANCH. Skipping..." >&2
 			FAILED=true
 			continue
@@ -218,7 +218,7 @@ while read -r BRANCH; do
 		FAILED=true
 		# mergewith can fail before it starts a merge, which leaves nothing to
 		# abort, and set -e would then end the run before the next branch.
-		git merge --abort >/dev/null 2>&1 || true
+		git merge --abort > /dev/null 2>&1 || true
 		continue
 	fi
 
@@ -229,7 +229,7 @@ while read -r BRANCH; do
 		echo "Warning: Failed to push branch $BRANCH. Skipping..." >&2
 		FAILED=true
 	fi
-done <<<"$BRANCHES"
+done <<< "$BRANCHES"
 
 if [ "$FAILED" = true ]; then
 	exit 1
