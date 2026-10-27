@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
-	cat << EOF
+  cat << EOF
 Usage: $SCRIPT_NAME [-a] [--] [directory]
 
 Displays the size of files and subdirectories in the specified directory,
@@ -38,39 +38,39 @@ POSITIONAL=()
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
-	case "$1" in
-		-a) SHOW_FILES="true" ;;
-		-h | --help)
-			usage
-			exit 0
-			;;
-		--)
-			shift
-			POSITIONAL+=("$@")
-			break
-			;;
-		-*)
-			echo "Error: Unknown option '$1'" >&2
-			usage >&2
-			exit 2
-			;;
-		*) POSITIONAL+=("$1") ;;
-	esac
-	shift
+  case "$1" in
+    -a) SHOW_FILES="true" ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      POSITIONAL+=("$@")
+      break
+      ;;
+    -*)
+      echo "Error: Unknown option '$1'" >&2
+      usage >&2
+      exit 2
+      ;;
+    *) POSITIONAL+=("$1") ;;
+  esac
+  shift
 done
 
 if [[ ${#POSITIONAL[@]} -gt 1 ]]; then
-	echo "Error: Unexpected argument '${POSITIONAL[1]}'; only one directory may be given." >&2
-	usage >&2
-	exit 2
+  echo "Error: Unexpected argument '${POSITIONAL[1]}'; only one directory may be given." >&2
+  usage >&2
+  exit 2
 fi
 
 TARGET_DIR="${POSITIONAL[0]:-.}"
 
 # Ensure the given path exists and is a directory
 if [[ ! -d $TARGET_DIR ]]; then
-	echo "Error: '$TARGET_DIR' is not a valid directory." >&2
-	exit 1
+  echo "Error: '$TARGET_DIR' is not a valid directory." >&2
+  exit 1
 fi
 
 # find reads an argument that begins with a dash as part of its expression,
@@ -78,7 +78,7 @@ fi
 # without the prefix, but it receives the same path so that the paths it
 # prints match the paths that find prints.
 if [[ $TARGET_DIR == -* ]]; then
-	TARGET_DIR="./$TARGET_DIR"
+  TARGET_DIR="./$TARGET_DIR"
 fi
 
 # Run the disk usage command with optional file inclusion
@@ -87,21 +87,21 @@ PARTIAL=false
 trap 'rm -f "$DU_TMP"' EXIT
 
 if [[ $SHOW_FILES == "true" ]]; then
-	# Cross-platform: use find + du for files, then du for directories
-	if ! find -- "$TARGET_DIR" -maxdepth 1 -type f -exec du -h {} + >> "$DU_TMP" 2> /dev/null; then
-		PARTIAL=true
-	fi
-	if ! du -h -d 1 -- "$TARGET_DIR" >> "$DU_TMP" 2> /dev/null; then
-		PARTIAL=true
-	fi
+  # Cross-platform: use find + du for files, then du for directories
+  if ! find -- "$TARGET_DIR" -maxdepth 1 -type f -exec du -h {} + >> "$DU_TMP" 2> /dev/null; then
+    PARTIAL=true
+  fi
+  if ! du -h -d 1 -- "$TARGET_DIR" >> "$DU_TMP" 2> /dev/null; then
+    PARTIAL=true
+  fi
 else
-	if ! du -h -d 1 -- "$TARGET_DIR" >> "$DU_TMP" 2> /dev/null; then
-		PARTIAL=true
-	fi
+  if ! du -h -d 1 -- "$TARGET_DIR" >> "$DU_TMP" 2> /dev/null; then
+    PARTIAL=true
+  fi
 fi
 
 sort -hr "$DU_TMP" | uniq
 
 if [[ $PARTIAL == true ]]; then
-	echo "Warning: Some entries could not be read and were skipped, so the sizes shown may be incomplete. If permission was denied, rerun with sudo." >&2
+  echo "Warning: Some entries could not be read and were skipped, so the sizes shown may be incomplete. If permission was denied, rerun with sudo." >&2
 fi

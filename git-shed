@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 
 HELP=$(
-	cat << EOF
+  cat << EOF
 Usage: $SCRIPT_NAME [-y] [--dry-run] [--gone-only] [--] [TARGET_BRANCH]
 
 Deletes local branches that are merged into TARGET_BRANCH and local branches
@@ -51,78 +51,78 @@ GONE_ONLY=false
 POSITIONAL=()
 
 while [[ $# -gt 0 ]]; do
-	case "$1" in
-		-h | --help)
-			echo "$HELP"
-			exit 0
-			;;
-		-y)
-			AUTO_CONFIRM=true
-			shift
-			;;
-		--dry-run)
-			DRY_RUN=true
-			shift
-			;;
-		--gone-only)
-			GONE_ONLY=true
-			shift
-			;;
-		--)
-			shift
-			POSITIONAL+=("$@")
-			break
-			;;
-		-*)
-			echo "Error: Unknown option '$1'" >&2
-			echo "$HELP" >&2
-			exit 2
-			;;
-		*)
-			POSITIONAL+=("$1")
-			shift
-			;;
-	esac
+  case "$1" in
+    -h | --help)
+      echo "$HELP"
+      exit 0
+      ;;
+    -y)
+      AUTO_CONFIRM=true
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    --gone-only)
+      GONE_ONLY=true
+      shift
+      ;;
+    --)
+      shift
+      POSITIONAL+=("$@")
+      break
+      ;;
+    -*)
+      echo "Error: Unknown option '$1'" >&2
+      echo "$HELP" >&2
+      exit 2
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      shift
+      ;;
+  esac
 done
 
 # This check follows the loop so that it also covers the arguments after --,
 # and so that a later -h or --help still prints the help.
 if [[ ${#POSITIONAL[@]} -gt 1 ]]; then
-	echo "Error: Multiple target branches specified: '${POSITIONAL[0]}' and '${POSITIONAL[1]}'" >&2
-	echo "$HELP" >&2
-	exit 2
+  echo "Error: Multiple target branches specified: '${POSITIONAL[0]}' and '${POSITIONAL[1]}'" >&2
+  echo "$HELP" >&2
+  exit 2
 fi
 
 TARGET_BRANCH=${POSITIONAL[0]:-main}
 
 if ! command -v git > /dev/null 2>&1; then
-	echo "Error: 'git' is required but not installed." >&2
-	echo "Install it from: https://git-scm.com/downloads" >&2
-	exit 1
+  echo "Error: 'git' is required but not installed." >&2
+  echo "Install it from: https://git-scm.com/downloads" >&2
+  exit 1
 fi
 
 # A repository check up front would add a git subprocess to every run, so the
 # script checks only after a git command fails. Outside a repository, this
 # reports the real cause instead of a missing branch or a failed fetch.
 require_git_repository() {
-	if ! git rev-parse --git-dir > /dev/null 2>&1; then
-		echo "Error: Not inside a git repository." >&2
-		exit 1
-	fi
+  if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: Not inside a git repository." >&2
+    exit 1
+  fi
 }
 
 if ! $GONE_ONLY; then
-	if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
-		require_git_repository
-		echo "Error: Branch '$TARGET_BRANCH' does not exist." >&2
-		exit 1
-	fi
+  if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
+    require_git_repository
+    echo "Error: Branch '$TARGET_BRANCH' does not exist." >&2
+    exit 1
+  fi
 fi
 
 echo "Fetching latest remote info and pruning..."
 if ! git fetch --prune 2> /dev/null; then
-	require_git_repository
-	echo "Warning: git fetch --prune failed (non-fatal; continuing with local state)" >&2
+  require_git_repository
+  echo "Warning: git fetch --prune failed (non-fatal; continuing with local state)" >&2
 fi
 
 echo ""
@@ -138,175 +138,175 @@ git worktree list
 # (common on macOS / Windows) and bracketed path components are handled correctly.
 # Multiple matches are iterated independently rather than collapsed into one argument.
 remove_linked_worktree_for_branch() {
-	local branch=$1
-	local toplevel worktrees worktree rc=0
-	# Bare repos (and other no-worktree contexts) have nothing to remove;
-	# `git rev-parse --show-toplevel` would exit non-zero and -- under
-	# `set -e` -- abort the entire script before cleanup can complete.
-	if [[ "$(git rev-parse --is-bare-repository 2> /dev/null)" == "true" ]]; then
-		return 0
-	fi
-	if ! toplevel=$(git rev-parse --show-toplevel 2> /dev/null); then
-		return 0
-	fi
-	worktrees=$(
-		git worktree list --porcelain | awk -v target="refs/heads/$branch" '
-			$1 == "worktree" { wt = substr($0, 10) }
-			$1 == "branch" && substr($0, 8) == target { print wt }
-		'
-	)
-	if [[ -z $worktrees ]]; then
-		return 0
-	fi
-	while IFS= read -r worktree; do
-		[[ -z $worktree || $worktree == "$toplevel" ]] && continue
-		if $DRY_RUN; then
-			echo "[DRY-RUN] Would remove worktree: $worktree (checks out $branch)"
-			continue
-		fi
-		echo "Removing worktree: $worktree"
-		# Try a non-destructive remove first so uncommitted work in the linked
-		# worktree is preserved; escalate to --force only if the worktree is
-		# dirty/locked, then to --force --force as a last resort.
-		if ! git worktree remove "$worktree" 2> /dev/null; then
-			echo "Warning: could not remove worktree '$worktree' (it may be dirty or locked); retrying with --force..." >&2
-			if ! git worktree remove --force "$worktree"; then
-				echo "Warning: could not remove worktree '$worktree' with --force; retrying with --force --force..." >&2
-				if ! git worktree remove --force --force "$worktree"; then
-					rc=1
-				fi
-			fi
-		fi
-	done <<< "$worktrees"
-	return "$rc"
+  local branch=$1
+  local toplevel worktrees worktree rc=0
+  # Bare repos (and other no-worktree contexts) have nothing to remove;
+  # `git rev-parse --show-toplevel` would exit non-zero and -- under
+  # `set -e` -- abort the entire script before cleanup can complete.
+  if [[ "$(git rev-parse --is-bare-repository 2> /dev/null)" == "true" ]]; then
+    return 0
+  fi
+  if ! toplevel=$(git rev-parse --show-toplevel 2> /dev/null); then
+    return 0
+  fi
+  worktrees=$(
+    git worktree list --porcelain | awk -v target="refs/heads/$branch" '
+      $1 == "worktree" { wt = substr($0, 10) }
+      $1 == "branch" && substr($0, 8) == target { print wt }
+    '
+  )
+  if [[ -z $worktrees ]]; then
+    return 0
+  fi
+  while IFS= read -r worktree; do
+    [[ -z $worktree || $worktree == "$toplevel" ]] && continue
+    if $DRY_RUN; then
+      echo "[DRY-RUN] Would remove worktree: $worktree (checks out $branch)"
+      continue
+    fi
+    echo "Removing worktree: $worktree"
+    # Try a non-destructive remove first so uncommitted work in the linked
+    # worktree is preserved; escalate to --force only if the worktree is
+    # dirty/locked, then to --force --force as a last resort.
+    if ! git worktree remove "$worktree" 2> /dev/null; then
+      echo "Warning: could not remove worktree '$worktree' (it may be dirty or locked); retrying with --force..." >&2
+      if ! git worktree remove --force "$worktree"; then
+        echo "Warning: could not remove worktree '$worktree' with --force; retrying with --force --force..." >&2
+        if ! git worktree remove --force --force "$worktree"; then
+          rc=1
+        fi
+      fi
+    fi
+  done <<< "$worktrees"
+  return "$rc"
 }
 
 delete_merged_branches() {
-	local merged_into=$1
-	local merged_branches current_branch confirm branch
-	current_branch=$(git branch --show-current)
-	# Exclude the target and the currently checked-out branch: git refuses to
-	# delete HEAD's branch, and surfacing it as a candidate produces noisy
-	# warnings and unnecessary worktree-removal attempts. In detached-HEAD
-	# state, `git branch --show-current` is empty; passing it as a `grep -e`
-	# pattern would match every line and `-v` would filter them all out,
-	# silently disabling merged-branch cleanup. Only exclude current_branch
-	# when it is non-empty.
-	if [[ -n $current_branch ]]; then
-		merged_branches=$(
-			git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
-				grep -vxF -e "$TARGET_BRANCH" -e "$current_branch" || true
-		)
-	else
-		merged_branches=$(
-			git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
-				grep -vxF -e "$TARGET_BRANCH" || true
-		)
-	fi
+  local merged_into=$1
+  local merged_branches current_branch confirm branch
+  current_branch=$(git branch --show-current)
+  # Exclude the target and the currently checked-out branch: git refuses to
+  # delete HEAD's branch, and surfacing it as a candidate produces noisy
+  # warnings and unnecessary worktree-removal attempts. In detached-HEAD
+  # state, `git branch --show-current` is empty; passing it as a `grep -e`
+  # pattern would match every line and `-v` would filter them all out,
+  # silently disabling merged-branch cleanup. Only exclude current_branch
+  # when it is non-empty.
+  if [[ -n $current_branch ]]; then
+    merged_branches=$(
+      git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
+        grep -vxF -e "$TARGET_BRANCH" -e "$current_branch" || true
+    )
+  else
+    merged_branches=$(
+      git for-each-ref --format='%(refname:short)' --merged="$merged_into" refs/heads/ |
+        grep -vxF -e "$TARGET_BRANCH" || true
+    )
+  fi
 
-	echo ""
-	if [[ -z $merged_branches ]]; then
-		echo "No local branches merged into '$merged_into' found."
-		return 0
-	fi
+  echo ""
+  if [[ -z $merged_branches ]]; then
+    echo "No local branches merged into '$merged_into' found."
+    return 0
+  fi
 
-	echo "Branches fully merged into '$merged_into':"
-	echo "  ${merged_branches//$'\n'/$'\n  '}"
+  echo "Branches fully merged into '$merged_into':"
+  echo "  ${merged_branches//$'\n'/$'\n  '}"
 
-	if ! $AUTO_CONFIRM && ! $DRY_RUN; then
-		# read -p writes its prompt to stderr, so redirecting the stderr of
-		# read to hide its own diagnostics, such as "Bad file descriptor" on a
-		# closed stdin, would hide the prompt too. The script therefore prints
-		# the prompt itself, and only when stdin is a terminal, as read -p does.
-		if [[ -t 0 ]]; then
-			printf '%s' "Delete these merged branches? [y/N]: " >&2
-		fi
-		# At end of input, read returns 1 even if it stored an answer that
-		# lacks a trailing newline, so the script treats the read as failed
-		# only if it stored nothing. A read error can leave confirm unset
-		# (bash 5 does; bash 3.2 sets it to an empty string), so the check
-		# supplies an empty default for set -u.
-		if ! read -r confirm 2> /dev/null && [[ -z ${confirm:-} ]]; then
-			echo "Error: Cannot read confirmation from stdin; rerun with -y to delete without prompting." >&2
-			exit 1
-		fi
-		if [[ ! $confirm =~ ^[Yy]$ ]]; then
-			echo "Skipping deletion of merged branches."
-			return 0
-		fi
-	fi
+  if ! $AUTO_CONFIRM && ! $DRY_RUN; then
+    # read -p writes its prompt to stderr, so redirecting the stderr of
+    # read to hide its own diagnostics, such as "Bad file descriptor" on a
+    # closed stdin, would hide the prompt too. The script therefore prints
+    # the prompt itself, and only when stdin is a terminal, as read -p does.
+    if [[ -t 0 ]]; then
+      printf '%s' "Delete these merged branches? [y/N]: " >&2
+    fi
+    # At end of input, read returns 1 even if it stored an answer that
+    # lacks a trailing newline, so the script treats the read as failed
+    # only if it stored nothing. A read error can leave confirm unset
+    # (bash 5 does; bash 3.2 sets it to an empty string), so the check
+    # supplies an empty default for set -u.
+    if ! read -r confirm 2> /dev/null && [[ -z ${confirm:-} ]]; then
+      echo "Error: Cannot read confirmation from stdin; rerun with -y to delete without prompting." >&2
+      exit 1
+    fi
+    if [[ ! $confirm =~ ^[Yy]$ ]]; then
+      echo "Skipping deletion of merged branches."
+      return 0
+    fi
+  fi
 
-	while IFS= read -r branch; do
-		[[ -z $branch ]] && continue
-		echo ""
-		echo "Processing merged branch: $branch"
-		if $DRY_RUN; then
-			remove_linked_worktree_for_branch "$branch"
-			echo "[DRY-RUN] Would delete merged branch: $branch"
-			continue
-		fi
-		if ! remove_linked_worktree_for_branch "$branch"; then
-			echo "Warning: skipping merged branch '$branch' (worktree removal failed)." >&2
-			FAILED=true
-			continue
-		fi
-		if ! git branch -d "$branch"; then
-			echo "Warning: could not delete merged branch '$branch'." >&2
-			FAILED=true
-		fi
-	done <<< "$merged_branches"
+  while IFS= read -r branch; do
+    [[ -z $branch ]] && continue
+    echo ""
+    echo "Processing merged branch: $branch"
+    if $DRY_RUN; then
+      remove_linked_worktree_for_branch "$branch"
+      echo "[DRY-RUN] Would delete merged branch: $branch"
+      continue
+    fi
+    if ! remove_linked_worktree_for_branch "$branch"; then
+      echo "Warning: skipping merged branch '$branch' (worktree removal failed)." >&2
+      FAILED=true
+      continue
+    fi
+    if ! git branch -d "$branch"; then
+      echo "Warning: could not delete merged branch '$branch'." >&2
+      FAILED=true
+    fi
+  done <<< "$merged_branches"
 }
 
 delete_gone_branches() {
-	local stale_branches confirm branch
-	stale_branches=$(
-		git for-each-ref --format='%(HEAD)|%(refname:short)|%(upstream:track)' refs/heads/ |
-			awk -F'|' '$1 != "*" && $3 == "[gone]" { print $2 }' |
-			grep -vxF -e "$TARGET_BRANCH" || true
-	)
+  local stale_branches confirm branch
+  stale_branches=$(
+    git for-each-ref --format='%(HEAD)|%(refname:short)|%(upstream:track)' refs/heads/ |
+      awk -F'|' '$1 != "*" && $3 == "[gone]" { print $2 }' |
+      grep -vxF -e "$TARGET_BRANCH" || true
+  )
 
-	echo ""
-	if [[ -z $stale_branches ]]; then
-		echo "No stale branches (upstream deleted on remote) found."
-		return 0
-	fi
+  echo ""
+  if [[ -z $stale_branches ]]; then
+    echo "No stale branches (upstream deleted on remote) found."
+    return 0
+  fi
 
-	echo "Branches with deleted upstream ([gone]):"
-	echo "  ${stale_branches//$'\n'/$'\n  '}"
+  echo "Branches with deleted upstream ([gone]):"
+  echo "  ${stale_branches//$'\n'/$'\n  '}"
 
-	if ! $AUTO_CONFIRM && ! $DRY_RUN; then
-		if [[ -t 0 ]]; then
-			printf '%s' "Delete these stale branches? [y/N]: " >&2
-		fi
-		if ! read -r confirm 2> /dev/null && [[ -z ${confirm:-} ]]; then
-			echo "Error: Cannot read confirmation from stdin; rerun with -y to delete without prompting." >&2
-			exit 1
-		fi
-		if [[ ! $confirm =~ ^[Yy]$ ]]; then
-			echo "Skipping deletion of stale branches."
-			return 0
-		fi
-	fi
+  if ! $AUTO_CONFIRM && ! $DRY_RUN; then
+    if [[ -t 0 ]]; then
+      printf '%s' "Delete these stale branches? [y/N]: " >&2
+    fi
+    if ! read -r confirm 2> /dev/null && [[ -z ${confirm:-} ]]; then
+      echo "Error: Cannot read confirmation from stdin; rerun with -y to delete without prompting." >&2
+      exit 1
+    fi
+    if [[ ! $confirm =~ ^[Yy]$ ]]; then
+      echo "Skipping deletion of stale branches."
+      return 0
+    fi
+  fi
 
-	while IFS= read -r branch; do
-		[[ -z $branch ]] && continue
-		echo ""
-		echo "Processing stale branch: $branch"
-		if $DRY_RUN; then
-			remove_linked_worktree_for_branch "$branch"
-			echo "[DRY-RUN] Would delete stale branch: $branch"
-			continue
-		fi
-		if ! remove_linked_worktree_for_branch "$branch"; then
-			echo "Warning: skipping stale branch '$branch' (worktree removal failed)." >&2
-			FAILED=true
-			continue
-		fi
-		if ! git branch -D "$branch"; then
-			echo "Warning: could not delete stale branch '$branch'." >&2
-			FAILED=true
-		fi
-	done <<< "$stale_branches"
+  while IFS= read -r branch; do
+    [[ -z $branch ]] && continue
+    echo ""
+    echo "Processing stale branch: $branch"
+    if $DRY_RUN; then
+      remove_linked_worktree_for_branch "$branch"
+      echo "[DRY-RUN] Would delete stale branch: $branch"
+      continue
+    fi
+    if ! remove_linked_worktree_for_branch "$branch"; then
+      echo "Warning: skipping stale branch '$branch' (worktree removal failed)." >&2
+      FAILED=true
+      continue
+    fi
+    if ! git branch -D "$branch"; then
+      echo "Warning: could not delete stale branch '$branch'." >&2
+      FAILED=true
+    fi
+  done <<< "$stale_branches"
 }
 
 # A failed removal or deletion does not stop the run, so this flag records it
@@ -314,11 +314,11 @@ delete_gone_branches() {
 FAILED=false
 
 if ! $GONE_ONLY; then
-	MERGED_INTO="origin/$TARGET_BRANCH"
-	if ! git rev-parse --verify --quiet "$MERGED_INTO" > /dev/null; then
-		MERGED_INTO="$TARGET_BRANCH"
-	fi
-	delete_merged_branches "$MERGED_INTO"
+  MERGED_INTO="origin/$TARGET_BRANCH"
+  if ! git rev-parse --verify --quiet "$MERGED_INTO" > /dev/null; then
+    MERGED_INTO="$TARGET_BRANCH"
+  fi
+  delete_merged_branches "$MERGED_INTO"
 fi
 
 delete_gone_branches
@@ -327,5 +327,5 @@ echo ""
 echo "Done."
 
 if $FAILED; then
-	exit 1
+  exit 1
 fi
