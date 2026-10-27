@@ -5,45 +5,45 @@ load 'test_helper'
 # Helper function to get clipboard content (platform-specific)
 get_clipboard() {
 	case "$(uname -s)" in
-	Darwin*)
-		pbpaste 2>/dev/null || echo ""
-		;;
-	Linux*)
-		if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
-			wl-paste 2>/dev/null || echo ""
-		else
-			xclip -selection clipboard -o 2>/dev/null || xsel --clipboard --output 2>/dev/null || echo ""
-		fi
-		;;
-	CYGWIN* | MINGW* | MSYS*)
-		# Windows clipboard reading is complex, skip for now
-		echo ""
-		;;
-	*)
-		echo ""
-		;;
+		Darwin*)
+			pbpaste 2> /dev/null || echo ""
+			;;
+		Linux*)
+			if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
+				wl-paste 2> /dev/null || echo ""
+			else
+				xclip -selection clipboard -o 2> /dev/null || xsel --clipboard --output 2> /dev/null || echo ""
+			fi
+			;;
+		CYGWIN* | MINGW* | MSYS*)
+			# Windows clipboard reading is complex, skip for now
+			echo ""
+			;;
+		*)
+			echo ""
+			;;
 	esac
 }
 
 # Helper to check if clipboard tool is available
 has_clipboard_tool() {
 	case "$(uname -s)" in
-	Darwin*)
-		command -v pbcopy >/dev/null 2>&1
-		;;
-	Linux*)
-		if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
-			command -v wl-copy >/dev/null 2>&1
-		else
-			command -v xclip >/dev/null 2>&1 || command -v xsel >/dev/null 2>&1
-		fi
-		;;
-	CYGWIN* | MINGW* | MSYS*)
-		command -v clip.exe >/dev/null 2>&1
-		;;
-	*)
-		return 1
-		;;
+		Darwin*)
+			command -v pbcopy > /dev/null 2>&1
+			;;
+		Linux*)
+			if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
+				command -v wl-copy > /dev/null 2>&1
+			else
+				command -v xclip > /dev/null 2>&1 || command -v xsel > /dev/null 2>&1
+			fi
+			;;
+		CYGWIN* | MINGW* | MSYS*)
+			command -v clip.exe > /dev/null 2>&1
+			;;
+		*)
+			return 1
+			;;
 	esac
 }
 
@@ -55,7 +55,7 @@ has_clipboard_tool() {
 #   $2 - command name
 #   $3 - shell code for the stub to run
 stub_command() {
-	printf '#!/bin/sh\n%s\n' "$3" >"$1/$2"
+	printf '#!/bin/sh\n%s\n' "$3" > "$1/$2"
 	chmod +x "$1/$2"
 }
 
@@ -81,10 +81,10 @@ stub_macos_clipboard() {
 assert_dashes_attributed_to_commands() {
 	local stray
 	stray=$(
-		grep -E '–|U\+2013' <<<"$output" | grep -v 'en_' || true
-		grep -E '—|U\+2014' <<<"$output" | grep -v 'em_' || true
+		grep -E '–|U\+2013' <<< "$output" | grep -v 'en_' || true
+		grep -E '—|U\+2014' <<< "$output" | grep -v 'em_' || true
 	)
-	if [[ -n "$stray" ]]; then
+	if [[ -n $stray ]]; then
 		echo "Expected every dash to be attributed to en_ or em_; found: $stray"
 		return 1
 	fi
@@ -113,7 +113,7 @@ setup_file() {
 
 	run --separate-stderr "$TEST_TEMP_DIR/dash"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: This script must be invoked as 'en_' or 'em_'"* ]] || false
+	[[ $stderr == *"Error: This script must be invoked as 'en_' or 'em_'"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -135,19 +135,19 @@ setup_file() {
 
 	# Put something in clipboard first
 	case "$(uname -s)" in
-	Darwin*)
-		echo -n "test content" | pbcopy
-		;;
-	Linux*)
-		if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
-			echo -n "test content" | wl-copy
-		else
-			echo -n "test content" | xclip -selection clipboard 2>/dev/null || echo -n "test content" | xsel --clipboard 2>/dev/null
-		fi
-		;;
-	CYGWIN* | MINGW* | MSYS*)
-		echo "test content" | clip.exe
-		;;
+		Darwin*)
+			echo -n "test content" | pbcopy
+			;;
+		Linux*)
+			if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
+				echo -n "test content" | wl-copy
+			else
+				echo -n "test content" | xclip -selection clipboard 2> /dev/null || echo -n "test content" | xsel --clipboard 2> /dev/null
+			fi
+			;;
+		CYGWIN* | MINGW* | MSYS*)
+			echo "test content" | clip.exe
+			;;
 	esac
 
 	# Run en_ and verify it overwrote
@@ -185,19 +185,19 @@ setup_file() {
 
 	# Put something in clipboard first
 	case "$(uname -s)" in
-	Darwin*)
-		echo -n "test content" | pbcopy
-		;;
-	Linux*)
-		if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
-			echo -n "test content" | wl-copy
-		else
-			echo -n "test content" | xclip -selection clipboard 2>/dev/null || echo -n "test content" | xsel --clipboard 2>/dev/null
-		fi
-		;;
-	CYGWIN* | MINGW* | MSYS*)
-		echo "test content" | clip.exe
-		;;
+		Darwin*)
+			echo -n "test content" | pbcopy
+			;;
+		Linux*)
+			if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
+				echo -n "test content" | wl-copy
+			else
+				echo -n "test content" | xclip -selection clipboard 2> /dev/null || echo -n "test content" | xsel --clipboard 2> /dev/null
+			fi
+			;;
+		CYGWIN* | MINGW* | MSYS*)
+			echo "test content" | clip.exe
+			;;
 	esac
 
 	# Run em_ and verify it overwrote
@@ -243,8 +243,8 @@ setup_file() {
 
 @test "en_: works on Linux X11 with xclip" {
 	[[ "$(uname -s)" == "Linux" ]] || skip "Not Linux"
-	[[ -z "${WAYLAND_DISPLAY:-}" ]] || skip "Not X11"
-	command -v xclip >/dev/null 2>&1 || skip "xclip not available"
+	[[ -z ${WAYLAND_DISPLAY:-} ]] || skip "Not X11"
+	command -v xclip > /dev/null 2>&1 || skip "xclip not available"
 
 	run "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 0 ]
@@ -252,10 +252,10 @@ setup_file() {
 
 @test "en_: falls back to xsel when xclip unavailable on X11" {
 	[[ "$(uname -s)" == "Linux" ]] || skip "Not Linux"
-	[[ -z "${WAYLAND_DISPLAY:-}" ]] || skip "Not X11"
-	command -v xsel >/dev/null 2>&1 || skip "xsel not available"
+	[[ -z ${WAYLAND_DISPLAY:-} ]] || skip "Not X11"
+	command -v xsel > /dev/null 2>&1 || skip "xsel not available"
 	# Only test if xclip is not available
-	command -v xclip >/dev/null 2>&1 && skip "xclip is available"
+	command -v xclip > /dev/null 2>&1 && skip "xclip is available"
 
 	run "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 0 ]
@@ -263,8 +263,8 @@ setup_file() {
 
 @test "en_: works on Linux Wayland with wl-copy" {
 	[[ "$(uname -s)" == "Linux" ]] || skip "Not Linux"
-	[[ -n "${WAYLAND_DISPLAY:-}" ]] || skip "Not Wayland"
-	command -v wl-copy >/dev/null 2>&1 || skip "wl-copy not available"
+	[[ -n ${WAYLAND_DISPLAY:-} ]] || skip "Not Wayland"
+	command -v wl-copy > /dev/null 2>&1 || skip "wl-copy not available"
 
 	run "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 0 ]
@@ -272,7 +272,7 @@ setup_file() {
 
 @test "en_: works on Windows with clip.exe" {
 	[[ "$(uname -s)" =~ ^(CYGWIN|MINGW|MSYS) ]] || skip "Not Windows"
-	command -v clip.exe >/dev/null 2>&1 || skip "clip.exe not available"
+	command -v clip.exe > /dev/null 2>&1 || skip "clip.exe not available"
 
 	run "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 0 ]
@@ -285,7 +285,7 @@ setup_file() {
 
 	run --separate-stderr env PATH="$bin_dir" "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Unsupported platform: Plan9."* ]] || false
+	[[ $stderr == *"Error: Unsupported platform: Plan9."* ]] || false
 	[ -z "$output" ]
 }
 
@@ -296,7 +296,7 @@ setup_file() {
 
 	run --separate-stderr env PATH="$bin_dir" "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Clipboard tool 'pbcopy' not found. macOS installs it in /usr/bin; add /usr/bin to PATH."* ]] || false
+	[[ $stderr == *"Error: Clipboard tool 'pbcopy' not found. macOS installs it in /usr/bin; add /usr/bin to PATH."* ]] || false
 	[ -z "$output" ]
 }
 
@@ -307,7 +307,7 @@ setup_file() {
 
 	run --separate-stderr env -u WAYLAND_DISPLAY PATH="$bin_dir" "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Clipboard tool 'xclip' or 'xsel' not found."* ]] || false
+	[[ $stderr == *"Error: Clipboard tool 'xclip' or 'xsel' not found."* ]] || false
 	[ -z "$output" ]
 }
 
@@ -318,7 +318,7 @@ setup_file() {
 
 	run --separate-stderr env WAYLAND_DISPLAY=wayland-0 PATH="$bin_dir" "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Clipboard tool 'wl-copy' not found."* ]] || false
+	[[ $stderr == *"Error: Clipboard tool 'wl-copy' not found."* ]] || false
 	[ -z "$output" ]
 }
 
@@ -329,7 +329,7 @@ setup_file() {
 
 	run --separate-stderr env PATH="$bin_dir" "$SCRIPTS_DIR/en_"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Clipboard tool 'clip.exe' not found. Windows installs it in its System32 directory; add that directory to PATH."* ]] || false
+	[[ $stderr == *"Error: Clipboard tool 'clip.exe' not found. Windows installs it in its System32 directory; add that directory to PATH."* ]] || false
 	[ -z "$output" ]
 }
 
@@ -392,7 +392,7 @@ setup_file() {
 @test "en_: help goes to stdout with nothing on stderr" {
 	run --separate-stderr "$SCRIPTS_DIR/en_" -h
 	[ "$status" -eq 0 ]
-	[[ "$output" == "Usage: en_ [OPTIONS]"* ]] || false
+	[[ $output == "Usage: en_ [OPTIONS]"* ]] || false
 	[ -z "$stderr" ]
 }
 
@@ -404,13 +404,13 @@ setup_file() {
 @test "en_: help points to em_ for an em dash" {
 	run "$SCRIPTS_DIR/en_" --help
 	[ "$status" -eq 0 ]
-	grep -q 'em_.*em dash' <<<"$output"
+	grep -q 'em_.*em dash' <<< "$output"
 }
 
 @test "em_: help points to en_ for an en dash" {
 	run "$SCRIPTS_DIR/em_" --help
 	[ "$status" -eq 0 ]
-	grep -q 'en_.*en dash' <<<"$output"
+	grep -q 'en_.*en dash' <<< "$output"
 }
 
 @test "en_: help omits the note about invoking the script by another name" {
@@ -422,8 +422,8 @@ setup_file() {
 @test "_mnn: help lists the dash that each command copies" {
 	run "$SCRIPTS_DIR/_mnn" --help
 	[ "$status" -eq 0 ]
-	grep -Eq '^ *en_ .*U\+2013' <<<"$output"
-	grep -Eq '^ *em_ .*U\+2014' <<<"$output"
+	grep -Eq '^ *en_ .*U\+2013' <<< "$output"
+	grep -Eq '^ *em_ .*U\+2014' <<< "$output"
 }
 
 @test "_mnn: help does not say that _mnn copies a dash" {
@@ -437,8 +437,8 @@ setup_file() {
 
 	run "$TEST_TEMP_DIR/dash" --help
 	[ "$status" -eq 0 ]
-	grep -Eq '^ *en_ .*U\+2013' <<<"$output"
-	grep -Eq '^ *em_ .*U\+2014' <<<"$output"
+	grep -Eq '^ *en_ .*U\+2013' <<< "$output"
+	grep -Eq '^ *em_ .*U\+2014' <<< "$output"
 	assert_dashes_attributed_to_commands
 }
 
@@ -446,59 +446,59 @@ setup_file() {
 @test "_mnn: shows error when invoked directly" {
 	run --separate-stderr "$SCRIPTS_DIR/_mnn"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: This script must be invoked as 'en_' or 'em_'"* ]] || false
+	[[ $stderr == *"Error: This script must be invoked as 'en_' or 'em_'"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "_mnn: --help works when invoked directly" {
 	run --separate-stderr "$SCRIPTS_DIR/_mnn" --help
 	[ "$status" -eq 0 ]
-	[[ "$output" == "Usage: _mnn [OPTIONS]"* ]] || false
+	[[ $output == "Usage: _mnn [OPTIONS]"* ]] || false
 	[ -z "$stderr" ]
 }
 
 @test "_mnn: -h works when invoked directly" {
 	run --separate-stderr "$SCRIPTS_DIR/_mnn" -h
 	[ "$status" -eq 0 ]
-	[[ "$output" == "Usage: _mnn [OPTIONS]"* ]] || false
+	[[ $output == "Usage: _mnn [OPTIONS]"* ]] || false
 	[ -z "$stderr" ]
 }
 
 @test "_mnn: unknown option exits 2 when invoked directly" {
 	run --separate-stderr "$SCRIPTS_DIR/_mnn" --invalid
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unknown option '--invalid'"* ]] || false
-	[[ "$stderr" == *"Run '_mnn --help' for usage information."* ]] || false
+	[[ $stderr == *"Error: Unknown option '--invalid'"* ]] || false
+	[[ $stderr == *"Run '_mnn --help' for usage information."* ]] || false
 	[ -z "$output" ]
 }
 
 @test "en_: shows error for invalid option" {
 	run --separate-stderr "$SCRIPTS_DIR/en_" --invalid
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unknown option '--invalid'"* ]] || false
+	[[ $stderr == *"Error: Unknown option '--invalid'"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "en_: error messages go to stderr" {
 	run --separate-stderr "$SCRIPTS_DIR/en_" --invalid
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Run 'en_ --help' for usage information."* ]] || false
+	[[ $stderr == *"Run 'en_ --help' for usage information."* ]] || false
 	[ -z "$output" ]
 }
 
 @test "en_: shows error for unexpected argument" {
 	run --separate-stderr "$SCRIPTS_DIR/en_" foo
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unexpected argument 'foo'; en_ accepts no arguments."* ]] || false
-	[[ "$stderr" == *"Run 'en_ --help' for usage information."* ]] || false
-	[[ "$stderr" != *"Unknown option"* ]] || false
+	[[ $stderr == *"Error: Unexpected argument 'foo'; en_ accepts no arguments."* ]] || false
+	[[ $stderr == *"Run 'en_ --help' for usage information."* ]] || false
+	[[ $stderr != *"Unknown option"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "em_: shows error for unexpected argument before -h" {
 	run --separate-stderr "$SCRIPTS_DIR/em_" foo -h
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unexpected argument 'foo'"* ]] || false
+	[[ $stderr == *"Error: Unexpected argument 'foo'"* ]] || false
 	[ -z "$output" ]
 }
 

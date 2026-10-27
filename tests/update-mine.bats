@@ -10,7 +10,7 @@ load 'test_helper'
 # Also prepends SCRIPTS_DIR so update-mine can find sibling scripts (e.g. mergewith).
 stub_gh() {
 	mkdir -p "$TEST_TEMP_DIR/stubs"
-	cat >"$TEST_TEMP_DIR/stubs/gh" <<EOF
+	cat > "$TEST_TEMP_DIR/stubs/gh" << EOF
 #!/usr/bin/env bash
 case "\$1" in
   pr|api) printf '%s\n' $(printf '"%s" ' "$@") ;;
@@ -26,7 +26,7 @@ EOF
 # stub_gh as well, because it puts the stubs directory first on PATH.
 stub_failing_mergewith() {
 	mkdir -p "$TEST_TEMP_DIR/stubs"
-	cat >"$TEST_TEMP_DIR/stubs/mergewith" <<'EOF'
+	cat > "$TEST_TEMP_DIR/stubs/mergewith" << 'EOF'
 #!/usr/bin/env bash
 touch "$(git rev-parse --git-dir)/index.lock"
 exit 1
@@ -47,7 +47,7 @@ setup_origin() {
 #   $1 - branch name
 push_feature_branch() {
 	git checkout -b "$1" main
-	echo "$1" >"$1.txt"
+	echo "$1" > "$1.txt"
 	git add "$1.txt"
 	git commit -m "$1 work"
 	git push -u origin "$1"
@@ -57,7 +57,7 @@ push_feature_branch() {
 # Helper to add a commit to main and push it, so that main has changes that
 # the feature branches do not have yet
 advance_main() {
-	echo "main change" >main.txt
+	echo "main change" > main.txt
 	git add main.txt
 	git commit -m "main work"
 	git push origin main
@@ -85,8 +85,8 @@ advance_main() {
 @test "update-mine: --help lists sections in order with -h, --help last" {
 	run "$SCRIPTS_DIR/update-mine" --help
 	[ "$status" -eq 0 ]
-	[[ "$output" == "Usage: update-mine "*"Arguments:"*"Options:"*"Examples:"* ]] || false
-	[[ "$output" == *"  -h, --help  Show this help message and exit."$'\n\n'"Examples:"* ]] || false
+	[[ $output == "Usage: update-mine "*"Arguments:"*"Options:"*"Examples:"* ]] || false
+	[[ $output == *"  -h, --help  Show this help message and exit."$'\n\n'"Examples:"* ]] || false
 }
 
 @test "update-mine: -h works when git is not installed" {
@@ -99,24 +99,24 @@ advance_main() {
 @test "update-mine: fails with exit 2 when no reference branch specified" {
 	run --separate-stderr "$SCRIPTS_DIR/update-mine"
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Missing <reference_branch> argument."* ]] || false
-	[[ "$stderr" == *"Use --help for usage information."* ]] || false
+	[[ $stderr == *"Error: Missing <reference_branch> argument."* ]] || false
+	[[ $stderr == *"Use --help for usage information."* ]] || false
 	[ -z "$output" ]
 }
 
 @test "update-mine: fails with exit 2 when two reference branches specified" {
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" main develop
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple reference branches specified: 'main' and 'develop'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Multiple reference branches specified: 'main' and 'develop'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "update-mine: fails with exit 2 when an empty reference branch precedes another" {
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" '' main
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Multiple reference branches specified: '' and 'main'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Multiple reference branches specified: '' and 'main'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -130,22 +130,22 @@ advance_main() {
 @test "update-mine: fails with exit 2 on unknown option" {
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" --unknown main
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unknown option '--unknown'"* ]] || false
-	[[ "$stderr" == *"Usage:"* ]] || false
+	[[ $stderr == *"Error: Unknown option '--unknown'"* ]] || false
+	[[ $stderr == *"Usage:"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "update-mine: fails with exit 2 on unknown short option" {
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" -x main
 	[ "$status" -eq 2 ]
-	[[ "$stderr" == *"Error: Unknown option '-x'"* ]] || false
+	[[ $stderr == *"Error: Unknown option '-x'"* ]] || false
 	[ -z "$output" ]
 }
 
 @test "update-mine: fails when git is not installed" {
 	run --separate-stderr env PATH="$(restricted_path bash basename)" "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"'git' is required"* ]] || false
+	[[ $stderr == *"'git' is required"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -153,7 +153,7 @@ advance_main() {
 	# We're in TEST_TEMP_DIR which is not a git repo
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Not inside a Git repository."* ]] || false
+	[[ $stderr == *"Error: Not inside a Git repository."* ]] || false
 	[ -z "$output" ]
 }
 
@@ -162,7 +162,7 @@ advance_main() {
 
 	run --separate-stderr env PATH="$(restricted_path bash basename git)" "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"'gh' (GitHub CLI) is required"* ]] || false
+	[[ $stderr == *"'gh' (GitHub CLI) is required"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -172,7 +172,7 @@ advance_main() {
 
 	run --separate-stderr env PATH="$(restricted_path bash basename git gh)" "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"'mergewith' is required"* ]] || false
+	[[ $stderr == *"'mergewith' is required"* ]] || false
 	[ -z "$output" ]
 }
 
@@ -184,7 +184,7 @@ advance_main() {
 	[ "$status" -eq 0 ]
 	assert_output_contains "Fetching branches with open PRs authored by you..."
 	assert_output_contains "No branches found."
-	[[ "$stderr" == *"git rev-parse --is-inside-work-tree"* ]] || false
+	[[ $stderr == *"git rev-parse --is-inside-work-tree"* ]] || false
 }
 
 @test "update-mine: accepts --all flag" {
@@ -204,7 +204,7 @@ advance_main() {
 
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Error: Failed to update the remote-tracking branches."* ]] || false
+	[[ $stderr == *"Error: Failed to update the remote-tracking branches."* ]] || false
 	assert_output_not_contains "Processing branch"
 }
 
@@ -220,7 +220,7 @@ advance_main() {
 	[ "$status" -eq 0 ]
 	assert_output_contains "Successfully updated and pushed branch: feature-a"
 	assert_output_contains "Successfully updated and pushed branch: feature-b"
-	[[ "$stderr" != *"Warning:"* ]] || false
+	[[ $stderr != *"Warning:"* ]] || false
 	git -C "$TEST_TEMP_DIR/origin.git" merge-base --is-ancestor main feature-a
 	git -C "$TEST_TEMP_DIR/origin.git" merge-base --is-ancestor main feature-b
 	[ "$(git branch --show-current)" = "main" ]
@@ -229,7 +229,7 @@ advance_main() {
 @test "update-mine: skips branches checked out in another worktree with a warning" {
 	setup_git_repo
 	git checkout -b feature-a
-	echo "a" >a.txt && git add a.txt && git commit -m "feature-a work"
+	echo "a" > a.txt && git add a.txt && git commit -m "feature-a work"
 	git checkout main
 
 	# Hold feature-a in a second worktree so it's "checked out elsewhere"
@@ -241,9 +241,9 @@ advance_main() {
 	# A skipped branch is not a failure.
 	[ "$status" -eq 0 ]
 	assert_output_contains "Processing branch: feature-a"
-	[[ "$stderr" == *"Warning: Skipping branch feature-a because it is checked out in another worktree."* ]] || false
+	[[ $stderr == *"Warning: Skipping branch feature-a because it is checked out in another worktree."* ]] || false
 	assert_output_not_contains "Warning:"
-	[[ "$stderr" != *"fatal:"* ]] || false
+	[[ $stderr != *"fatal:"* ]] || false
 }
 
 @test "update-mine: warns on stderr and exits 1 when a branch cannot be checked out" {
@@ -252,7 +252,7 @@ advance_main() {
 
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Warning: Failed to check out branch no-such-branch. Skipping..."* ]] || false
+	[[ $stderr == *"Warning: Failed to check out branch no-such-branch. Skipping..."* ]] || false
 	assert_output_not_contains "Warning:"
 }
 
@@ -269,8 +269,8 @@ advance_main() {
 	[ "$status" -eq 1 ]
 	assert_output_contains "Processing branch: feature-a"
 	assert_output_contains "Processing branch: feature-b"
-	[[ "$stderr" == *"Warning: Failed to merge main into feature-a. Skipping..."* ]] || false
-	[[ "$stderr" == *"Warning: Failed to merge main into feature-b. Skipping..."* ]] || false
+	[[ $stderr == *"Warning: Failed to merge main into feature-a. Skipping..."* ]] || false
+	[[ $stderr == *"Warning: Failed to merge main into feature-b. Skipping..."* ]] || false
 	assert_output_not_contains "Warning:"
 	[ "$(git branch --show-current)" = "main" ]
 }
@@ -279,18 +279,18 @@ advance_main() {
 	setup_git_repo
 	setup_origin
 	git checkout -b feature-a
-	echo "feature-a version" >README.md
+	echo "feature-a version" > README.md
 	git commit -am "feature-a edits README"
 	git push -u origin feature-a
 	git checkout main
-	echo "main version" >README.md
+	echo "main version" > README.md
 	git commit -am "main edits README"
 	git push origin main
 	stub_gh feature-a
 
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Warning: Failed to merge main into feature-a. Skipping..."* ]] || false
+	[[ $stderr == *"Warning: Failed to merge main into feature-a. Skipping..."* ]] || false
 	run git rev-parse -q --verify MERGE_HEAD
 	[ "$status" -ne 0 ]
 	[ -z "$(git status --porcelain --untracked-files=no)" ]
@@ -302,20 +302,20 @@ advance_main() {
 	setup_origin
 	push_feature_branch feature-a
 	advance_main
-	printf '#!/bin/sh\nexit 1\n' >"$TEST_TEMP_DIR/origin.git/hooks/pre-receive"
+	printf '#!/bin/sh\nexit 1\n' > "$TEST_TEMP_DIR/origin.git/hooks/pre-receive"
 	chmod +x "$TEST_TEMP_DIR/origin.git/hooks/pre-receive"
 	stub_gh feature-a
 
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Warning: Failed to push branch feature-a. Skipping..."* ]] || false
+	[[ $stderr == *"Warning: Failed to push branch feature-a. Skipping..."* ]] || false
 	assert_output_not_contains "Successfully updated and pushed branch"
 }
 
 @test "update-mine: restores starting branch after processing" {
 	setup_git_repo
 	git checkout -b feature-a
-	echo "a" >a.txt && git add a.txt && git commit -m "feature-a work"
+	echo "a" > a.txt && git add a.txt && git commit -m "feature-a work"
 	git checkout -b starting-branch main
 
 	stub_gh feature-a
@@ -332,7 +332,7 @@ advance_main() {
 @test "update-mine: restores detached HEAD after processing" {
 	setup_git_repo
 	git checkout -b feature-a
-	echo "a" >a.txt && git add a.txt && git commit -m "feature-a work"
+	echo "a" > a.txt && git add a.txt && git commit -m "feature-a work"
 	git checkout main
 	local starting_sha
 	starting_sha=$(git rev-parse HEAD)
@@ -356,14 +356,14 @@ advance_main() {
 
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Warning: Could not restore the starting branch 'main'. Run 'git checkout main' to return to it."* ]] || false
+	[[ $stderr == *"Warning: Could not restore the starting branch 'main'. Run 'git checkout main' to return to it."* ]] || false
 	assert_output_not_contains "Warning:"
 }
 
 @test "update-mine: warns with a remedy when the detached HEAD cannot be restored" {
 	setup_git_repo
 	git checkout -b feature-a
-	echo "a" >a.txt && git add a.txt && git commit -m "feature-a work"
+	echo "a" > a.txt && git add a.txt && git commit -m "feature-a work"
 	git checkout --detach main
 	local starting_sha
 	starting_sha=$(git rev-parse HEAD)
@@ -372,6 +372,6 @@ advance_main() {
 
 	run --separate-stderr "$SCRIPTS_DIR/update-mine" main
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"Warning: Could not restore the detached HEAD at '$starting_sha'. Run 'git checkout --detach $starting_sha' to return to it."* ]] || false
+	[[ $stderr == *"Warning: Could not restore the detached HEAD at '$starting_sha'. Run 'git checkout --detach $starting_sha' to return to it."* ]] || false
 	assert_output_not_contains "Warning:"
 }

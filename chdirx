@@ -8,7 +8,7 @@ TARGET_DIR=""
 TARGET_DIR_SET=false
 
 usage() {
-	cat <<EOF
+	cat << EOF
 Usage: $SCRIPT_NAME [OPTIONS] [--] <directory>
 
 Adds executable permission to scripts in the specified directory. If a file starts with
@@ -47,31 +47,31 @@ set_target_dir() {
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-	-h | --help)
-		usage
-		exit 0
-		;;
-	-r)
-		RECURSIVE=true
-		;;
-	--)
-		# Each remaining argument goes through set_target_dir, so that an extra
-		# argument after "--" is rejected instead of ignored.
-		shift
-		while [[ $# -gt 0 ]]; do
-			set_target_dir "$1"
+		-h | --help)
+			usage
+			exit 0
+			;;
+		-r)
+			RECURSIVE=true
+			;;
+		--)
+			# Each remaining argument goes through set_target_dir, so that an extra
+			# argument after "--" is rejected instead of ignored.
 			shift
-		done
-		break
-		;;
-	-*)
-		echo "Error: Unknown option '$1'" >&2
-		usage >&2
-		exit 2
-		;;
-	*)
-		set_target_dir "$1"
-		;;
+			while [[ $# -gt 0 ]]; do
+				set_target_dir "$1"
+				shift
+			done
+			break
+			;;
+		-*)
+			echo "Error: Unknown option '$1'" >&2
+			usage >&2
+			exit 2
+			;;
+		*)
+			set_target_dir "$1"
+			;;
 	esac
 	shift
 done
