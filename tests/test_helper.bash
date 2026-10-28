@@ -10,27 +10,27 @@ bats_require_minimum_version 1.7.0
 
 # Setup function - runs before each test
 setup() {
-	# Create a temporary directory for test files
-	TEST_TEMP_DIR="$(mktemp -d)"
-	cd "$TEST_TEMP_DIR" || return 1
+  # Create a temporary directory for test files
+  TEST_TEMP_DIR="$(mktemp -d)"
+  cd "$TEST_TEMP_DIR" || return 1
 }
 
 # Teardown function - runs after each test
 teardown() {
-	# Clean up temporary directory
-	if [[ -n $TEST_TEMP_DIR && -d $TEST_TEMP_DIR ]]; then
-		rm -rf "$TEST_TEMP_DIR"
-	fi
+  # Clean up temporary directory
+  if [[ -n $TEST_TEMP_DIR && -d $TEST_TEMP_DIR ]]; then
+    rm -rf "$TEST_TEMP_DIR"
+  fi
 }
 
 # Helper to create a minimal git repo for git-related tests
 setup_git_repo() {
-	git init --initial-branch=main
-	git config user.email "test@example.com"
-	git config user.name "Test User"
-	echo "initial" > README.md
-	git add README.md
-	git commit -m "Initial commit"
+  git init --initial-branch=main
+  git config user.email "test@example.com"
+  git config user.name "Test User"
+  echo "initial" > README.md
+  git add README.md
+  git commit -m "Initial commit"
 }
 
 # Helper to build a PATH that contains only the named commands, so that a
@@ -39,13 +39,13 @@ setup_git_repo() {
 #   $@ - commands to make available
 # Outputs: the directory to use as PATH
 restricted_path() {
-	local dir="$TEST_TEMP_DIR/restricted-bin"
-	local cmd
-	mkdir -p "$dir"
-	for cmd in "$@"; do
-		ln -sf "$(command -v "$cmd")" "$dir/$cmd"
-	done
-	echo "$dir"
+  local dir="$TEST_TEMP_DIR/restricted-bin"
+  local cmd
+  mkdir -p "$dir"
+  for cmd in "$@"; do
+    ln -sf "$(command -v "$cmd")" "$dir/$cmd"
+  done
+  echo "$dir"
 }
 
 # Helper to check if output contains a substring
@@ -53,13 +53,13 @@ restricted_path() {
 #   $1 - expected substring
 # Note: $output is set by BATS 'run' command
 assert_output_contains() {
-	local expected="$1"
-	# shellcheck disable=SC2154  # $output is set by BATS
-	if [[ $output != *"$expected"* ]]; then
-		echo "Expected output to contain: $expected"
-		echo "Actual output: $output"
-		return 1
-	fi
+  local expected="$1"
+  # shellcheck disable=SC2154  # $output is set by BATS
+  if [[ $output != *"$expected"* ]]; then
+    echo "Expected output to contain: $expected"
+    echo "Actual output: $output"
+    return 1
+  fi
 }
 
 # Helper to check if output does NOT contain a substring
@@ -67,13 +67,13 @@ assert_output_contains() {
 #   $1 - unexpected substring
 # Note: $output is set by BATS 'run' command
 assert_output_not_contains() {
-	local unexpected="$1"
-	# shellcheck disable=SC2154  # $output is set by BATS
-	if [[ $output == *"$unexpected"* ]]; then
-		echo "Expected output NOT to contain: $unexpected"
-		echo "Actual output: $output"
-		return 1
-	fi
+  local unexpected="$1"
+  # shellcheck disable=SC2154  # $output is set by BATS
+  if [[ $output == *"$unexpected"* ]]; then
+    echo "Expected output NOT to contain: $unexpected"
+    echo "Actual output: $output"
+    return 1
+  fi
 }
 
 # Helper to check if stderr contains a substring
@@ -81,13 +81,13 @@ assert_output_not_contains() {
 #   $1 - expected substring
 # Note: $stderr is set by BATS 'run --separate-stderr'
 assert_stderr_contains() {
-	local expected="$1"
-	# shellcheck disable=SC2154  # $stderr is set by BATS
-	if [[ $stderr != *"$expected"* ]]; then
-		echo "Expected stderr to contain: $expected"
-		echo "Actual stderr: $stderr"
-		return 1
-	fi
+  local expected="$1"
+  # shellcheck disable=SC2154  # $stderr is set by BATS
+  if [[ $stderr != *"$expected"* ]]; then
+    echo "Expected stderr to contain: $expected"
+    echo "Actual stderr: $stderr"
+    return 1
+  fi
 }
 
 # Helper to check if stderr does NOT contain a substring
@@ -95,37 +95,37 @@ assert_stderr_contains() {
 #   $1 - unexpected substring
 # Note: $stderr is set by BATS 'run --separate-stderr'
 assert_stderr_not_contains() {
-	local unexpected="$1"
-	if [[ $stderr == *"$unexpected"* ]]; then
-		echo "Expected stderr NOT to contain: $unexpected"
-		echo "Actual stderr: $stderr"
-		return 1
-	fi
+  local unexpected="$1"
+  if [[ $stderr == *"$unexpected"* ]]; then
+    echo "Expected stderr NOT to contain: $unexpected"
+    echo "Actual stderr: $stderr"
+    return 1
+  fi
 }
 
 # Helper to assert file is executable
 assert_executable() {
-	local file="$1"
-	if [[ ! -x $file ]]; then
-		echo "Expected '$file' to be executable"
-		return 1
-	fi
+  local file="$1"
+  if [[ ! -x $file ]]; then
+    echo "Expected '$file' to be executable"
+    return 1
+  fi
 }
 
 # Helper to assert file exists
 assert_file_exists() {
-	local file="$1"
-	if [[ ! -f $file ]]; then
-		echo "Expected file '$file' to exist"
-		return 1
-	fi
+  local file="$1"
+  if [[ ! -f $file ]]; then
+    echo "Expected file '$file' to exist"
+    return 1
+  fi
 }
 
 # Helper to assert directory exists
 assert_dir_exists() {
-	local dir="$1"
-	if [[ ! -d $dir ]]; then
-		echo "Expected directory '$dir' to exist"
-		return 1
-	fi
+  local dir="$1"
+  if [[ ! -d $dir ]]; then
+    echo "Expected directory '$dir' to exist"
+    return 1
+  fi
 }
