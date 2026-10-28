@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
-	cat << EOF
+  cat << EOF
 Usage: $SCRIPT_NAME [OPTIONS] [--] <file> [<file> ...]
 
 Create or update the specified file(s) and make them executable.
@@ -33,55 +33,55 @@ FILES=()
 
 # Parse options and collect valid file arguments
 while [[ $# -gt 0 ]]; do
-	case "$1" in
-		-h | --help)
-			usage
-			exit 0
-			;;
-		--)
-			shift
-			FILES+=("$@")
-			break
-			;;
-		-*)
-			echo "Error: Unknown option '$1'" >&2
-			usage >&2
-			exit 2
-			;;
-		*)
-			FILES+=("$1")
-			;;
-	esac
-	shift
+  case "$1" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      FILES+=("$@")
+      break
+      ;;
+    -*)
+      echo "Error: Unknown option '$1'" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      FILES+=("$1")
+      ;;
+  esac
+  shift
 done
 
 # Ensure at least one valid file argument remains
 if [ "${#FILES[@]}" -eq 0 ]; then
-	echo "Error: No files specified." >&2
-	usage >&2
-	exit 2
+  echo "Error: No files specified." >&2
+  usage >&2
+  exit 2
 fi
 
 # Process each file argument
 for FILE in "${FILES[@]}"; do
-	# Ensure the file argument is not empty
-	if [[ -z $FILE || $FILE =~ ^[[:space:]]+$ ]]; then
-		echo "Error: Invalid filename '$FILE'." >&2
-		exit 1
-	fi
+  # Ensure the file argument is not empty
+  if [[ -z $FILE || $FILE =~ ^[[:space:]]+$ ]]; then
+    echo "Error: Invalid filename '$FILE'." >&2
+    exit 1
+  fi
 
-	# Create or update the file
-	if ! touch -- "$FILE"; then
-		echo "Error: Failed to create or update '$FILE'." >&2
-		exit 1
-	fi
+  # Create or update the file
+  if ! touch -- "$FILE"; then
+    echo "Error: Failed to create or update '$FILE'." >&2
+    exit 1
+  fi
 
-	# BSD chmod stops parsing options at the mode operand, so a "--" placed
-	# after the mode would be read as a file name.
-	if ! chmod -- +x "$FILE"; then
-		echo "Error: Failed to set execute permission for '$FILE'." >&2
-		exit 1
-	fi
+  # BSD chmod stops parsing options at the mode operand, so a "--" placed
+  # after the mode would be read as a file name.
+  if ! chmod -- +x "$FILE"; then
+    echo "Error: Failed to set execute permission for '$FILE'." >&2
+    exit 1
+  fi
 
-	echo "Created and made executable: '$FILE'"
+  echo "Created and made executable: '$FILE'"
 done
