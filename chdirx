@@ -8,7 +8,7 @@ TARGET_DIR=""
 TARGET_DIR_SET=false
 
 usage() {
-	cat << EOF
+  cat << EOF
 Usage: $SCRIPT_NAME [OPTIONS] [--] <directory>
 
 Adds executable permission to scripts in the specified directory. If a file starts with
@@ -36,87 +36,87 @@ EOF
 # directory after an empty one, and it tells a missing directory, which is a
 # usage error, from an empty one, which cannot be used.
 set_target_dir() {
-	if [[ $TARGET_DIR_SET == true ]]; then
-		echo "Error: Multiple directories specified: '$TARGET_DIR' and '$1'" >&2
-		usage >&2
-		exit 2
-	fi
-	TARGET_DIR="$1"
-	TARGET_DIR_SET=true
+  if [[ $TARGET_DIR_SET == true ]]; then
+    echo "Error: Multiple directories specified: '$TARGET_DIR' and '$1'" >&2
+    usage >&2
+    exit 2
+  fi
+  TARGET_DIR="$1"
+  TARGET_DIR_SET=true
 }
 
 while [[ $# -gt 0 ]]; do
-	case "$1" in
-		-h | --help)
-			usage
-			exit 0
-			;;
-		-r)
-			RECURSIVE=true
-			;;
-		--)
-			# Each remaining argument goes through set_target_dir, so that an extra
-			# argument after "--" is rejected instead of ignored.
-			shift
-			while [[ $# -gt 0 ]]; do
-				set_target_dir "$1"
-				shift
-			done
-			break
-			;;
-		-*)
-			echo "Error: Unknown option '$1'" >&2
-			usage >&2
-			exit 2
-			;;
-		*)
-			set_target_dir "$1"
-			;;
-	esac
-	shift
+  case "$1" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -r)
+      RECURSIVE=true
+      ;;
+    --)
+      # Each remaining argument goes through set_target_dir, so that an extra
+      # argument after "--" is rejected instead of ignored.
+      shift
+      while [[ $# -gt 0 ]]; do
+        set_target_dir "$1"
+        shift
+      done
+      break
+      ;;
+    -*)
+      echo "Error: Unknown option '$1'" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      set_target_dir "$1"
+      ;;
+  esac
+  shift
 done
 
 if [[ $TARGET_DIR_SET == false ]]; then
-	echo "Error: No directory specified." >&2
-	usage >&2
-	exit 2
+  echo "Error: No directory specified." >&2
+  usage >&2
+  exit 2
 fi
 
 if [[ ! -d $TARGET_DIR ]]; then
-	echo "Error: '$TARGET_DIR' is not a directory." >&2
-	exit 1
+  echo "Error: '$TARGET_DIR' is not a directory." >&2
+  exit 1
 fi
 
 process_directory() {
-	local dir="$1"
-	local file
-	# The * pattern does not match names that begin with a dot, so the .*
-	# pattern is needed for hidden files and directories.
-	for file in "$dir"/.* "$dir"/*; do
-		# Skip if file doesn't exist (handles empty dirs) or if it's `.` or `..`
-		[[ -e $file && $file != "$dir/." && $file != "$dir/.." ]] || continue
-		# Skip symlinks to prevent loops and operating outside target tree
-		[[ -L $file ]] && continue
-		if [[ -f $file ]]; then
-			# Without this check, head reports the failure in its own unprefixed
-			# message and the file is skipped as if it had no shebang.
-			if [[ ! -r $file ]]; then
-				echo "Warning: Skipping '$file' because it is not readable." >&2
-				continue
-			fi
-			if head -n 1 -- "$file" | grep -q '^#!'; then
-				# BSD chmod stops parsing options at the mode operand, so a "--"
-				# placed after the mode would be read as a file name.
-				if ! chmod -- +x "$file"; then
-					echo "Error: Failed to add executable permission to '$file'." >&2
-					exit 1
-				fi
-				echo "Added executable permission to: $file"
-			fi
-		elif [[ -d $file && $RECURSIVE == true ]]; then
-			process_directory "$file"
-		fi
-	done
+  local dir="$1"
+  local file
+  # The * pattern does not match names that begin with a dot, so the .*
+  # pattern is needed for hidden files and directories.
+  for file in "$dir"/.* "$dir"/*; do
+    # Skip if file doesn't exist (handles empty dirs) or if it's `.` or `..`
+    [[ -e $file && $file != "$dir/." && $file != "$dir/.." ]] || continue
+    # Skip symlinks to prevent loops and operating outside target tree
+    [[ -L $file ]] && continue
+    if [[ -f $file ]]; then
+      # Without this check, head reports the failure in its own unprefixed
+      # message and the file is skipped as if it had no shebang.
+      if [[ ! -r $file ]]; then
+        echo "Warning: Skipping '$file' because it is not readable." >&2
+        continue
+      fi
+      if head -n 1 -- "$file" | grep -q '^#!'; then
+        # BSD chmod stops parsing options at the mode operand, so a "--"
+        # placed after the mode would be read as a file name.
+        if ! chmod -- +x "$file"; then
+          echo "Error: Failed to add executable permission to '$file'." >&2
+          exit 1
+        fi
+        echo "Added executable permission to: $file"
+      fi
+    elif [[ -d $file && $RECURSIVE == true ]]; then
+      process_directory "$file"
+    fi
+  done
 }
 
 process_directory "$TARGET_DIR"
