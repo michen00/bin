@@ -20,7 +20,7 @@ failing_git_path() {
 			echo "case \"\$*\" in '$prefix'*) exit 1 ;; esac"
 		done
 		echo "exec '$real_git' \"\$@\""
-	} >"$dir/git"
+	} > "$dir/git"
 	chmod +x "$dir/git"
 	echo "$dir:$PATH"
 }
@@ -53,12 +53,12 @@ failing_git_path() {
 @test "ach: --help describes HASH and FILE under Arguments:, before Options:" {
 	run "$SCRIPTS_DIR/ach" --help
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"Arguments:"*"Options:"* ]] || false
+	[[ $output == *"Arguments:"*"Options:"* ]] || false
 
 	local arguments_section=${output#*Arguments:}
 	arguments_section=${arguments_section%%Options:*}
-	[[ "$arguments_section" == *"HASH"* ]] || false
-	[[ "$arguments_section" == *"FILE"* ]] || false
+	[[ $arguments_section == *"HASH"* ]] || false
+	[[ $arguments_section == *"FILE"* ]] || false
 }
 
 @test "ach: -h works when git is not installed" {
@@ -180,7 +180,7 @@ failing_git_path() {
 	run "$SCRIPTS_DIR/ach" -- "$first_hash" -ignore.txt
 	[ "$status" -eq 0 ]
 
-	echo "more content" >>README.md
+	echo "more content" >> README.md
 	git add README.md
 	git commit -m "Update readme"
 	second_hash=$(git rev-parse HEAD)
@@ -211,14 +211,14 @@ failing_git_path() {
 @test "ach: -- stashes uncommitted changes to a FILE that begins with a dash" {
 	setup_git_repo
 
-	echo "# Initial content" >./-ignore.txt
-	echo "" >>./-ignore.txt
+	echo "# Initial content" > ./-ignore.txt
+	echo "" >> ./-ignore.txt
 	git add -- -ignore.txt
 	git commit -m "Add blame file"
 	{
 		echo "# My uncommitted header"
 		cat -- -ignore.txt
-	} >tmp && mv -- tmp -ignore.txt
+	} > tmp && mv -- tmp -ignore.txt
 
 	local target_hash
 	target_hash=$(git rev-parse HEAD)
@@ -253,7 +253,7 @@ failing_git_path() {
 	setup_git_repo
 
 	# Create and stage a separate file (simulating user's work in progress)
-	echo "unrelated work" >unrelated.txt
+	echo "unrelated work" > unrelated.txt
 	git add unrelated.txt
 
 	# Verify it's staged
@@ -285,17 +285,17 @@ failing_git_path() {
 	setup_git_repo
 
 	# Create a tracked file with unstaged modifications
-	echo "tracked content" >tracked.txt
+	echo "tracked content" > tracked.txt
 	git add tracked.txt
 	git commit -m "Add tracked file"
-	echo "modified content" >tracked.txt
+	echo "modified content" > tracked.txt
 
 	# Also create an untracked file
-	echo "untracked content" >untracked.txt
+	echo "untracked content" > untracked.txt
 
 	# Verify we have unstaged changes
 	run git status --porcelain
-	[[ "$output" == *" M tracked.txt"* ]] || [[ "$output" == *"M  tracked.txt"* ]] || [[ "$output" == *"?? untracked.txt"* ]] || false
+	[[ $output == *" M tracked.txt"* ]] || [[ $output == *"M  tracked.txt"* ]] || [[ $output == *"?? untracked.txt"* ]] || false
 
 	# Capture hash before ach runs
 	local target_hash
@@ -369,8 +369,8 @@ failing_git_path() {
 	setup_git_repo
 
 	# Create the blame file with initial content (leave room for appending)
-	echo "# Initial content" >.git-blame-ignore-revs
-	echo "" >>.git-blame-ignore-revs
+	echo "# Initial content" > .git-blame-ignore-revs
+	echo "" >> .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 
@@ -378,7 +378,7 @@ failing_git_path() {
 	{
 		echo "# My uncommitted header"
 		cat .git-blame-ignore-revs
-	} >tmp && mv tmp .git-blame-ignore-revs
+	} > tmp && mv tmp .git-blame-ignore-revs
 
 	# Verify we have uncommitted changes
 	run git diff --name-only .git-blame-ignore-revs
@@ -410,7 +410,7 @@ failing_git_path() {
 	setup_git_repo
 
 	# Create and stage the blame file with content that doesn't include the target hash
-	echo "# Some other content" >.git-blame-ignore-revs
+	echo "# Some other content" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 
 	# Now run ach - should fail because file is staged with different content
@@ -422,14 +422,14 @@ failing_git_path() {
 
 @test "ach: keeps staged and unstaged changes to FILE when the staged content lacks the hash" {
 	setup_git_repo
-	echo "# Blame ignore file" >.git-blame-ignore-revs
+	echo "# Blame ignore file" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 
-	echo "staged-line" >>.git-blame-ignore-revs
+	echo "staged-line" >> .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
-	echo "unstaged-line" >>.git-blame-ignore-revs
-	echo "unrelated work" >unrelated.txt
+	echo "unstaged-line" >> .git-blame-ignore-revs
+	echo "unrelated work" > unrelated.txt
 	git add unrelated.txt
 
 	local content_before staged_before stash_before status_before
@@ -453,17 +453,17 @@ failing_git_path() {
 
 @test "ach: commits the staged FILE and keeps its unstaged changes when the staged content has the hash" {
 	setup_git_repo
-	echo "# Blame ignore file" >.git-blame-ignore-revs
+	echo "# Blame ignore file" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 
 	# The staged content includes the hash and the working tree does not.
 	local target_hash
 	target_hash=$(git rev-parse HEAD)
-	echo "$target_hash  # Add blame file" >>.git-blame-ignore-revs
+	echo "$target_hash  # Add blame file" >> .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
-	printf '%s\n' "# Blame ignore file" "unstaged-line" >.git-blame-ignore-revs
-	echo "unrelated work" >unrelated.txt
+	printf '%s\n' "# Blame ignore file" "unstaged-line" > .git-blame-ignore-revs
+	echo "unrelated work" > unrelated.txt
 	git add unrelated.txt
 
 	local content_before staged_before stash_before
@@ -491,16 +491,16 @@ failing_git_path() {
 
 @test "ach: commits the staged FILE alone and keeps a staged rename staged" {
 	setup_git_repo
-	echo "# Blame ignore file" >.git-blame-ignore-revs
-	echo "old content" >old.txt
+	echo "# Blame ignore file" > .git-blame-ignore-revs
+	echo "old content" > old.txt
 	git add .git-blame-ignore-revs old.txt
 	git commit -m "Add blame file"
 
 	local target_hash
 	target_hash=$(git rev-parse HEAD)
-	echo "$target_hash  # Add blame file" >>.git-blame-ignore-revs
+	echo "$target_hash  # Add blame file" >> .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
-	printf '%s\n' "# Blame ignore file" "unstaged-line" >.git-blame-ignore-revs
+	printf '%s\n' "# Blame ignore file" "unstaged-line" > .git-blame-ignore-revs
 	# With rename detection on, git diff names a rename by its new path only.
 	# ach must unstage the deletion of old.txt too, or its commit, which has no
 	# pathspec, would include the deletion.
@@ -527,7 +527,7 @@ failing_git_path() {
 
 @test "ach: commits the staged FILE alone when git diff hides a staged submodule change" {
 	setup_git_repo
-	echo "# Blame ignore file" >.git-blame-ignore-revs
+	echo "# Blame ignore file" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	# A gitlink entry records a submodule commit without a submodule
 	# repository. The empty directory stands for a submodule that is not
@@ -538,9 +538,9 @@ failing_git_path() {
 
 	local target_hash
 	target_hash=$(git rev-parse HEAD)
-	echo "$target_hash  # Add blame file" >>.git-blame-ignore-revs
+	echo "$target_hash  # Add blame file" >> .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
-	printf '%s\n' "# Blame ignore file" "unstaged-line" >.git-blame-ignore-revs
+	printf '%s\n' "# Blame ignore file" "unstaged-line" > .git-blame-ignore-revs
 	git update-index --cacheinfo "160000,$target_hash,sm"
 	# With this setting, git diff does not name the staged submodule change,
 	# and the commit of a staged FILE, which has no pathspec, would include it.
@@ -571,7 +571,7 @@ failing_git_path() {
 	{
 		echo "# Blame ignore file"
 		printf '# %0200000d\n' 0
-	} >.git-blame-ignore-revs
+	} > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 
@@ -580,10 +580,10 @@ failing_git_path() {
 	{
 		echo "$target_hash  # Add blame file"
 		cat .git-blame-ignore-revs
-	} >tmp && mv tmp .git-blame-ignore-revs
+	} > tmp && mv tmp .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	# The working tree lacks the hash, so ach checks the staged content.
-	git show HEAD:.git-blame-ignore-revs >.git-blame-ignore-revs
+	git show HEAD:.git-blame-ignore-revs > .git-blame-ignore-revs
 
 	local staged_before
 	staged_before=$(git rev-parse :.git-blame-ignore-revs)
@@ -597,15 +597,15 @@ failing_git_path() {
 
 @test "ach: keeps staged changes to paths whose names contain glob characters" {
 	setup_git_repo
-	echo "# Blame ignore file" >.git-blame-ignore-revs
-	echo "page" >'[id].tsx'
-	echo "doc" >d.tsx
+	echo "# Blame ignore file" > .git-blame-ignore-revs
+	echo "page" > '[id].tsx'
+	echo "doc" > d.tsx
 	git add .git-blame-ignore-revs '[id].tsx' d.tsx
 	git commit -m "Add files"
 
 	# As a glob, [id].tsx also matches d.tsx.
-	echo "page change" >>'[id].tsx'
-	echo "doc change" >>d.tsx
+	echo "page change" >> '[id].tsx'
+	echo "doc change" >> d.tsx
 	git add '[id].tsx' d.tsx
 
 	local status_before
@@ -619,13 +619,13 @@ failing_git_path() {
 
 @test "ach: keeps new staged files whose names contain glob characters" {
 	setup_git_repo
-	echo "# Blame ignore file" >.git-blame-ignore-revs
+	echo "# Blame ignore file" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 
 	# As a glob, [id].tsx also matches d.tsx.
-	echo "page" >'[id].tsx'
-	echo "doc" >d.tsx
+	echo "page" > '[id].tsx'
+	echo "doc" > d.tsx
 	git add '[id].tsx' d.tsx
 
 	local status_before
@@ -641,15 +641,15 @@ failing_git_path() {
 	setup_git_repo
 	# The blank line at the end of the file is lost by a restore that drops
 	# trailing newlines.
-	printf '%s\n' "# Blame ignore file" "" >.git-blame-ignore-revs
+	printf '%s\n' "# Blame ignore file" "" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 	# The unstaged change to FILE makes ach stash it before the append.
 	{
 		echo "# My uncommitted header"
 		cat .git-blame-ignore-revs
-	} >tmp && mv tmp .git-blame-ignore-revs
-	echo "unrelated work" >unrelated.txt
+	} > tmp && mv tmp .git-blame-ignore-revs
+	echo "unrelated work" > unrelated.txt
 	git add unrelated.txt
 
 	# Blob ids compare exact bytes, including the trailing newlines that $(cat)
@@ -673,7 +673,7 @@ failing_git_path() {
 
 @test "ach: restores FILE exactly and unstages the added line when the commit fails" {
 	setup_git_repo
-	printf '%s\n' "# Blame ignore file" "" >.git-blame-ignore-revs
+	printf '%s\n' "# Blame ignore file" "" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 
@@ -712,13 +712,13 @@ failing_git_path() {
 
 @test "ach: names the stash and the command that restores it when cleanup cannot pop it" {
 	setup_git_repo
-	printf '%s\n' "# Blame ignore file" "" >.git-blame-ignore-revs
+	printf '%s\n' "# Blame ignore file" "" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 	{
 		echo "# My uncommitted header"
 		cat .git-blame-ignore-revs
-	} >tmp && mv tmp .git-blame-ignore-revs
+	} > tmp && mv tmp .git-blame-ignore-revs
 
 	local content_before
 	content_before=$(git hash-object .git-blame-ignore-revs)
@@ -739,12 +739,12 @@ failing_git_path() {
 	setup_git_repo
 
 	# First, create and commit the blame file (so it exists in HEAD)
-	echo "# Blame ignore file" >.git-blame-ignore-revs
+	echo "# Blame ignore file" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 
 	# Create another commit to have a hash to add
-	echo "more content" >>README.md
+	echo "more content" >> README.md
 	git add README.md
 	git commit -m "Update readme"
 
@@ -752,7 +752,7 @@ failing_git_path() {
 	target_hash=$(git rev-parse HEAD)
 
 	# Stage the blame file with the target hash already added
-	echo "$target_hash  # Update readme" >>.git-blame-ignore-revs
+	echo "$target_hash  # Update readme" >> .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 
 	run "$SCRIPTS_DIR/ach"
@@ -767,8 +767,8 @@ failing_git_path() {
 	setup_git_repo
 
 	# Create and stage multiple files
-	echo "file1 content" >file1.txt
-	echo "file2 content" >file2.txt
+	echo "file1 content" > file1.txt
+	echo "file2 content" > file2.txt
 	git add file1.txt file2.txt
 
 	# Verify both are staged
@@ -788,7 +788,7 @@ failing_git_path() {
 
 @test "ach: adds a newline before the hash when FILE does not end in one" {
 	setup_git_repo
-	printf '%s' "# Blame ignore file" >.git-blame-ignore-revs
+	printf '%s' "# Blame ignore file" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 	local target_hash
@@ -808,7 +808,7 @@ failing_git_path() {
 
 @test "ach: restores the stash after a failed commit when older stash entries are long" {
 	setup_git_repo
-	printf '%s\n' "# Blame ignore file" "" >.git-blame-ignore-revs
+	printf '%s\n' "# Blame ignore file" "" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 	# The older entries make git stash list print more than a pipe holds, so
@@ -816,14 +816,14 @@ failing_git_path() {
 	# SIGPIPE.
 	local long_message
 	long_message=$(printf '%0100000d' 0)
-	echo "first" >>README.md
+	echo "first" >> README.md
 	git stash push -m "$long_message"
-	echo "second" >>README.md
+	echo "second" >> README.md
 	git stash push -m "$long_message"
 	{
 		echo "# My uncommitted header"
 		cat .git-blame-ignore-revs
-	} >tmp && mv tmp .git-blame-ignore-revs
+	} > tmp && mv tmp .git-blame-ignore-revs
 
 	local content_before stash_before
 	content_before=$(git hash-object .git-blame-ignore-revs)
@@ -838,17 +838,17 @@ failing_git_path() {
 
 @test "ach: keeps the staged content of other files that also have unstaged changes" {
 	setup_git_repo
-	echo "notes" >notes.txt
-	echo "gone" >gone.txt
+	echo "notes" > notes.txt
+	echo "gone" > gone.txt
 	git add notes.txt gone.txt
 	git commit -m "Add files"
-	echo "staged-only-version" >notes.txt
+	echo "staged-only-version" > notes.txt
 	git add notes.txt
-	echo "working-version" >notes.txt
+	echo "working-version" > notes.txt
 	git rm --quiet gone.txt
 	# A staged new file that is no longer in the working tree cannot be
 	# staged again from the working tree.
-	echo "added" >added.txt
+	echo "added" > added.txt
 	git add added.txt
 	rm added.txt
 
@@ -869,9 +869,9 @@ failing_git_path() {
 
 @test "ach: keeps the staged content of other files when the commit fails" {
 	setup_git_repo
-	echo "staged-only-version" >notes.txt
+	echo "staged-only-version" > notes.txt
 	git add notes.txt
-	echo "working-version" >notes.txt
+	echo "working-version" > notes.txt
 
 	local notes_before status_before
 	notes_before=$(git rev-parse :notes.txt)
@@ -886,12 +886,12 @@ failing_git_path() {
 
 @test "ach: keeps the conflict of another file that is unmerged" {
 	setup_git_repo
-	echo "base" >conflict.txt
+	echo "base" > conflict.txt
 	git add conflict.txt
 	git commit -m "Add conflict file"
-	echo "stashed" >conflict.txt
+	echo "stashed" > conflict.txt
 	git stash push
-	echo "committed" >conflict.txt
+	echo "committed" > conflict.txt
 	git commit -am "Change conflict file"
 	run git stash pop
 	[ "$status" -ne 0 ]
@@ -909,8 +909,8 @@ failing_git_path() {
 
 @test "ach: restores the unstaged changes to FILE when a rename is staged" {
 	setup_git_repo
-	printf '%s\n' "# Blame ignore file" "" >.git-blame-ignore-revs
-	echo "old content" >old.txt
+	printf '%s\n' "# Blame ignore file" "" > .git-blame-ignore-revs
+	echo "old content" > old.txt
 	git add .git-blame-ignore-revs old.txt
 	git commit -m "Add blame file"
 	git config diff.renames true
@@ -918,7 +918,7 @@ failing_git_path() {
 	{
 		echo "# My uncommitted header"
 		cat .git-blame-ignore-revs
-	} >tmp && mv tmp .git-blame-ignore-revs
+	} > tmp && mv tmp .git-blame-ignore-revs
 	local target_hash
 	target_hash=$(git rev-parse HEAD)
 
@@ -935,12 +935,12 @@ failing_git_path() {
 
 @test "ach: rejects a FILE that git names another way" {
 	setup_git_repo
-	echo "# Blame ignore file" >.git-blame-ignore-revs
+	echo "# Blame ignore file" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
-	echo "staged-line" >>.git-blame-ignore-revs
+	echo "staged-line" >> .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
-	echo "unstaged-line" >>.git-blame-ignore-revs
+	echo "unstaged-line" >> .git-blame-ignore-revs
 
 	local status_before head_before file_arg
 	status_before=$(git status --porcelain)
@@ -960,7 +960,7 @@ failing_git_path() {
 @test "ach: treats a staged file whose name matches FILE as a pattern as another file" {
 	setup_git_repo
 	# As a regular expression, .git-blame-ignore-revs also matches this name.
-	echo "unrelated work" >xgit-blame-ignore-revs
+	echo "unrelated work" > xgit-blame-ignore-revs
 	git add xgit-blame-ignore-revs
 
 	run --separate-stderr "$SCRIPTS_DIR/ach"
@@ -971,11 +971,11 @@ failing_git_path() {
 
 @test "ach: names the conflict and how to finish when the unstaged changes to FILE conflict" {
 	setup_git_repo
-	echo "# Blame ignore file" >.git-blame-ignore-revs
+	echo "# Blame ignore file" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 	# A line at the end of FILE conflicts with the line that ach adds there.
-	echo "my manual line" >>.git-blame-ignore-revs
+	echo "my manual line" >> .git-blame-ignore-revs
 
 	run --separate-stderr "$SCRIPTS_DIR/ach"
 	[ "$status" -eq 0 ]
@@ -989,7 +989,7 @@ failing_git_path() {
 	local committed resolved
 	committed=$(git show HEAD:.git-blame-ignore-revs)
 	resolved=$(printf '%s\n' "$committed" "my manual line")
-	echo "$resolved" >.git-blame-ignore-revs
+	echo "$resolved" > .git-blame-ignore-revs
 	git restore --staged -- .git-blame-ignore-revs
 	git stash drop
 	[ "$(git status --porcelain)" = " M .git-blame-ignore-revs" ]
@@ -999,13 +999,13 @@ failing_git_path() {
 
 @test "ach: names the stash but no conflict when restoring the unstaged changes to FILE fails without one" {
 	setup_git_repo
-	printf '%s\n' "# Blame ignore file" "" >.git-blame-ignore-revs
+	printf '%s\n' "# Blame ignore file" "" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 	{
 		echo "# My uncommitted header"
 		cat .git-blame-ignore-revs
-	} >tmp && mv tmp .git-blame-ignore-revs
+	} > tmp && mv tmp .git-blame-ignore-revs
 	local target_hash
 	target_hash=$(git rev-parse HEAD)
 
@@ -1043,7 +1043,7 @@ failing_git_path() {
 
 @test "ach: fails with an error when FILE cannot be read" {
 	setup_git_repo
-	echo "# Blame ignore file" >.git-blame-ignore-revs
+	echo "# Blame ignore file" > .git-blame-ignore-revs
 	git add .git-blame-ignore-revs
 	git commit -m "Add blame file"
 	chmod 000 .git-blame-ignore-revs

@@ -18,7 +18,7 @@ setup() {
 # Teardown function - runs after each test
 teardown() {
 	# Clean up temporary directory
-	if [[ -n "$TEST_TEMP_DIR" && -d "$TEST_TEMP_DIR" ]]; then
+	if [[ -n $TEST_TEMP_DIR && -d $TEST_TEMP_DIR ]]; then
 		rm -rf "$TEST_TEMP_DIR"
 	fi
 }
@@ -28,7 +28,7 @@ setup_git_repo() {
 	git init --initial-branch=main
 	git config user.email "test@example.com"
 	git config user.name "Test User"
-	echo "initial" >README.md
+	echo "initial" > README.md
 	git add README.md
 	git commit -m "Initial commit"
 }
@@ -55,7 +55,7 @@ restricted_path() {
 assert_output_contains() {
 	local expected="$1"
 	# shellcheck disable=SC2154  # $output is set by BATS
-	if [[ "$output" != *"$expected"* ]]; then
+	if [[ $output != *"$expected"* ]]; then
 		echo "Expected output to contain: $expected"
 		echo "Actual output: $output"
 		return 1
@@ -69,7 +69,7 @@ assert_output_contains() {
 assert_output_not_contains() {
 	local unexpected="$1"
 	# shellcheck disable=SC2154  # $output is set by BATS
-	if [[ "$output" == *"$unexpected"* ]]; then
+	if [[ $output == *"$unexpected"* ]]; then
 		echo "Expected output NOT to contain: $unexpected"
 		echo "Actual output: $output"
 		return 1
@@ -83,7 +83,7 @@ assert_output_not_contains() {
 assert_stderr_contains() {
 	local expected="$1"
 	# shellcheck disable=SC2154  # $stderr is set by BATS
-	if [[ "$stderr" != *"$expected"* ]]; then
+	if [[ $stderr != *"$expected"* ]]; then
 		echo "Expected stderr to contain: $expected"
 		echo "Actual stderr: $stderr"
 		return 1
@@ -96,7 +96,7 @@ assert_stderr_contains() {
 # Note: $stderr is set by BATS 'run --separate-stderr'
 assert_stderr_not_contains() {
 	local unexpected="$1"
-	if [[ "$stderr" == *"$unexpected"* ]]; then
+	if [[ $stderr == *"$unexpected"* ]]; then
 		echo "Expected stderr NOT to contain: $unexpected"
 		echo "Actual stderr: $stderr"
 		return 1
@@ -106,7 +106,7 @@ assert_stderr_not_contains() {
 # Helper to assert file is executable
 assert_executable() {
 	local file="$1"
-	if [[ ! -x "$file" ]]; then
+	if [[ ! -x $file ]]; then
 		echo "Expected '$file' to be executable"
 		return 1
 	fi
@@ -115,7 +115,7 @@ assert_executable() {
 # Helper to assert file exists
 assert_file_exists() {
 	local file="$1"
-	if [[ ! -f "$file" ]]; then
+	if [[ ! -f $file ]]; then
 		echo "Expected file '$file' to exist"
 		return 1
 	fi
@@ -124,7 +124,7 @@ assert_file_exists() {
 # Helper to assert directory exists
 assert_dir_exists() {
 	local dir="$1"
-	if [[ ! -d "$dir" ]]; then
+	if [[ ! -d $dir ]]; then
 		echo "Expected directory '$dir' to exist"
 		return 1
 	fi

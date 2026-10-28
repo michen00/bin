@@ -50,7 +50,7 @@ is_exempted() {
   local script=$1
   local exempt
   for exempt in "${EXEMPTED_SCRIPTS[@]}"; do
-    if [[ "$script" == "$exempt" ]]; then
+    if [[ $script == "$exempt" ]]; then
       return 0
     fi
   done
@@ -65,11 +65,11 @@ discover_scripts() {
   local link
   while IFS= read -r -d '' link; do
     # Only process actual symlinks (find already filtered, but double-check for safety)
-    if [[ -L "$link" ]]; then
+    if [[ -L $link ]]; then
       local target
       target=$(readlink "$link" 2> /dev/null)
       # Normalize target path and add to associative array
-      if [[ -n "$target" ]]; then
+      if [[ -n $target ]]; then
         symlink_targets["${target#./}"]=1
       fi
     fi
@@ -80,7 +80,7 @@ discover_scripts() {
     script="${script#./}"
 
     # Skip if script itself is a symlink (should be ignored)
-    if [[ -L "$script" ]]; then
+    if [[ -L $script ]]; then
       continue
     fi
 
@@ -90,7 +90,7 @@ discover_scripts() {
     fi
 
     # Check if file has shebang (starts with #!) AND executable permissions
-    if [[ -x "$script" ]]; then
+    if [[ -x $script ]]; then
       local first_line=""
       IFS= read -r first_line < "$script" 2> /dev/null || continue
       case "$first_line" in
@@ -114,7 +114,7 @@ discover_tests() {
   local test_file
   while IFS= read -r -d '' test_file; do
     # Check if test file has shebang AND executable permissions
-    if [[ -x "$test_file" ]]; then
+    if [[ -x $test_file ]]; then
       local first_line=""
       IFS= read -r first_line < "$test_file" 2> /dev/null || continue
       case "$first_line" in
@@ -139,19 +139,19 @@ discover_valid_symlink_aliases() {
     local alias_name="${link#./}"
     local target
     target=$(readlink "$link" 2> /dev/null)
-    if [[ -z "$target" ]]; then
+    if [[ -z $target ]]; then
       continue
     fi
 
     local target_path
-    if [[ "$target" = /* ]]; then
+    if [[ $target == /* ]]; then
       target_path="$target"
     else
       target_path="$(dirname "$link")/$target"
     fi
 
     local target_name="${target_path#./}"
-    if [[ "$target_name" == */* ]]; then
+    if [[ $target_name == */* ]]; then
       continue
     fi
 
@@ -159,7 +159,7 @@ discover_valid_symlink_aliases() {
       continue
     fi
 
-    if [[ ! -f "$target_path" ]] || [[ ! -x "$target_path" ]]; then
+    if [[ ! -f $target_path ]] || [[ ! -x $target_path ]]; then
       continue
     fi
 
@@ -230,7 +230,7 @@ discover_readme_entries() {
   local regex_pattern='^-\ \[`([^`]+)`\]'
   local line
   while IFS= read -r line; do
-    if [[ "$line" =~ $regex_pattern ]]; then
+    if [[ $line =~ $regex_pattern ]]; then
       printf '%s\n' "${BASH_REMATCH[1]}"
     fi
   done <<< "$filtered"
@@ -330,7 +330,7 @@ validate_executable_permissions() {
     fi
 
     # Check if script exists
-    if [[ ! -f "$readme_script" ]]; then
+    if [[ ! -f $readme_script ]]; then
       continue # Already handled by validate_correspondence() orphaned README check
     fi
 
@@ -338,7 +338,7 @@ validate_executable_permissions() {
     local has_executable=0
 
     # Check shebang
-    if [[ ! -r "$readme_script" ]]; then
+    if [[ ! -r $readme_script ]]; then
       echo "Error: Validation failed" >&2
       echo "" >&2
       echo "Invalid Scripts:" >&2
@@ -355,7 +355,7 @@ validate_executable_permissions() {
     fi
 
     # Check executable permissions
-    if [[ -x "$readme_script" ]]; then
+    if [[ -x $readme_script ]]; then
       has_executable=1
     fi
 
@@ -381,7 +381,7 @@ validate_executable_permissions() {
       local has_executable=0
 
       # Check shebang
-      if [[ ! -r "$test_file" ]]; then
+      if [[ ! -r $test_file ]]; then
         echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Invalid Test Files:" >&2
@@ -398,7 +398,7 @@ validate_executable_permissions() {
       fi
 
       # Check executable permissions
-      if [[ -x "$test_file" ]]; then
+      if [[ -x $test_file ]]; then
         has_executable=1
       fi
 
@@ -439,14 +439,14 @@ validate_executable_permissions() {
 validate_formatting() {
   local filtered="$1"
 
-  if [[ -z "$filtered" ]]; then
+  if [[ -z $filtered ]]; then
     return 0
   fi
 
   # Get line numbers from original README for accurate reporting
   local scripts_section_start_line
   scripts_section_start_line=$(grep -n '^## Scripts$' README.md | head -n 1 | cut -d: -f1)
-  if ! [[ "$scripts_section_start_line" =~ ^[0-9]+$ ]]; then
+  if ! [[ $scripts_section_start_line =~ ^[0-9]+$ ]]; then
     echo "Error: README.md is missing the '## Scripts' section; add one that lists each script" >&2
     exit 1
   fi
@@ -479,10 +479,10 @@ validate_formatting() {
     esac
 
     # Skip empty lines
-    [[ -z "$line" ]] && continue
+    [[ -z $line ]] && continue
 
     # Check if this is a README entry line (starts with "-")
-    if [[ "$line" =~ ^-.* ]]; then
+    if [[ $line =~ ^-.* ]]; then
       local current_line=$current_line_number
 
       # Use Bash's built-in regex to parse the line efficiently and correctly
@@ -493,12 +493,13 @@ validate_formatting() {
       # Store regex pattern in variable to avoid backtick escaping issues
       # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
       local regex_pattern='^-\ \[`([^`]+)`\]\((.+)\):[[:space:]]*(.+)$'
-      if ! [[ "$line" =~ $regex_pattern ]]; then
+      if ! [[ $line =~ $regex_pattern ]]; then
         echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
         echo "  - README entry has invalid format (line $current_line): $line" >&2
-        echo "    Expected format: - [\`script-name\`](script-name): Description." >&2
+        # shellcheck disable=SC2016  # Single quotes intentional - the backticks are literal text
+        echo '    Expected format: - [`script-name`](script-name): Description.' >&2
         exit 1
       fi
 
@@ -507,7 +508,7 @@ validate_formatting() {
       local description="${BASH_REMATCH[3]}"
 
       # Check if link text matches URL
-      if [[ "$link_text" != "$link_url" ]]; then
+      if [[ $link_text != "$link_url" ]]; then
         echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
@@ -516,7 +517,7 @@ validate_formatting() {
       fi
 
       # Check if description starts with capital letter
-      if [[ ! "$description" =~ ^[A-Z] ]]; then
+      if [[ ! $description =~ ^[A-Z] ]]; then
         echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
@@ -525,7 +526,7 @@ validate_formatting() {
       fi
 
       # Check if description ends with period
-      if [[ ! "$description" =~ \.$ ]]; then
+      if [[ ! $description =~ \.$ ]]; then
         echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Formatting Errors:" >&2
@@ -543,7 +544,7 @@ validate_formatting() {
 validate_sorting() {
   local filtered="$1"
 
-  if [[ -z "$filtered" ]]; then
+  if [[ -z $filtered ]]; then
     return 0
   fi
 
@@ -555,7 +556,7 @@ validate_sorting() {
     # Pattern: - [`script-name`](...)
     # shellcheck disable=SC2016  # Single quotes intentional - backticks are literal regex chars, not command substitution
     local regex_pattern='^-\ \[`([^`]+)`\]'
-    if [[ "$line" =~ $regex_pattern ]]; then
+    if [[ $line =~ $regex_pattern ]]; then
       names_in_order+=("${BASH_REMATCH[1]}")
     fi
   done <<< "$filtered"
@@ -568,11 +569,11 @@ validate_sorting() {
   fi
 
   # Compare order (fail-fast: exit on first error)
-  if [[ "${names_in_order[*]}" != "${names_sorted[*]}" ]]; then
+  if [[ ${names_in_order[*]} != "${names_sorted[*]}" ]]; then
     # Find first out-of-order entry for better error message
     local i
     for ((i = 0; i < ${#names_in_order[@]}; i++)); do
-      if [[ "${names_in_order[$i]}" != "${names_sorted[$i]}" ]]; then
+      if [[ ${names_in_order[$i]} != "${names_sorted[$i]}" ]]; then
         echo "Error: Validation failed" >&2
         echo "" >&2
         echo "Sorting Errors:" >&2

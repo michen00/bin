@@ -87,7 +87,7 @@ main() {
     exit 1
   fi
 
-  if [[ "$PARALLEL" != "true" && "$PARALLEL" != "false" ]]; then
+  if [[ $PARALLEL != "true" && $PARALLEL != "false" ]]; then
     echo "${RED}Error: Invalid PARALLEL value '$PARALLEL'; use 'true' or 'false'.${ERR_RESET}" >&2
     exit 1
   fi
@@ -95,7 +95,7 @@ main() {
   # Discover test files based on SCRIPTS configuration
   local -a test_files=()
 
-  if [[ "$SCRIPTS" == "*" ]]; then
+  if [[ $SCRIPTS == "*" ]]; then
     # Find all .bats files in tests directory
     local test_file
     while IFS= read -r -d '' test_file; do
@@ -120,7 +120,7 @@ main() {
       script=$(printf '%s\n' "$script" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
       # Validate script exists in project root
-      if [[ ! -f "$script" ]]; then
+      if [[ ! -f $script ]]; then
         invalid_scripts="${invalid_scripts}${script} (script not found)\n"
       # Validate test file exists
       elif [[ ! -f "tests/$script.bats" ]]; then
@@ -131,7 +131,7 @@ main() {
     done
 
     # Report errors if any invalid scripts found
-    if [[ -n "$invalid_scripts" ]]; then
+    if [[ -n $invalid_scripts ]]; then
       echo "${RED}Error: The following scripts are invalid:${ERR_RESET}" >&2
       printf '%b' "$invalid_scripts" | sed 's/^/  - /' >&2
       echo "${YELLOW}Available scripts with tests:${ERR_RESET}" >&2
@@ -141,7 +141,7 @@ main() {
       local script_name
       while IFS= read -r -d '' f; do
         script_name=$(basename "$f" .bats)
-        if [[ -f "$script_name" ]]; then
+        if [[ -f $script_name ]]; then
           echo "  - $script_name" >&2
         fi
       done < <(find tests -maxdepth 1 -name '*.bats' -type f -print0 2> /dev/null)
@@ -166,7 +166,7 @@ main() {
     # Single test: always run sequentially
     echo "${CYAN}Running test sequentially (1 script)...${OUT_RESET}"
     env -i HOME="${HOME:-}" PATH="$PATH" TERM="${TERM:-}" bats "${test_files[0]}"
-  elif [[ "$PARALLEL" == "true" ]]; then
+  elif [[ $PARALLEL == "true" ]]; then
     # Multiple tests with parallel mode enabled
     local jobs
     if [[ $script_count -lt 4 ]]; then

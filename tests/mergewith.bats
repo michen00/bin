@@ -134,7 +134,7 @@ setup_repo_with_origin() {
 	setup_repo_with_origin
 	git checkout -b feature
 	git checkout main
-	echo "update" >update.txt
+	echo "update" > update.txt
 	git add update.txt
 	git commit -m "Add update.txt on main"
 	git push origin main
@@ -171,10 +171,10 @@ setup_repo_with_origin() {
 @test "mergewith: fails when the merge has conflicts" {
 	setup_repo_with_origin
 	git checkout -b conflicting
-	echo "conflicting" >README.md
+	echo "conflicting" > README.md
 	git commit -am "Change README.md on conflicting"
 	git checkout main
-	echo "main" >README.md
+	echo "main" > README.md
 	git commit -am "Change README.md on main"
 	git push origin main
 	git checkout conflicting

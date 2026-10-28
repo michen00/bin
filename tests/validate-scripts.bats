@@ -28,7 +28,7 @@ setup() {
 	chmod +x .github/scripts/validate-scripts.sh
 
 	# Create a basic README.md with Scripts section
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -41,7 +41,7 @@ EOF
 # Teardown function - runs after each test
 teardown() {
 	# Clean up temporary directory
-	if [[ -n "$TEST_TEMP_DIR" && -d "$TEST_TEMP_DIR" ]]; then
+	if [[ -n $TEST_TEMP_DIR && -d $TEST_TEMP_DIR ]]; then
 		rm -rf "$TEST_TEMP_DIR"
 	fi
 }
@@ -94,12 +94,12 @@ teardown() {
 }
 
 @test "validate-scripts: -- allows exempting a script whose name begins with a dash" {
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
-	echo '#!/usr/bin/env bash' >-dash-script # No test file or README entry
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
+	echo '#!/usr/bin/env bash' > -dash-script # No test file or README entry
 	chmod +x script1 script2 ./-dash-script
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
 	chmod +x tests/script1.bats tests/script2.bats
 
 	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh -- -dash-script
@@ -108,11 +108,11 @@ teardown() {
 }
 
 @test "validate-scripts: arguments after -- are not parsed as options" {
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
 	chmod +x script1 script2
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
 	chmod +x tests/script1.bats tests/script2.bats
 
 	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh -- --help
@@ -124,13 +124,13 @@ teardown() {
 
 @test "validate-scripts: validation passes when all scripts have README entries and test files" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
 	chmod +x script1 script2
 
 	# Create test files
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
 	chmod +x tests/script1.bats tests/script2.bats
 
 	run /usr/bin/env bash ./.github/scripts/validate-scripts.sh
@@ -139,15 +139,15 @@ teardown() {
 
 @test "validate-scripts: validation fails when script missing README entry" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
-	echo '#!/usr/bin/env bash' >script3 # Missing from README
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
+	echo '#!/usr/bin/env bash' > script3 # Missing from README
 	chmod +x script1 script2 script3
 
 	# Create test files
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
-	echo '#!/usr/bin/env bats' >tests/script3.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script3.bats
 	chmod +x tests/script1.bats tests/script2.bats tests/script3.bats
 
 	run --separate-stderr /usr/bin/env bash ./.github/scripts/validate-scripts.sh
@@ -160,15 +160,15 @@ teardown() {
 
 @test "validate-scripts: validation fails when README entry references non-existent script" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
 
 	# Create test files
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create README with entry for non-existent script
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -187,12 +187,12 @@ EOF
 
 @test "validate-scripts: validation fails when script missing test file" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
 	chmod +x script1 script2
 
 	# Create only one test file
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 	# script2.bats is missing
 
@@ -204,18 +204,18 @@ EOF
 
 @test "validate-scripts: exempted scripts are excluded from validation" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
-	echo '#!/usr/bin/env bash' >exempted-script # Will be exempted
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
+	echo '#!/usr/bin/env bash' > exempted-script # Will be exempted
 	chmod +x script1 script2 exempted-script
 
 	# Create test files (exempted-script has no test)
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
 	chmod +x tests/script1.bats tests/script2.bats
 
 	# Update README (exempted-script not in README)
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -230,16 +230,16 @@ EOF
 
 @test "validate-scripts: orphaned test files are allowed" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
 
 	# Create test files (including orphaned one)
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/orphaned-test.bats # No corresponding script
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/orphaned-test.bats # No corresponding script
 	chmod +x tests/script1.bats tests/orphaned-test.bats
 
 	# Ensure README has entry for script1
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -253,13 +253,13 @@ EOF
 
 @test "validate-scripts: validation fails when README entry missing backticks" {
 	# Create script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create README with entry missing backticks
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -275,13 +275,13 @@ EOF
 
 @test "validate-scripts: validation fails when description doesn't start with capital letter" {
 	# Create script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create README with lowercase description
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -297,13 +297,13 @@ EOF
 
 @test "validate-scripts: validation fails when description doesn't end with period" {
 	# Create script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create README with description missing period
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -319,13 +319,13 @@ EOF
 
 @test "validate-scripts: validation fails when link text doesn't match link URL" {
 	# Create script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create README with mismatched link
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -341,15 +341,15 @@ EOF
 
 @test "validate-scripts: validation passes when all entries properly formatted" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
 	chmod +x script1 script2
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
 	chmod +x tests/script1.bats tests/script2.bats
 
 	# Create properly formatted README
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -364,15 +364,15 @@ EOF
 
 @test "validate-scripts: validation passes when description contains parentheses with backticks" {
 	# Create script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create README with description containing parentheses and backticks
 	# This tests that the link URL regex correctly extracts (script1) and not
 	# the parentheses from the description
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -386,13 +386,13 @@ EOF
 
 @test "validate-scripts: validation passes when script name contains parentheses" {
 	# Create script with parentheses in name
-	echo '#!/usr/bin/env bash' >'script(name)'
+	echo '#!/usr/bin/env bash' > 'script(name)'
 	chmod +x 'script(name)'
-	echo '#!/usr/bin/env bats' >'tests/script(name).bats'
+	echo '#!/usr/bin/env bats' > 'tests/script(name).bats'
 	chmod +x 'tests/script(name).bats'
 
 	# Create README with script name containing parentheses
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -406,15 +406,15 @@ EOF
 
 @test "validate-scripts: validation fails when README entries not sorted alphabetically" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
 	chmod +x script1 script2
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
 	chmod +x tests/script1.bats tests/script2.bats
 
 	# Create README with entries out of order
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -430,15 +430,15 @@ EOF
 
 @test "validate-scripts: validation passes when entries are alphabetically sorted" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
 	chmod +x script1 script2
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
 	chmod +x tests/script1.bats tests/script2.bats
 
 	# Create README with entries in alphabetical order
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -453,17 +453,17 @@ EOF
 
 @test "validate-scripts: validation fails when script count doesn't match README entry count" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
-	echo '#!/usr/bin/env bash' >script3
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
+	echo '#!/usr/bin/env bash' > script3
 	chmod +x script1 script2 script3
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
-	echo '#!/usr/bin/env bats' >tests/script3.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script3.bats
 	chmod +x tests/script1.bats tests/script2.bats tests/script3.bats
 
 	# Create README with only 2 entries (but 3 scripts)
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -483,14 +483,14 @@ EOF
 }
 
 @test "validate-scripts: validation fails with a count mismatch when a README entry is duplicated" {
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Each entry is well formed and names an existing script, so only the
 	# count check detects the duplicate
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -506,16 +506,16 @@ EOF
 
 @test "validate-scripts: validation passes when counts match (allows extra test files)" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
 	chmod +x script1 script2
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
-	echo '#!/usr/bin/env bats' >tests/orphaned-test.bats # Extra test file
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/orphaned-test.bats # Extra test file
 	chmod +x tests/script1.bats tests/script2.bats tests/orphaned-test.bats
 
 	# Create README with 2 entries (matching 2 scripts)
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -530,17 +530,17 @@ EOF
 
 @test "validate-scripts: success message shows counts when validation passes" {
 	# Create scripts
-	echo '#!/usr/bin/env bash' >script1
-	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' > script1
+	echo '#!/usr/bin/env bash' > script2
 	chmod +x script1 script2
 
 	# Create test files
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '#!/usr/bin/env bats' >tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
 	chmod +x tests/script1.bats tests/script2.bats
 
 	# Create README with 2 entries
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -560,11 +560,11 @@ EOF
 
 @test "validate-scripts: validation fails when script lacks shebang" {
 	# Create script without shebang
-	echo 'echo "test"' >script1
+	echo 'echo "test"' > script1
 	chmod +x script1
 
 	# Create README entry
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -579,11 +579,11 @@ EOF
 
 @test "validate-scripts: validation fails when script lacks executable permissions" {
 	# Create script with shebang but no executable permissions
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod -x script1
 
 	# Create README entry
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -598,15 +598,15 @@ EOF
 
 @test "validate-scripts: validation fails when test file lacks shebang" {
 	# Create valid script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
 
 	# Create test file without shebang
-	echo '@test "test" { true; }' >tests/script1.bats
+	echo '@test "test" { true; }' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create README entry
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -621,16 +621,16 @@ EOF
 
 @test "validate-scripts: validation fails when test file lacks executable permissions" {
 	# Create valid script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
 
 	# Create test file with shebang but no executable permissions
-	echo '#!/usr/bin/env bats' >tests/script1.bats
-	echo '@test "test" { true; }' >>tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
+	echo '@test "test" { true; }' >> tests/script1.bats
 	chmod -x tests/script1.bats
 
 	# Create README entry
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -645,11 +645,11 @@ EOF
 
 @test "validate-scripts: validation fails when README-referenced script lacks shebang or executable permissions" {
 	# Create script with shebang but no executable permissions
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod -x script1
 
 	# Create README entry
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -664,19 +664,19 @@ EOF
 
 @test "validate-scripts: validation stops immediately on first error (fail-fast behavior)" {
 	# Create script without README entry (first error)
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create another script with formatting error (second error - should not be reported)
-	echo '#!/usr/bin/env bash' >script2
+	echo '#!/usr/bin/env bash' > script2
 	chmod +x script2
-	echo '#!/usr/bin/env bats' >tests/script2.bats
+	echo '#!/usr/bin/env bats' > tests/script2.bats
 	chmod +x tests/script2.bats
 
 	# Create README with only script2 entry (missing script1, malformed script2 entry)
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -698,13 +698,13 @@ EOF
 
 @test "validate-scripts: HTML comments in README Scripts section are ignored" {
 	# Create script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create README with HTML comments
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -720,19 +720,19 @@ EOF
 
 @test "validate-scripts: files with extensions in project root are ignored" {
 	# Create script without extension (should be validated)
-	echo '#!/usr/bin/env bash' >validscript
+	echo '#!/usr/bin/env bash' > validscript
 	chmod +x validscript
-	echo '#!/usr/bin/env bats' >tests/validscript.bats
+	echo '#!/usr/bin/env bats' > tests/validscript.bats
 	chmod +x tests/validscript.bats
 
 	# Create files with extensions (should be ignored)
-	echo '#!/usr/bin/env bash' >ignored.sh
+	echo '#!/usr/bin/env bash' > ignored.sh
 	chmod +x ignored.sh
-	echo '#!/usr/bin/env python' >ignored.py
+	echo '#!/usr/bin/env python' > ignored.py
 	chmod +x ignored.py
 
 	# Create README with only valid script
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -749,17 +749,17 @@ EOF
 
 @test "validate-scripts: hidden files in project root are ignored" {
 	# Create script (should be validated)
-	echo '#!/usr/bin/env bash' >validscript
+	echo '#!/usr/bin/env bash' > validscript
 	chmod +x validscript
-	echo '#!/usr/bin/env bats' >tests/validscript.bats
+	echo '#!/usr/bin/env bats' > tests/validscript.bats
 	chmod +x tests/validscript.bats
 
 	# Create hidden file (should be ignored)
-	echo '#!/usr/bin/env bash' >.hidden-script
+	echo '#!/usr/bin/env bash' > .hidden-script
 	chmod +x .hidden-script
 
 	# Create README with only valid script
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -775,18 +775,18 @@ EOF
 
 @test "validate-scripts: symbolic links in project root are ignored" {
 	# Create script (should be validated)
-	echo '#!/usr/bin/env bash' >validscript
+	echo '#!/usr/bin/env bash' > validscript
 	chmod +x validscript
-	echo '#!/usr/bin/env bats' >tests/validscript.bats
+	echo '#!/usr/bin/env bats' > tests/validscript.bats
 	chmod +x tests/validscript.bats
 
 	# Create symbolic link (should be ignored)
-	echo '#!/usr/bin/env bash' >target-script
+	echo '#!/usr/bin/env bash' > target-script
 	chmod +x target-script
 	ln -s target-script symlink-script
 
 	# Create README with only valid script
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -802,9 +802,9 @@ EOF
 
 @test "validate-scripts: README entries for symlink aliases are allowed" {
 	# Create symlink target script
-	echo '#!/usr/bin/env bash' >core-script
+	echo '#!/usr/bin/env bash' > core-script
 	chmod +x core-script
-	echo '#!/usr/bin/env bats' >tests/core-script.bats
+	echo '#!/usr/bin/env bats' > tests/core-script.bats
 	chmod +x tests/core-script.bats
 
 	# Create symlink aliases (like em_/en_ -> _mnn in real repo)
@@ -812,7 +812,7 @@ EOF
 	ln -s core-script alias-b
 
 	# README documents symlink aliases only
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -827,19 +827,19 @@ EOF
 
 @test "validate-scripts: script entries and symlink alias entries can coexist" {
 	# Create normal script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create symlink target and alias
-	echo '#!/usr/bin/env bash' >core-script
+	echo '#!/usr/bin/env bash' > core-script
 	chmod +x core-script
-	echo '#!/usr/bin/env bats' >tests/core-script.bats
+	echo '#!/usr/bin/env bats' > tests/core-script.bats
 	chmod +x tests/core-script.bats
 	ln -s core-script alias-a
 
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -854,15 +854,15 @@ EOF
 
 @test "validate-scripts: combined README entry for two symlink aliases is rejected" {
 	# Create symlink target script
-	echo '#!/usr/bin/env bash' >core-script
+	echo '#!/usr/bin/env bash' > core-script
 	chmod +x core-script
-	echo '#!/usr/bin/env bats' >tests/core-script.bats
+	echo '#!/usr/bin/env bats' > tests/core-script.bats
 	chmod +x tests/core-script.bats
 	ln -s core-script alias-a
 	ln -s core-script alias-b
 
 	# A README entry documents exactly one script or alias
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -879,15 +879,15 @@ EOF
 
 @test "validate-scripts: README entry for dangling symlink alias is rejected" {
 	# Create script to satisfy script/test coverage
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create dangling alias in root
 	ln -s missing-target alias-a
 
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -904,13 +904,13 @@ EOF
 
 @test "validate-scripts: validation fails when README is malformed (missing Scripts section)" {
 	# Create script
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 
 	# Create README without Scripts section
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Other Section
@@ -925,9 +925,9 @@ EOF
 }
 
 @test "validate-scripts: validation fails when README.md does not exist" {
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod +x tests/script1.bats
 	rm README.md
 
@@ -941,10 +941,10 @@ EOF
 	if [[ $EUID -eq 0 ]]; then
 		skip "root can read a file whatever its permissions"
 	fi
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod 000 script1
 
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -961,12 +961,12 @@ EOF
 	if [[ $EUID -eq 0 ]]; then
 		skip "root can read a file whatever its permissions"
 	fi
-	echo '#!/usr/bin/env bash' >script1
+	echo '#!/usr/bin/env bash' > script1
 	chmod +x script1
-	echo '#!/usr/bin/env bats' >tests/script1.bats
+	echo '#!/usr/bin/env bats' > tests/script1.bats
 	chmod 000 tests/script1.bats
 
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts
@@ -982,7 +982,7 @@ EOF
 @test "validate-scripts: validation handles empty repository gracefully" {
 	# Create empty repository (no scripts, no tests)
 	# README with empty Scripts section
-	cat >README.md <<'EOF'
+	cat > README.md << 'EOF'
 # Test Repository
 
 ## Scripts

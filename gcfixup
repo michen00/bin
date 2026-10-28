@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 
 usage() {
-	cat <<EOF
+	cat << EOF
 Usage: $SCRIPT_NAME [OPTIONS] <commit> [<git-commit-option>...]
 
 Creates a fixup commit for <commit>, then runs an interactive rebase with
@@ -33,24 +33,24 @@ EOF
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-	-h | --help)
-		usage
-		exit 0
-		;;
-	--)
-		shift
-		break
-		;;
-	-*)
-		echo "Error: Unknown option '$1'" >&2
-		usage >&2
-		exit 2
-		;;
-	*)
-		# Stop at the commit so that options meant for 'git commit', such as
-		# -a, are not rejected as unknown options.
-		break
-		;;
+		-h | --help)
+			usage
+			exit 0
+			;;
+		--)
+			shift
+			break
+			;;
+		-*)
+			echo "Error: Unknown option '$1'" >&2
+			usage >&2
+			exit 2
+			;;
+		*)
+			# Stop at the commit so that options meant for 'git commit', such as
+			# -a, are not rejected as unknown options.
+			break
+			;;
 	esac
 done
 
@@ -63,7 +63,7 @@ fi
 COMMIT="$1"
 shift
 
-if ! command -v git >/dev/null 2>&1; then
+if ! command -v git > /dev/null 2>&1; then
 	echo "Error: 'git' is required but not installed." >&2
 	echo "Install it from: https://git-scm.com/downloads" >&2
 	exit 1
@@ -72,11 +72,11 @@ fi
 # Validate the commit and resolve it to a hash. The fixup commit moves HEAD, so
 # a name relative to HEAD, such as HEAD~1, would name a different commit by the
 # time of the rebase, and the fixup commit would not be squashed.
-if ! COMMIT_HASH=$(git rev-parse --verify "${COMMIT}^{commit}" 2>/dev/null); then
+if ! COMMIT_HASH=$(git rev-parse --verify "${COMMIT}^{commit}" 2> /dev/null); then
 	# git exits 128 both outside a repository and for an unknown commit, so a
 	# second call distinguishes the two. It runs only on this failure path, so
 	# that a successful run does not start a second git process.
-	if ! git rev-parse --git-dir >/dev/null 2>&1; then
+	if ! git rev-parse --git-dir > /dev/null 2>&1; then
 		echo "Error: Not inside a git repository." >&2
 		exit 1
 	fi
@@ -85,7 +85,7 @@ if ! COMMIT_HASH=$(git rev-parse --verify "${COMMIT}^{commit}" 2>/dev/null); the
 fi
 
 # Check if this is the root commit (has no parent)
-if ! git rev-parse --verify "$COMMIT_HASH"~1 &>/dev/null; then
+if ! git rev-parse --verify "$COMMIT_HASH"~1 &> /dev/null; then
 	echo "Error: Cannot fix up the root commit (it has no parent to rebase onto)." >&2
 	echo "Workaround: git commit --fixup=$COMMIT && git rebase -i --autosquash --root" >&2
 	exit 1
