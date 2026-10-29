@@ -79,19 +79,7 @@ repos:
     rev: v1.9.6
     hooks:
       - id: tombi-format
-  # One paragraph is one line, so a diff to a paragraph is one line. Ordered before
-  # markdownlint below, so that what markdownlint --fix sees is the final text rather
-  # than a shape about to change under it.
-  #
-  # The two do not compete, and the reason is worth stating because the hook's own
-  # readme warns about exactly this: a rule that wraps prose and a hook that unwraps
-  # it undo each other forever. The wrapping rules are markdownlint's line-length and
-  # Prettier's proseWrap. Here line-length is false in .markdownlint.yml, and Prettier
-  # does see Markdown (it's in types_or above) but its proseWrap default is preserve,
-  # so it never rewraps prose either -- nothing here is pulling the other way.
-  #
-  # The writing id rather than the -check one: nothing else in this tree reflows
-  # prose, so the hook can hold the convention instead of only reporting on it.
+  # Before markdownlint, so its --fix sees the final text; nothing here rewraps prose.
   - repo: https://github.com/michen00/markdown-prose-hooks-py
     rev: v0.5.2
     hooks:
