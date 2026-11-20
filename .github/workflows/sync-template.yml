@@ -38,6 +38,7 @@ jobs:
                 - .github/release.yml
                 - .markdownlint.yml
                 - .prettierrc
+                - .yamllint
                 - tombi.toml
           github-token: ${{ github.token }}
           fail-on-error: 'true'
